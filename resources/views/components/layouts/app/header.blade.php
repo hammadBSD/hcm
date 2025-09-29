@@ -22,13 +22,13 @@
                     <flux:navbar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
                         {{ __('Employees') }}
                     </flux:navbar.item>
-                    <flux:navbar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
+                    <flux:navbar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                         {{ __('Attendance') }}
                     </flux:navbar.item>
                     <flux:navbar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
                         {{ __('Payroll') }}
                     </flux:navbar.item>
-                    <flux:navbar.item icon="calendar" href="#" :current="request()->routeIs('leave.*')">
+                    <flux:navbar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
                         {{ __('Leaves') }}
                     </flux:navbar.item>
                     <flux:separator vertical variant="subtle" class="my-2"/>
@@ -97,14 +97,14 @@
                 <flux:sidebar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
                     {{ __('Employees') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
+                <flux:sidebar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                     {{ __('Attendance') }}
                 </flux:sidebar.item>
                 <flux:sidebar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
                     {{ __('Payroll') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="calendar" href="#" :current="request()->routeIs('leave.*')">
-                    {{ __('Leave Management') }}
+                <flux:sidebar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
+                    {{ __('Leaves') }}
                 </flux:sidebar.item>
                 <flux:sidebar.item icon="chart-bar" href="#" :current="request()->routeIs('performance.*')">
                     {{ __('Performance') }}

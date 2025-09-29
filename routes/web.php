@@ -49,6 +49,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('employees/create', \App\Livewire\Employees\Create::class)->name('employees.create');
     Route::get('employees/{id}', \App\Livewire\Employees\Show::class)->name('employees.show');
     Route::get('employees/{id}/edit', \App\Livewire\Employees\Edit::class)->name('employees.edit');
+
+    // Attendance Routes
+    Route::redirect('attendance', 'attendance/index');
+    
+    // Attendance Module Routes
+    Route::get('attendance/index', \App\Livewire\Attendance\Index::class)->name('attendance.index');
+    Route::get('attendance/request', \App\Livewire\Attendance\Request::class)->name('attendance.request');
+    Route::get('attendance/exemption-request', \App\Livewire\Attendance\ExemptionRequest::class)->name('attendance.exemption-request');
+    Route::get('attendance/attendance-approval', \App\Livewire\Attendance\AttendanceApproval::class)->name('attendance.attendance-approval');
+    Route::get('attendance/schedule', \App\Livewire\Attendance\Schedule::class)->name('attendance.schedule');
+
+    // Leaves Routes
+    Route::redirect('leaves', 'leaves/index');
+    
+    // Leaves Module Routes
+    Route::get('leaves/index', \App\Livewire\Leaves\Index::class)->name('leaves.index');
+    Route::get('leaves/leave-approvals', \App\Livewire\Leaves\LeaveApprovals::class)->name('leaves.leave-approvals');
 });
 
 require __DIR__.'/auth.php';
