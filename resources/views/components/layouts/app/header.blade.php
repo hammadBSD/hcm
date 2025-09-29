@@ -11,40 +11,45 @@
                 <x-app-logo />
             </a>
             
-            <flux:brand href="{{ route('dashboard') }}" name="HCM System" class="max-lg:hidden dark:hidden" wire:navigate />
-            <flux:brand href="{{ route('dashboard') }}" name="HCM System" class="max-lg:hidden! hidden dark:flex" wire:navigate />
+            <!-- <flux:brand href="{{ route('dashboard') }}" class="max-lg:hidden dark:hidden" wire:navigate /> -->
+            <!-- <flux:brand href="{{ route('dashboard') }}" class="max-lg:hidden! hidden dark:flex" wire:navigate /> -->
             
-            <flux:navbar class="-mb-px max-lg:hidden">
-                <flux:navbar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Dashboard') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
-                    {{ __('Employees') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
-                    {{ __('Attendance') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
-                    {{ __('Payroll') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="calendar" href="#" :current="request()->routeIs('leave.*')">
-                    {{ __('Leave Management') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="chart-bar" href="#" :current="request()->routeIs('performance.*')">
-                    {{ __('Performance') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="document-text" href="#" :current="request()->routeIs('reports.*')">
-                    {{ __('Reports') }}
-                </flux:navbar.item>
-                <flux:separator vertical variant="subtle" class="my-2"/>
-                <flux:dropdown class="max-lg:hidden">
-                    <flux:navbar.item icon:trailing="chevron-down">Management</flux:navbar.item>
-                    <flux:navmenu>
-                        <flux:navmenu.item href="#">Departments</flux:navmenu.item>
-                        <flux:navmenu.item href="#">Positions</flux:navmenu.item>
-                        <flux:navmenu.item href="#">Benefits</flux:navmenu.item>
-                    </flux:navmenu>
-                </flux:dropdown>
+            <flux:navbar class="-mb-px max-lg:hidden overflow-x-auto">
+                <div class="flex items-center space-x-1 min-w-0">
+                    <flux:navbar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                        {{ __('Dashboard') }}
+                    </flux:navbar.item>
+                    <flux:navbar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
+                        {{ __('Employees') }}
+                    </flux:navbar.item>
+                    <flux:navbar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
+                        {{ __('Attendance') }}
+                    </flux:navbar.item>
+                    <flux:navbar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
+                        {{ __('Payroll') }}
+                    </flux:navbar.item>
+                    <flux:navbar.item icon="calendar" href="#" :current="request()->routeIs('leave.*')">
+                        {{ __('Leaves') }}
+                    </flux:navbar.item>
+                    <flux:separator vertical variant="subtle" class="my-2"/>
+                    <flux:dropdown>
+                        <flux:navbar.item icon:trailing="chevron-down">{{ __('More') }}</flux:navbar.item>
+                        <flux:navmenu>
+                            <flux:navmenu.item href="#" :current="request()->routeIs('performance.*')">
+                                <flux:icon name="chart-bar" class="w-4 h-4" />
+                                {{ __('Performance') }}
+                            </flux:navmenu.item>
+                            <flux:navmenu.item href="#" :current="request()->routeIs('reports.*')">
+                                <flux:icon name="document-text" class="w-4 h-4" />
+                                {{ __('Reports') }}
+                            </flux:navmenu.item>
+                            <flux:navmenu.separator />
+                            <flux:navmenu.item href="#">Departments</flux:navmenu.item>
+                            <flux:navmenu.item href="#">Positions</flux:navmenu.item>
+                            <flux:navmenu.item href="#">Benefits</flux:navmenu.item>
+                        </flux:navmenu>
+                    </flux:dropdown>
+                </div>
             </flux:navbar>
             
             <flux:spacer />
@@ -78,18 +83,18 @@
         <!-- Mobile Menu -->
         <flux:sidebar sticky collapsible="mobile" class="lg:hidden bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-700">
             <flux:sidebar.header>
-                <flux:sidebar.brand
+                <!-- <flux:sidebar.brand
                     href="{{ route('dashboard') }}"
                     name="HCM System"
                     wire:navigate
-                />
+                /> -->
                 <flux:sidebar.collapse class="in-data-flux-sidebar-on-desktop:not-in-data-flux-sidebar-collapsed-desktop:-mr-2" />
             </flux:sidebar.header>
             <flux:sidebar.nav>
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
+                <flux:sidebar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
                     {{ __('Employees') }}
                 </flux:sidebar.item>
                 <flux:sidebar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
