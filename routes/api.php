@@ -33,6 +33,9 @@ Route::prefix('zkteco')->group(function () {
     // Sync employee records from ZKTeco system
     Route::post('/sync-employees', [ZKTecoSyncController::class, 'syncEmployees']);
     
+    // Sync monthly attendance records from ZKTeco system
+    Route::post('/sync-monthly-attendance', [ZKTecoSyncController::class, 'syncMonthlyAttendance']);
+    
     // Get sync status
     Route::get('/sync-status', [ZKTecoSyncController::class, 'getSyncStatus']);
 });

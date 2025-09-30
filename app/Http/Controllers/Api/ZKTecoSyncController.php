@@ -196,6 +196,100 @@ class ZKTecoSyncController extends Controller
     }
 
     /**
+     * Sync monthly attendance data from ZKTeco project
+     */
+    public function syncMonthlyAttendance(Request $request): JsonResponse
+    {
+        try {
+            // Validate the request
+            $validator = Validator::make($request->all(), [
+                'monthly_attendance_records' => 'required|array',
+                'monthly_attendance_records.*.punch_code' => 'required|string',
+                'monthly_attendance_records.*.device_ip' => 'required|string',
+                'monthly_attendance_records.*.device_type' => 'required|string|in:IN,OUT',
+                'monthly_attendance_records.*.punch_time' => 'required|date',
+                'monthly_attendance_records.*.punch_type' => 'nullable|string',
+                'monthly_attendance_records.*.verify_mode' => 'nullable|integer',
+                'monthly_attendance_records.*.is_processed' => 'boolean',
+                'sync_timestamp' => 'required|date',
+                'source' => 'required|string',
+                'month' => 'nullable|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 400);
+            }
+
+            $monthlyRecords = $request->input('monthly_attendance_records');
+            $syncTimestamp = $request->input('sync_timestamp');
+            $source = $request->input('source');
+            $month = $request->input('month');
+            
+            $savedCount = 0;
+            $duplicateCount = 0;
+            $errorCount = 0;
+
+            Log::info("ZKTeco Sync: Received " . count($monthlyRecords) . " monthly attendance records from {$source} for month: {$month}");
+
+            foreach ($monthlyRecords as $record) {
+                try {
+                    // Check for duplicates
+                    $exists = DeviceAttendance::where('punch_code', $record['punch_code'])
+                        ->where('device_ip', $record['device_ip'])
+                        ->where('punch_time', $record['punch_time'])
+                        ->exists();
+
+                    if (!$exists) {
+                        DeviceAttendance::create([
+                            'punch_code' => $record['punch_code'],
+                            'device_ip' => $record['device_ip'],
+                            'device_type' => $record['device_type'],
+                            'punch_time' => Carbon::parse($record['punch_time']),
+                            'punch_type' => $record['punch_type'] ?? null,
+                            'verify_mode' => $record['verify_mode'] ?? null,
+                            'is_processed' => $record['is_processed'] ?? false,
+                            'status' => 'On Time', // Default status for monthly attendance
+                            'sync_timestamp' => Carbon::parse($syncTimestamp),
+                        ]);
+                        $savedCount++;
+                    } else {
+                        $duplicateCount++;
+                    }
+                } catch (\Exception $e) {
+                    Log::error("ZKTeco Sync: Error saving monthly attendance record: " . $e->getMessage());
+                    $errorCount++;
+                }
+            }
+
+            Log::info("ZKTeco Sync: Saved {$savedCount} monthly records, {$duplicateCount} duplicates, {$errorCount} errors for month: {$month}");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Monthly attendance data synced successfully',
+                'data' => [
+                    'saved_records' => $savedCount,
+                    'duplicates_skipped' => $duplicateCount,
+                    'errors' => $errorCount,
+                    'total_received' => count($monthlyRecords),
+                    'month' => $month
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("ZKTeco Sync: Fatal error in monthly attendance sync: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Internal server error',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get sync status
      */
     public function getSyncStatus(): JsonResponse

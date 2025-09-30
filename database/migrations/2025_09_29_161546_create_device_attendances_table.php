@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('punch_code');
             $table->string('device_ip');
             $table->enum('device_type', ['IN', 'OUT']);
-            $table->dateTime('punch_time');
+            $table->dateTime('punch_time')->unique();
             $table->enum('punch_type', ['check_in', 'check_out', 'break_out', 'break_in'])->nullable();
             $table->enum('status', ['On Time', 'Late', 'Absent'])->nullable();
             $table->integer('verify_mode')->nullable();
