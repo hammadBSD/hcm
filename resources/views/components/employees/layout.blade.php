@@ -3,6 +3,7 @@
         <flux:navlist>
             <flux:navlist.item :href="route('employees.list')" wire:navigate>{{ __('Employees') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.register')" wire:navigate>{{ __('Create Employee') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('employees.import')" wire:navigate>{{ __('Import Employees') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.role')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.transfer')" wire:navigate>{{ __('Transfer') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.delegation-request')" wire:navigate>{{ __('Delegation Requests') }}</flux:navlist.item>

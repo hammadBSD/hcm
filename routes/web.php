@@ -41,6 +41,7 @@ Route::middleware(['auth'])->group(function () {
     // Employee Module Routes
     Route::get('employees/register', \App\Livewire\Employees\Register::class)->name('employees.register');
     Route::get('employees/list', \App\Livewire\Employees\EmployeeList::class)->name('employees.list');
+    Route::get('employees/import', \App\Livewire\Employees\Import::class)->name('employees.import');
     Route::get('employees/role', \App\Livewire\Employees\Role::class)->name('employees.role');
     Route::get('employees/transfer', \App\Livewire\Employees\Transfer::class)->name('employees.transfer');
     Route::get('employees/delegation-request', \App\Livewire\Employees\DelegationRequest::class)->name('employees.delegation-request');

@@ -130,8 +130,8 @@ class EmployeeList extends Component
 
     public function import()
     {
-        // Import functionality
-        $this->dispatch('import-employees');
+        // Redirect to import page
+        return redirect()->route('employees.import');
     }
 
     public function resetPassword($employeeId)
