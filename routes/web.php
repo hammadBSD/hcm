@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Settings\ApiMonitor;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -21,6 +22,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('settings/profile', Profile::class)->name('settings.profile');
     Route::get('settings/password', Password::class)->name('settings.password');
     Route::get('settings/appearance', Appearance::class)->name('settings.appearance');
+    Route::get('settings/api-monitor', ApiMonitor::class)->name('settings.api-monitor');
 
     Route::get('settings/two-factor', TwoFactor::class)
         ->middleware(
