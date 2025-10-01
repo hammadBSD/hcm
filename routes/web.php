@@ -36,9 +36,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('two-factor.show');
 
     // Employees Routes
-    Route::redirect('employees', 'employees/list');
+    Route::redirect('employees', 'employees/index');
     
     // Employee Module Routes
+    Route::get('employees/index', \App\Livewire\Employees\Index::class)->name('employees.index');
     Route::get('employees/register', \App\Livewire\Employees\Register::class)->name('employees.register');
     Route::get('employees/list', \App\Livewire\Employees\EmployeeList::class)->name('employees.list');
     Route::get('employees/import', \App\Livewire\Employees\Import::class)->name('employees.import');
@@ -68,7 +69,13 @@ Route::middleware(['auth'])->group(function () {
     
     // Leaves Module Routes
     Route::get('leaves/index', \App\Livewire\Leaves\Index::class)->name('leaves.index');
-    Route::get('leaves/leave-approvals', \App\Livewire\Leaves\LeaveApprovals::class)->name('leaves.leave-approvals');
+    Route::get('leaves/leave-request', \App\Livewire\Leaves\LeaveRequest::class)->name('leaves.leave-request');
+
+    // System Management Routes
+    Route::redirect('system-management', 'system-management/index');
+    
+    // System Management Module Routes
+    Route::get('system-management/index', \App\Livewire\SystemManagement\Index::class)->name('system-management.index');
 });
 
 require __DIR__.'/auth.php';

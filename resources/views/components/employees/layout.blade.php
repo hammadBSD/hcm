@@ -1,6 +1,7 @@
 <div class="flex items-start max-md:flex-col">
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist>
+            <flux:navlist.item :href="route('employees.index')" wire:navigate>{{ __('My Profile') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.list')" wire:navigate>{{ __('Employees') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.register')" wire:navigate>{{ __('Create Employee') }}</flux:navlist.item>
             <flux:navlist.item :href="route('employees.import')" wire:navigate>{{ __('Import Employees') }}</flux:navlist.item>

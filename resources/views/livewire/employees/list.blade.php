@@ -449,8 +449,8 @@
                                         
                                         <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center gap-1">
-                                                <flux:button variant="ghost" size="sm" icon="eye" href="{{ route('employees.show', $employee->id) }}" />
-                                                <flux:button variant="ghost" size="sm" icon="pencil" href="{{ route('employees.edit', $employee->id) }}" />
+                                                <!-- <flux:button variant="ghost" size="sm" icon="eye" href="{{ route('employees.show', $employee->id) }}" /> -->
+                                                <!-- <flux:button variant="ghost" size="sm" icon="pencil" href="{{ route('employees.edit', $employee->id) }}" /> -->
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
@@ -460,9 +460,9 @@
                                                         <flux:menu.item icon="pencil" href="{{ route('employees.edit', $employee->id) }}">
                                                             {{ __('Edit Details') }}
                                                         </flux:menu.item>
-                                                        <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
+                                                        <!-- <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
                                                             {{ __('Reset Password') }}
-                                                        </flux:menu.item>
+                                                        </flux:menu.item> -->
                                                         <flux:menu.separator />
                                                         <flux:menu.item icon="trash" color="red" wire:click="deactivate({{ $employee->id }})">
                                                             {{ __('Deactivate') }}

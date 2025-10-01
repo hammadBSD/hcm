@@ -3,28 +3,28 @@
 namespace App\Livewire\Employees;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
-class Show extends Component
+class Profile extends Component
 {
-    public $employeeId;
     public $employee;
     public $additionalInfo;
     public $organizationalInfo;
     public $salaryLegalCompliance;
     public $user;
 
-    public function mount($id)
+    public function mount()
     {
-        $this->employeeId = $id;
+        // Get the current logged-in user
+        $this->user = Auth::user();
         
-        // Find the employee record by user_id (since the URL uses user_id)
-        $this->employee = Employee::where('user_id', $this->employeeId)
-            ->with(['user', 'additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
+        // Find the employee record for the current user
+        $this->employee = Employee::where('user_id', $this->user->id)
+            ->with(['additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
             ->first();
             
         if ($this->employee) {
-            $this->user = $this->employee->user;
             $this->additionalInfo = $this->employee->additionalInfo;
             $this->organizationalInfo = $this->employee->organizationalInfo;
             $this->salaryLegalCompliance = $this->employee->salaryLegalCompliance;
@@ -33,7 +33,7 @@ class Show extends Component
 
     public function render()
     {
-        return view('livewire.employees.show')
+        return view('livewire.employees.profile')
             ->layout('components.layouts.app');
     }
 }

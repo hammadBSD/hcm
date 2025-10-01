@@ -19,7 +19,7 @@
                     <flux:navbar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:navbar.item>
-                    <flux:navbar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
+                    <flux:navbar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
                         {{ __('Employees') }}
                     </flux:navbar.item>
                     <flux:navbar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
@@ -57,7 +57,7 @@
             <flux:navbar class="me-4">
                 <flux:navbar.item icon="magnifying-glass" href="#" label="Search" />
                 <flux:navbar.item class="max-lg:hidden" icon="bell" href="#" label="Notifications" />
-                <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" href="#" label="Settings" />
+                <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" :href="route('system-management.index')" label="Settings" wire:navigate />
             </flux:navbar>
 
             <!-- Desktop User Menu -->
@@ -94,7 +94,7 @@
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
+                <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
                     {{ __('Employees') }}
                 </flux:sidebar.item>
                 <flux:sidebar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>

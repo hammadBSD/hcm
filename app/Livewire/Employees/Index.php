@@ -2,80 +2,38 @@
 
 namespace App\Livewire\Employees;
 
-use App\Models\User;
+use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use WithPagination;
+    public $employee;
+    public $additionalInfo;
+    public $organizationalInfo;
+    public $salaryLegalCompliance;
+    public $user;
 
-    public $search = '';
-    public $filterDepartment = '';
-    public $filterStatus = '';
-    public $perPage = 10;
-
-    protected $queryString = [
-        'search' => ['except' => ''],
-        'filterDepartment' => ['except' => ''],
-        'filterStatus' => ['except' => ''],
-    ];
-
-    public function updatingSearch()
+    public function mount()
     {
-        $this->resetPage();
-    }
-
-    public function updatingFilterDepartment()
-    {
-        $this->resetPage();
-    }
-
-    public function updatingFilterStatus()
-    {
-        $this->resetPage();
+        // Get the current logged-in user
+        $this->user = Auth::user();
+        
+        // Find the employee record for the current user
+        $this->employee = Employee::where('user_id', $this->user->id)
+            ->with(['additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
+            ->first();
+            
+        if ($this->employee) {
+            $this->additionalInfo = $this->employee->additionalInfo;
+            $this->organizationalInfo = $this->employee->organizationalInfo;
+            $this->salaryLegalCompliance = $this->employee->salaryLegalCompliance;
+        }
     }
 
     public function render()
     {
-        $employees = User::query()
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
-                });
-            })
-            ->with('roles')
-            ->paginate($this->perPage);
-
-        return view('livewire.employees.index', [
-            'employees' => $employees,
-            'departments' => $this->getDepartments(),
-            'statuses' => $this->getStatuses(),
-        ])
-        ->layout('layouts.employees');
-    }
-
-    private function getDepartments()
-    {
-        // This will be replaced with actual department data later
-        return [
-            '' => 'All Departments',
-            'hr' => 'Human Resources',
-            'it' => 'Information Technology',
-            'finance' => 'Finance',
-            'marketing' => 'Marketing',
-            'sales' => 'Sales',
-        ];
-    }
-
-    private function getStatuses()
-    {
-        return [
-            '' => 'All Status',
-            'active' => 'Active',
-            'inactive' => 'Inactive',
-            'pending' => 'Pending',
-        ];
+        return view('livewire.employees.index')
+            ->layout('components.layouts.app');
     }
 }
