@@ -76,6 +76,41 @@ Route::middleware(['auth'])->group(function () {
     
     // System Management Module Routes
     Route::get('system-management/index', \App\Livewire\SystemManagement\Index::class)->name('system-management.index');
+    
+// Organization Settings
+Route::get('system-management/organization-setting/department', \App\Livewire\SystemManagement\OrganizationSetting\Department\Index::class)->name('system-management.organization-setting.department');
+Route::get('system-management/organization-setting/designation', \App\Livewire\SystemManagement\OrganizationSetting\Designation\Index::class)->name('system-management.organization-setting.designation');
+Route::get('system-management/organization-setting/employee-status', \App\Livewire\SystemManagement\OrganizationSetting\EmployeeStatus\Index::class)->name('system-management.organization-setting.employee-status');
+Route::get('system-management/organization-setting/group', \App\Livewire\SystemManagement\OrganizationSetting\Group\Index::class)->name('system-management.organization-setting.group');
+Route::get('system-management/organization-setting/country', \App\Livewire\SystemManagement\OrganizationSetting\Country\Index::class)->name('system-management.organization-setting.country');
+Route::get('system-management/organization-setting/province', \App\Livewire\SystemManagement\OrganizationSetting\Province\Index::class)->name('system-management.organization-setting.province');
+Route::get('system-management/organization-setting/organization-settings', \App\Livewire\SystemManagement\OrganizationSetting\OrganizationSettings\Index::class)->name('system-management.organization-setting.organization-settings');
+    
+    // User Management
+    Route::get('system-management/user-management/user-roles', \App\Livewire\SystemManagement\UserManagement\UserRoles\Index::class)->name('system-management.user-management.user-roles');
+    Route::get('system-management/user-management/users', \App\Livewire\SystemManagement\UserManagement\Users\Index::class)->name('system-management.user-management.users');
+    
+    // Financial Settings
+    Route::get('system-management/financial-settings/bank-info', \App\Livewire\SystemManagement\FinancialSettings\BankInfo\Index::class)->name('system-management.financial-settings.bank-info');
+    Route::get('system-management/financial-settings/currencies', \App\Livewire\SystemManagement\FinancialSettings\Currencies\Index::class)->name('system-management.financial-settings.currencies');
+    Route::get('system-management/financial-settings/vendors', \App\Livewire\SystemManagement\FinancialSettings\Vendors\Index::class)->name('system-management.financial-settings.vendors');
+    
+    // System Configuration
+    Route::get('system-management/system-configuration/system-logs', \App\Livewire\SystemManagement\SystemConfiguration\SystemLogs\Index::class)->name('system-management.system-configuration.system-logs');
+    Route::get('system-management/system-configuration/announcements', \App\Livewire\SystemManagement\SystemConfiguration\Announcements\Index::class)->name('system-management.system-configuration.announcements');
+    Route::get('system-management/system-configuration/polls', \App\Livewire\SystemManagement\SystemConfiguration\Polls\Index::class)->name('system-management.system-configuration.polls');
+    Route::get('system-management/system-configuration/holidays', \App\Livewire\SystemManagement\SystemConfiguration\Holidays\Index::class)->name('system-management.system-configuration.holidays');
+    
+    // Security & Access
+    Route::get('system-management/security-access/geo-restrictions', \App\Livewire\SystemManagement\SecurityAccess\GeoRestrictions\Index::class)->name('system-management.security-access.geo-restrictions');
+    Route::get('system-management/security-access/security', \App\Livewire\SystemManagement\SecurityAccess\Security\Index::class)->name('system-management.security-access.security');
+    
+    // Operations
+    Route::get('system-management/operations/projects', \App\Livewire\SystemManagement\Operations\Projects\Index::class)->name('system-management.operations.projects');
+    Route::get('system-management/operations/tasks', \App\Livewire\SystemManagement\Operations\Tasks\Index::class)->name('system-management.operations.tasks');
+    Route::get('system-management/operations/month-close', \App\Livewire\SystemManagement\Operations\MonthClose\Index::class)->name('system-management.operations.month-close');
+    Route::get('system-management/operations/day-close', \App\Livewire\SystemManagement\Operations\DayClose\Index::class)->name('system-management.operations.day-close');
+    Route::get('system-management/operations/constants', \App\Livewire\SystemManagement\Operations\Constants\Index::class)->name('system-management.operations.constants');
 });
 
 require __DIR__.'/auth.php';
