@@ -166,11 +166,11 @@ class Index extends Component
                 $checkIns = [];
                 $checkOuts = [];
                 
-                // Separate check-ins and check-outs
+                // Separate check-ins and check-outs (rely primarily on device_type)
                 foreach ($dayRecords as $record) {
-                    if ($record->device_type === 'IN' || $record->punch_type === 'IN') {
+                    if ($record->device_type === 'IN') {
                         $checkIns[] = Carbon::parse($record->punch_time);
-                    } elseif ($record->device_type === 'OUT' || $record->punch_type === 'OUT') {
+                    } elseif ($record->device_type === 'OUT') {
                         $checkOuts[] = Carbon::parse($record->punch_time);
                     }
                 }
@@ -182,12 +182,29 @@ class Index extends Component
                 $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i A') : null;
                 $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i A') : null;
                 
-                // Calculate total hours if both check-in and check-out are available
-                if ($firstCheckIn && $lastCheckOut) {
-                    $totalMinutes = $lastCheckOut->diffInMinutes($firstCheckIn);
-                    $hours = floor($totalMinutes / 60);
-                    $minutes = $totalMinutes % 60;
-                    $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                // Calculate total hours by pairing check-ins with check-outs chronologically
+                if (!empty($checkIns) && !empty($checkOuts)) {
+                    $dayTotalMinutes = 0;
+                    $sortedRecords = collect($dayRecords)->sortBy('punch_time');
+                    $checkInTime = null;
+                    
+                    foreach ($sortedRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $checkInTime = Carbon::parse($record->punch_time);
+                        } elseif ($record->device_type === 'OUT' && $checkInTime) {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            if ($checkOutTime->gt($checkInTime)) {
+                                $dayTotalMinutes += $checkInTime->diffInMinutes($checkOutTime);
+                            }
+                            $checkInTime = null; // Reset for next pair
+                        }
+                    }
+                    
+                    if ($dayTotalMinutes > 0) {
+                        $hours = floor($dayTotalMinutes / 60);
+                        $minutes = $dayTotalMinutes % 60;
+                        $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                    }
                 }
             }
             
@@ -227,7 +244,7 @@ class Index extends Component
             return !Carbon::parse($date)->isWeekend();
         })->count();
 
-        // Calculate total working hours using same logic as processAttendanceData
+        // Calculate total working hours by pairing check-ins with check-outs chronologically
         $totalMinutes = 0;
         $groupedRecords = [];
         
@@ -242,24 +259,19 @@ class Index extends Component
                 return Carbon::parse($a->punch_time)->timestamp - Carbon::parse($b->punch_time)->timestamp;
             });
             
-            $checkIns = [];
-            $checkOuts = [];
+            $checkInTime = null;
             
-            // Separate check-ins and check-outs
+            // Process records chronologically and pair check-ins with check-outs
             foreach ($dayRecords as $record) {
-                if ($record->device_type === 'IN' || $record->punch_type === 'IN') {
-                    $checkIns[] = Carbon::parse($record->punch_time);
-                } elseif ($record->device_type === 'OUT' || $record->punch_type === 'OUT') {
-                    $checkOuts[] = Carbon::parse($record->punch_time);
+                if ($record->device_type === 'IN') {
+                    $checkInTime = Carbon::parse($record->punch_time);
+                } elseif ($record->device_type === 'OUT' && $checkInTime) {
+                    $checkOutTime = Carbon::parse($record->punch_time);
+                    if ($checkOutTime->gt($checkInTime)) {
+                        $totalMinutes += $checkInTime->diffInMinutes($checkOutTime);
+                    }
+                    $checkInTime = null; // Reset for next pair
                 }
-            }
-            
-            // Get first check-in and last check-out of the day
-            $firstCheckIn = !empty($checkIns) ? $checkIns[0] : null;
-            $lastCheckOut = !empty($checkOuts) ? end($checkOuts) : null;
-            
-            if ($firstCheckIn && $lastCheckOut) {
-                $totalMinutes += $lastCheckOut->diffInMinutes($firstCheckIn);
             }
         }
 
