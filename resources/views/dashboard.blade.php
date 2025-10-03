@@ -194,12 +194,23 @@
 
         // Function to initialize all charts
         function initializeCharts() {
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js not loaded');
+                return;
+            }
+
             // Chart.js configuration for dark mode support
             Chart.defaults.color = document.documentElement.classList.contains('dark') ? '#a1a1aa' : '#71717a';
             Chart.defaults.borderColor = document.documentElement.classList.contains('dark') ? '#27272a' : '#e4e4e7';
 
             // Attendance Trend Chart (Line Chart)
-            const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+            const attendanceCanvas = document.getElementById('attendanceChart');
+            if (!attendanceCanvas) {
+                console.error('Attendance chart canvas not found');
+                return;
+            }
+            const attendanceCtx = attendanceCanvas.getContext('2d');
             charts.attendance = new Chart(attendanceCtx, {
             type: 'line',
             data: {
@@ -254,7 +265,12 @@
         });
 
             // Department Distribution Chart (Doughnut Chart)
-            const departmentCtx = document.getElementById('departmentChart').getContext('2d');
+            const departmentCanvas = document.getElementById('departmentChart');
+            if (!departmentCanvas) {
+                console.error('Department chart canvas not found');
+                return;
+            }
+            const departmentCtx = departmentCanvas.getContext('2d');
             charts.department = new Chart(departmentCtx, {
             type: 'doughnut',
             data: {
@@ -304,7 +320,12 @@
         });
 
             // Leave Types Distribution Chart (Bar Chart)
-            const leaveTypesCtx = document.getElementById('leaveTypesChart').getContext('2d');
+            const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+            if (!leaveTypesCanvas) {
+                console.error('Leave types chart canvas not found');
+                return;
+            }
+            const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
             charts.leaveTypes = new Chart(leaveTypesCtx, {
             type: 'bar',
             data: {
@@ -349,7 +370,10 @@
 
         // Initialize charts when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            initializeCharts();
+            // Wait a bit to ensure all elements are rendered
+            setTimeout(() => {
+                initializeCharts();
+            }, 200);
         });
 
         // Re-initialize charts when returning to page (for SPA navigation)
@@ -357,7 +381,34 @@
             setTimeout(() => {
                 destroyCharts();
                 initializeCharts();
-            }, 100);
+            }, 300);
+        });
+
+        // Additional fallback for page load issues
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                // Check if charts are missing and re-initialize
+                const attendanceCanvas = document.getElementById('attendanceChart');
+                const departmentCanvas = document.getElementById('departmentChart');
+                const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+                
+                if (attendanceCanvas && departmentCanvas && leaveTypesCanvas) {
+                    const attendanceCtx = attendanceCanvas.getContext('2d');
+                    const departmentCtx = departmentCanvas.getContext('2d');
+                    const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
+                    
+                    // Check if any canvas is empty (no chart data)
+                    const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
+                    const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
+                    const leaveTypesEmpty = leaveTypesCtx.getImageData(0, 0, leaveTypesCanvas.width, leaveTypesCanvas.height).data.every(pixel => pixel === 0);
+                    
+                    if (attendanceEmpty || departmentEmpty || leaveTypesEmpty) {
+                        console.log('Charts not rendered properly, re-initializing...');
+                        destroyCharts();
+                        initializeCharts();
+                    }
+                }
+            }, 500);
         });
 
         // Fallback for page visibility changes
@@ -402,6 +453,30 @@
         
         // Initialize clock on page load
         updateClock();
+
+        // Final fallback - check charts after 2 seconds
+        setTimeout(() => {
+            const attendanceCanvas = document.getElementById('attendanceChart');
+            const departmentCanvas = document.getElementById('departmentChart');
+            const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+            
+            if (attendanceCanvas && departmentCanvas && leaveTypesCanvas) {
+                const attendanceCtx = attendanceCanvas.getContext('2d');
+                const departmentCtx = departmentCanvas.getContext('2d');
+                const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
+                
+                // Check if any canvas is empty (no chart data)
+                const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
+                const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
+                const leaveTypesEmpty = leaveTypesCtx.getImageData(0, 0, leaveTypesCanvas.width, leaveTypesCanvas.height).data.every(pixel => pixel === 0);
+                
+                if (attendanceEmpty || departmentEmpty || leaveTypesEmpty) {
+                    console.log('Final fallback: Charts not rendered, re-initializing...');
+                    destroyCharts();
+                    initializeCharts();
+                }
+            }
+        }, 2000);
     </script>
 </x-layouts.app>
 
