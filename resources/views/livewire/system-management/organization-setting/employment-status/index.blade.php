@@ -1,7 +1,7 @@
 <section class="w-full">
     @include('partials.system-management-heading')
 
-    <x-system-management.layout :heading="__('Designations')" :subheading="__('Manage employee designations')">
+    <x-system-management.layout :heading="__('Employment Status')" :subheading="__('Manage employee status types')">
         <div class="space-y-6">
             <!-- Action Bar -->
             <div class="flex justify-between items-center gap-4">
@@ -10,7 +10,7 @@
                     <flux:input 
                         type="search" 
                         wire:model.live="search" 
-                        placeholder="Search designations..." 
+                        placeholder="Search employment status..." 
                         class="w-80"
                     />
                     <flux:button variant="outline" icon="funnel" />
@@ -21,22 +21,21 @@
                     <flux:button variant="outline" icon="arrow-down-tray">
                         Export
                     </flux:button>
-                    <flux:button variant="primary" icon="plus" wire:click="createDesignation">
-                        Add Designation
+                    <flux:button variant="primary" icon="plus" wire:click="createEmploymentStatus">
+                        Add Employment Status
                     </flux:button>
                 </div>
             </div>
 
-            <!-- Designations Table -->
-            <div class="mt-8">
-                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
+            <!-- Employment Status Table -->
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-zinc-50 dark:bg-zinc-700">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                     <button wire:click="sort('name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                        {{ __('Designation Name') }}
+                                        {{ __('Status Name') }}
                                         @if($sortBy === 'name')
                                             <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                         @endif
@@ -68,10 +67,12 @@
                             <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                 <td class="px-6 py-6 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
-                                        <flux:avatar size="sm" initials="SE" />
+                                        <div class="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                            <flux:icon name="check-circle" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        </div>
                                         <div>
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                Software Engineer
+                                                Active
                                             </div>
                                         </div>
                                     </div>
@@ -79,7 +80,7 @@
                                 
                                 <td class="px-6 py-6 whitespace-nowrap">
                                     <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                        Develops and maintains software applications
+                                        Employee is currently employed and working
                                     </div>
                                 </td>
                                 
@@ -94,14 +95,14 @@
                                         <flux:dropdown>
                                             <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                             <flux:menu>
-                                                <flux:menu.item icon="pencil" wire:click="editDesignation(1)">
-                                                    {{ __('Edit Designation') }}
+                                                <flux:menu.item icon="pencil" wire:click="editEmploymentStatus(1)">
+                                                    {{ __('Edit Employment Status') }}
                                                 </flux:menu.item>
-                                                <flux:menu.item icon="eye" wire:click="viewDesignation(1)">
+                                                <flux:menu.item icon="eye" wire:click="viewEmploymentStatus(1)">
                                                     {{ __('View Details') }}
                                                 </flux:menu.item>
-                                                <flux:menu.item icon="trash" wire:click="deleteDesignation(1)" class="text-red-600">
-                                                    {{ __('Delete Designation') }}
+                                                <flux:menu.item icon="trash" wire:click="deleteEmploymentStatus(1)" class="text-red-600">
+                                                    {{ __('Delete Employment Status') }}
                                                 </flux:menu.item>
                                             </flux:menu>
                                         </flux:dropdown>
@@ -113,10 +114,12 @@
                             <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                 <td class="px-6 py-6 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
-                                        <flux:avatar size="sm" initials="HR" />
+                                        <div class="h-8 w-8 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                                            <flux:icon name="x-circle" class="h-4 w-4 text-red-600 dark:text-red-400" />
+                                        </div>
                                         <div>
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                HR Manager
+                                                Inactive
                                             </div>
                                         </div>
                                     </div>
@@ -124,13 +127,13 @@
                                 
                                 <td class="px-6 py-6 whitespace-nowrap">
                                     <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                        Manages human resources and employee relations
+                                        Employee is no longer employed or working
                                     </div>
                                 </td>
                                 
                                 <td class="px-6 py-6 whitespace-nowrap">
-                                    <flux:badge color="green" size="sm">
-                                        Active
+                                    <flux:badge color="red" size="sm">
+                                        Inactive
                                     </flux:badge>
                                 </td>
                                 
@@ -139,14 +142,14 @@
                                         <flux:dropdown>
                                             <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                             <flux:menu>
-                                                <flux:menu.item icon="pencil" wire:click="editDesignation(2)">
-                                                    {{ __('Edit Designation') }}
+                                                <flux:menu.item icon="pencil" wire:click="editEmploymentStatus(2)">
+                                                    {{ __('Edit Employment Status') }}
                                                 </flux:menu.item>
-                                                <flux:menu.item icon="eye" wire:click="viewDesignation(2)">
+                                                <flux:menu.item icon="eye" wire:click="viewEmploymentStatus(2)">
                                                     {{ __('View Details') }}
                                                 </flux:menu.item>
-                                                <flux:menu.item icon="trash" wire:click="deleteDesignation(2)" class="text-red-600">
-                                                    {{ __('Delete Designation') }}
+                                                <flux:menu.item icon="trash" wire:click="deleteEmploymentStatus(2)" class="text-red-600">
+                                                    {{ __('Delete Employment Status') }}
                                                 </flux:menu.item>
                                             </flux:menu>
                                         </flux:dropdown>
@@ -155,11 +158,11 @@
                             </tr>
                         </tbody>
                     </table>
-                    </div>
                 </div>
+            </div>
 
-                <!-- Pagination -->
-                <div class="mt-6">
+            <!-- Pagination -->
+            <div class="mt-6">
                 <div class="flex items-center justify-between">
                     <div class="text-sm text-zinc-700 dark:text-zinc-300">
                         Showing 1 to 2 of 2 results
@@ -180,26 +183,26 @@
         </div>
     </x-system-management.layout>
 
-    <!-- Add Designation Flyout -->
-    <flux:modal variant="flyout" :open="$showAddDesignationFlyout" wire:model="showAddDesignationFlyout">
+    <!-- Add Employment Status Flyout -->
+    <flux:modal variant="flyout" :open="$showAddEmploymentStatusFlyout" wire:model="showAddEmploymentStatusFlyout">
         <div class="p-6">
             <!-- Header -->
             <div class="mb-6">
-                <flux:heading size="lg">Add Designation</flux:heading>
+                <flux:heading size="lg">Add Employment Status</flux:heading>
             </div>
             
             <!-- Form -->
-            <form wire:submit="submitDesignation" class="space-y-6">
-                <!-- Designation Name -->
+            <form wire:submit="submitEmploymentStatus" class="space-y-6">
+                <!-- Status Name -->
                 <div class="grid grid-cols-1 gap-6">
                     <flux:field>
-                        <flux:label>Designation Name <span class="text-red-500">*</span></flux:label>
+                        <flux:label>Status Name <span class="text-red-500">*</span></flux:label>
                         <flux:input 
-                            wire:model="designationName" 
-                            placeholder="Enter designation name"
+                            wire:model="statusName" 
+                            placeholder="Enter status name"
                             required
                         />
-                        <flux:error name="designationName" />
+                        <flux:error name="statusName" />
                     </flux:field>
                 </div>
                 
@@ -249,7 +252,7 @@
                     <flux:button 
                         type="button" 
                         variant="outline" 
-                        wire:click="closeAddDesignationFlyout"
+                        wire:click="closeAddEmploymentStatusFlyout"
                     >
                         Cancel
                     </flux:button>

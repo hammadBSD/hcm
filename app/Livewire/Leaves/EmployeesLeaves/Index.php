@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Leaves;
+namespace App\Livewire\Leaves\EmployeesLeaves;
 
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -10,6 +10,8 @@ class Index extends Component
     use WithPagination;
 
     // Search and Filter Properties
+    public $search = '';
+    public $employeeFilter = '';
     public $dateFilter = '';
     public $statusFilter = '';
     public $leaveTypeFilter = '';
@@ -30,8 +32,24 @@ class Index extends Component
 
     public function loadSampleData()
     {
-        // Sample data for current logged-in user (Sarah Johnson) - replace with actual database queries
+        // Sample data - replace with actual database queries
         $this->leaveRequests = collect([
+            [
+                'id' => 1,
+                'employee_name' => 'John Doe',
+                'employee_id' => 'EMP001',
+                'department' => 'IT',
+                'position' => 'Software Developer',
+                'manager' => 'Jane Smith',
+                'leave_type' => 'Sick Leave',
+                'start_date' => '2025-10-15',
+                'end_date' => '2025-10-17',
+                'total_days' => 3,
+                'status' => 'pending',
+                'created_at' => '2025-10-01 09:30:00',
+                'approved_by' => '',
+                'approved_at' => ''
+            ],
             [
                 'id' => 2,
                 'employee_name' => 'Sarah Johnson',
@@ -49,22 +67,32 @@ class Index extends Component
                 'approved_at' => '2025-09-29 10:00:00'
             ],
             [
-                'id' => 4,
-                'employee_name' => 'Sarah Johnson',
-                'employee_id' => 'EMP002',
-                'department' => 'HR',
-                'position' => 'HR Manager',
-                'manager' => 'Mike Wilson',
-                'leave_type' => 'Sick Leave',
-                'start_date' => '2025-11-01',
-                'end_date' => '2025-11-01',
+                'id' => 3,
+                'employee_name' => 'Michael Brown',
+                'employee_id' => 'EMP003',
+                'department' => 'Finance',
+                'position' => 'Accountant',
+                'manager' => 'Lisa Davis',
+                'leave_type' => 'Personal Leave',
+                'start_date' => '2025-10-10',
+                'end_date' => '2025-10-10',
                 'total_days' => 1,
-                'status' => 'pending',
-                'created_at' => '2025-10-03 10:00:00',
-                'approved_by' => '',
-                'approved_at' => ''
+                'status' => 'rejected',
+                'created_at' => '2025-09-30 11:45:00',
+                'approved_by' => 'Lisa Davis',
+                'approved_at' => '2025-10-01 08:30:00'
             ]
         ]);
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedEmployeeFilter()
+    {
+        $this->resetPage();
     }
 
     public function updatedDateFilter()
@@ -84,6 +112,8 @@ class Index extends Component
 
     public function resetFilters()
     {
+        $this->search = '';
+        $this->employeeFilter = '';
         $this->dateFilter = '';
         $this->statusFilter = '';
         $this->leaveTypeFilter = '';
@@ -114,6 +144,21 @@ class Index extends Component
     public function getFilteredRequests()
     {
         $requests = $this->leaveRequests;
+
+        if ($this->search) {
+            $requests = $requests->filter(function ($request) {
+                return stripos($request['employee_name'], $this->search) !== false ||
+                       stripos($request['employee_id'], $this->search) !== false;
+            });
+        }
+
+        if ($this->employeeFilter) {
+            $requests = $requests->filter(function ($request) {
+                $employeeName = strtolower($request['employee_name']);
+                $filterValue = strtolower($this->employeeFilter);
+                return stripos($employeeName, $filterValue) !== false;
+            });
+        }
 
         if ($this->dateFilter) {
             $requests = $requests->filter(function ($request) {
@@ -208,7 +253,7 @@ class Index extends Component
     {
         $filteredRequests = $this->getFilteredRequests();
         
-        return view('livewire.leaves.index', [
+        return view('livewire.leaves.employees-leaves.index', [
             'leaveRequests' => $filteredRequests
         ])->layout('components.layouts.app');
     }

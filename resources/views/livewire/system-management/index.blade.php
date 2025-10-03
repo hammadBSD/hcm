@@ -80,8 +80,12 @@
                         <span>Designation</span>
                         <flux:icon.chevron-right class="h-4 w-4" />
                     </a>
-                    <a href="{{ route('system-management.organization-setting.employee-status') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
-                        <span>Employee Status</span>
+                    <a href="{{ route('system-management.organization-setting.employment-status') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
+                        <span>Employment Status</span>
+                        <flux:icon.chevron-right class="h-4 w-4" />
+                    </a>
+                    <a href="{{ route('system-management.organization-setting.employment-type') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
+                        <span>Employment Type</span>
                         <flux:icon.chevron-right class="h-4 w-4" />
                     </a>
                     <a href="{{ route('system-management.organization-setting.group') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">

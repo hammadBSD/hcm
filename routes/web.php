@@ -69,6 +69,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Leaves Module Routes
     Route::get('leaves/index', \App\Livewire\Leaves\Index::class)->name('leaves.index');
+    Route::get('leaves/employees-leaves', \App\Livewire\Leaves\EmployeesLeaves\Index::class)->name('leaves.employees-leaves');
     Route::get('leaves/leave-request', \App\Livewire\Leaves\LeaveRequest::class)->name('leaves.leave-request');
 
     // System Management Routes
@@ -80,7 +81,8 @@ Route::middleware(['auth'])->group(function () {
 // Organization Settings
 Route::get('system-management/organization-setting/department', \App\Livewire\SystemManagement\OrganizationSetting\Department\Index::class)->name('system-management.organization-setting.department');
 Route::get('system-management/organization-setting/designation', \App\Livewire\SystemManagement\OrganizationSetting\Designation\Index::class)->name('system-management.organization-setting.designation');
-Route::get('system-management/organization-setting/employee-status', \App\Livewire\SystemManagement\OrganizationSetting\EmployeeStatus\Index::class)->name('system-management.organization-setting.employee-status');
+    Route::get('system-management/organization-setting/employment-status', \App\Livewire\SystemManagement\OrganizationSetting\EmploymentStatus\Index::class)->name('system-management.organization-setting.employment-status');
+    Route::get('system-management/organization-setting/employment-type', \App\Livewire\SystemManagement\OrganizationSetting\EmploymentType\Index::class)->name('system-management.organization-setting.employment-type');
 Route::get('system-management/organization-setting/group', \App\Livewire\SystemManagement\OrganizationSetting\Group\Index::class)->name('system-management.organization-setting.group');
 Route::get('system-management/organization-setting/country', \App\Livewire\SystemManagement\OrganizationSetting\Country\Index::class)->name('system-management.organization-setting.country');
 Route::get('system-management/organization-setting/province', \App\Livewire\SystemManagement\OrganizationSetting\Province\Index::class)->name('system-management.organization-setting.province');
@@ -111,6 +113,21 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     Route::get('system-management/operations/month-close', \App\Livewire\SystemManagement\Operations\MonthClose\Index::class)->name('system-management.operations.month-close');
     Route::get('system-management/operations/day-close', \App\Livewire\SystemManagement\Operations\DayClose\Index::class)->name('system-management.operations.day-close');
     Route::get('system-management/operations/constants', \App\Livewire\SystemManagement\Operations\Constants\Index::class)->name('system-management.operations.constants');
+    
+    // Attendance Settings
+    Route::get('system-management/attendance-settings/shift-schedule', \App\Livewire\SystemManagement\AttendanceSettings\ShiftSchedule\Index::class)->name('system-management.attendance-settings.shift-schedule');
+    Route::get('system-management/attendance-settings/work-schedule', \App\Livewire\SystemManagement\AttendanceSettings\WorkSchedule\Index::class)->name('system-management.attendance-settings.work-schedule');
+    Route::get('system-management/attendance-settings/attendance-rules', \App\Livewire\SystemManagement\AttendanceSettings\AttendanceRules\Index::class)->name('system-management.attendance-settings.attendance-rules');
+    
+    // Leaves Management
+    Route::get('system-management/leaves-management/leave-types', \App\Livewire\SystemManagement\LeavesManagement\LeaveTypes\Index::class)->name('system-management.leaves-management.leave-types');
+    Route::get('system-management/leaves-management/leave-policies', \App\Livewire\SystemManagement\LeavesManagement\LeavePolicies\Index::class)->name('system-management.leaves-management.leave-policies');
+    Route::get('system-management/leaves-management/leave-balances', \App\Livewire\SystemManagement\LeavesManagement\LeaveBalances\Index::class)->name('system-management.leaves-management.leave-balances');
+    
+    // Payroll Settings
+    Route::get('system-management/payroll-settings/salary-components', \App\Livewire\SystemManagement\PayrollSettings\SalaryComponents\Index::class)->name('system-management.payroll-settings.salary-components');
+    Route::get('system-management/payroll-settings/payroll-periods', \App\Livewire\SystemManagement\PayrollSettings\PayrollPeriods\Index::class)->name('system-management.payroll-settings.payroll-periods');
+    Route::get('system-management/payroll-settings/tax-settings', \App\Livewire\SystemManagement\PayrollSettings\TaxSettings\Index::class)->name('system-management.payroll-settings.tax-settings');
 });
 
 require __DIR__.'/auth.php';

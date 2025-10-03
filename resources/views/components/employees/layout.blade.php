@@ -2,31 +2,85 @@
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.index')" wire:navigate>{{ __('My Profile') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.index')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('My Profile') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.list')" wire:navigate>{{ __('Employees') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.list')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.list') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Employees') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.register')" wire:navigate>{{ __('Create Employee') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.register')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.register') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Create Employee') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.import')" wire:navigate>{{ __('Import Employees') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.import')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.import') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Import Employees') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.role')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.role')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.role') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Roles & Permissions') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.transfer')" wire:navigate>{{ __('Transfer') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.transfer')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.transfer') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Transfer') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.delegation-request')" wire:navigate>{{ __('Delegation Requests') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.delegation-request')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.delegation-request') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Delegation Requests') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.amend-dept')" wire:navigate>{{ __('Amend Employee Dept') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.amend-dept')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.amend-dept') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Amend Employee Dept') }}
+                </flux:navlist.item>
             </div>
             <div class="mb-3">
-                <flux:navlist.item :href="route('employees.suggestions')" wire:navigate>{{ __('Suggestions') }}</flux:navlist.item>
+                <flux:navlist.item 
+                    :href="route('employees.suggestions')" 
+                    wire:navigate
+                    :class="request()->routeIs('employees.suggestions') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                >
+                    {{ __('Suggestions') }}
+                </flux:navlist.item>
             </div>
         </flux:navlist>
     </div>

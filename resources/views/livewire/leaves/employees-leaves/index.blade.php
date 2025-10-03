@@ -1,7 +1,7 @@
 <section class="w-full">
     @include('partials.leaves-heading')
 
-    <x-leaves.layout :heading="__('My Leaves')" :subheading="__('View and manage your leave requests')">
+    <x-leaves.layout :heading="__('Leave Requests')" :subheading="__('Manage and approve all employee leave requests')">
         <div class="space-y-6">
             <!-- Leave Balance -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
@@ -33,53 +33,71 @@
 
             <!-- Filters -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex flex-wrap items-center justify-end gap-4">
-                    <!-- Date Filter -->
-                    <div class="w-32">
-                        <flux:select wire:model.live="dateFilter" placeholder="All Dates">
-                            <option value="">All Dates</option>
-                            <option value="this_month">This Month</option>
-                            <option value="last_month">Last Month</option>
-                            <option value="this_quarter">This Quarter</option>
-                            <option value="this_year">This Year</option>
-                            <option value="last_year">Last Year</option>
-                        </flux:select>
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <!-- Search - Left Side -->
+                    <div class="w-64">
+                        <flux:input 
+                            wire:model.live="search" 
+                            placeholder="Search by employee name or ID..." 
+                            icon="magnifying-glass"
+                        />
                     </div>
                     
-                    <!-- Status Filter -->
-                    <div class="w-32">
-                        <flux:select wire:model.live="statusFilter" placeholder="All Status">
-                            <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="cancelled">Cancelled</option>
-                        </flux:select>
+                    <!-- Filters and Buttons - Right Side -->
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Employee Filter -->
+                        <div class="w-40">
+                            <flux:select wire:model.live="employeeFilter" placeholder="All Employees">
+                                <option value="">All Employees</option>
+                                <option value="john">John Smith</option>
+                                <option value="sarah">Sarah Johnson</option>
+                                <option value="mike">Mike Wilson</option>
+                                <option value="emma">Emma Davis</option>
+                                <option value="alex">Alex Brown</option>
+                            </flux:select>
+                        </div>
+                        
+                        <!-- Date Filter -->
+                        <div class="w-32">
+                            <flux:select wire:model.live="dateFilter" placeholder="All Dates">
+                                <option value="">All Dates</option>
+                                <option value="this_month">This Month</option>
+                                <option value="last_month">Last Month</option>
+                                <option value="this_quarter">This Quarter</option>
+                                <option value="this_year">This Year</option>
+                                <option value="last_year">Last Year</option>
+                            </flux:select>
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <div class="w-32">
+                            <flux:select wire:model.live="statusFilter" placeholder="All Status">
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="cancelled">Cancelled</option>
+                            </flux:select>
+                        </div>
+                        
+                        <!-- Leave Type Filter -->
+                        <div class="w-32">
+                            <flux:select wire:model.live="leaveTypeFilter" placeholder="All Types">
+                                <option value="">All Types</option>
+                                <option value="sick">Sick Leave</option>
+                                <option value="personal">Personal Leave</option>
+                                <option value="vacation">Vacation Leave</option>
+                                <option value="emergency">Emergency Leave</option>
+                                <option value="maternity">Maternity Leave</option>
+                                <option value="paternity">Paternity Leave</option>
+                            </flux:select>
+                        </div>
+                        
+                        <!-- Clear Filters Button -->
+                        <flux:button variant="outline" wire:click="resetFilters">
+                            Clear Filters
+                        </flux:button>
                     </div>
-                    
-                    <!-- Leave Type Filter -->
-                    <div class="w-32">
-                        <flux:select wire:model.live="leaveTypeFilter" placeholder="All Types">
-                            <option value="">All Types</option>
-                            <option value="sick">Sick Leave</option>
-                            <option value="personal">Personal Leave</option>
-                            <option value="vacation">Vacation Leave</option>
-                            <option value="emergency">Emergency Leave</option>
-                            <option value="maternity">Maternity Leave</option>
-                            <option value="paternity">Paternity Leave</option>
-                        </flux:select>
-                    </div>
-                    
-                    <!-- Clear Filters Button -->
-                    <flux:button variant="outline" wire:click="resetFilters">
-                        Clear Filters
-                    </flux:button>
-                    
-                    <!-- Request Leave Button -->
-                    <flux:button variant="primary" :href="route('leaves.leave-request')" wire:navigate>
-                        <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                        Request Leave
-                    </flux:button>
                 </div>
             </div>
 
@@ -120,6 +138,14 @@
                             <table class="w-full">
                                 <thead class="bg-zinc-50 dark:bg-zinc-700">
                                     <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                            <button wire:click="sort('employee_name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                                {{ __('Employee') }}
+                                                @if($sortBy === 'employee_name')
+                                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                                @endif
+                                            </button>
+                                        </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                             <button wire:click="sort('department')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                                 {{ __('Department') }}
@@ -168,6 +194,19 @@
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                     @foreach($leaveRequests as $index => $request)
                                         <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
+                                            <td class="px-6 py-6 whitespace-nowrap">
+                                                <div class="flex items-center gap-3">
+                                                    <flux:avatar size="sm" :initials="strtoupper(substr($request['employee_name'], 0, 2))" />
+                                                    <div>
+                                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                            {{ $request['employee_name'] }}
+                                                        </div>
+                                                        <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                                                            {{ $request['employee_id'] }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             
                                             <td class="px-6 py-6 whitespace-nowrap">
                                                 <div class="text-sm text-zinc-900 dark:text-zinc-100">

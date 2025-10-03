@@ -28,7 +28,8 @@
             </div>
 
             <!-- Departments Table -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
+            <div class="mt-8">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-zinc-50 dark:bg-zinc-700">
@@ -83,9 +84,7 @@
                             <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                 <td class="px-6 py-6 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
-                                        <div class="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                            <flux:icon.building-office class="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                        </div>
+                                        <flux:avatar size="sm" initials="IT" />
                                         <div>
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">
                                                 Human Resources
@@ -139,11 +138,11 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Pagination -->
-            <div class="mt-6">
+                <!-- Pagination -->
+                <div class="mt-6">
                 <div class="flex items-center justify-between">
                     <div class="text-sm text-zinc-700 dark:text-zinc-300">
                         Showing 1 to 1 of 1 results
@@ -163,4 +162,114 @@
             </div>
         </div>
     </x-system-management.layout>
+
+    <!-- Add Department Flyout -->
+    <flux:modal variant="flyout" :open="$showAddDepartmentFlyout" wire:model="showAddDepartmentFlyout">
+        <div class="p-6">
+            <!-- Header -->
+            <div class="mb-6">
+                <flux:heading size="lg">Add Department</flux:heading>
+            </div>
+            
+            <!-- Form -->
+            <form wire:submit="submitDepartment" class="space-y-6">
+                <!-- First Row: Department Title and Department Head -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Department Title -->
+                    <flux:field>
+                        <flux:label>Department Title <span class="text-red-500">*</span></flux:label>
+                        <flux:input 
+                            wire:model="departmentTitle" 
+                            placeholder="Title"
+                            required
+                        />
+                        <flux:error name="departmentTitle" />
+                    </flux:field>
+                    
+                    <!-- Department Head -->
+                    <flux:field>
+                        <flux:label>Head Of Department</flux:label>
+                        <flux:select wire:model="departmentHead" placeholder="Select-One">
+                            <option value="">Select-One</option>
+                            <option value="sarah-johnson">Sarah Johnson</option>
+                            <option value="mike-wilson">Mike Wilson</option>
+                            <option value="jane-doe">Jane Doe</option>
+                            <option value="john-smith">John Smith</option>
+                        </flux:select>
+                        <flux:error name="departmentHead" />
+                    </flux:field>
+                </div>
+                
+                <!-- Second Row: Department Code -->
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Department Code -->
+                    <flux:field>
+                        <flux:label>Department Code <span class="text-red-500">*</span></flux:label>
+                        <flux:input 
+                            wire:model="departmentCode" 
+                            placeholder="Department Code"
+                            required
+                        />
+                        <flux:error name="departmentCode" />
+                    </flux:field>
+                </div>
+                
+                <!-- Third Row: Description -->
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Description -->
+                    <flux:field>
+                        <flux:label>Description</flux:label>
+                        <flux:textarea 
+                            wire:model="description" 
+                            rows="4"
+                            placeholder="Enter department description..."
+                        ></flux:textarea>
+                        <flux:error name="description" />
+                    </flux:field>
+                </div>
+                
+                <!-- Fourth Row: Active/Inactive Radio -->
+                <div class="grid grid-cols-1 gap-6">
+                    <flux:field>
+                        <flux:label>Status</flux:label>
+                        <div class="flex items-center gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    wire:model.live="isActive" 
+                                    value="true" 
+                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                                <span class="text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    wire:model.live="isActive" 
+                                    value="false" 
+                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                                <span class="text-sm font-medium text-gray-900 dark:text-gray-300">Inactive</span>
+                            </label>
+                        </div>
+                        <flux:error name="isActive" />
+                    </flux:field>
+                </div>
+                
+                <!-- Submit and Cancel Buttons -->
+                <div class="flex justify-end gap-3 pt-4">
+                    <flux:button 
+                        type="button" 
+                        variant="outline" 
+                        wire:click="closeAddDepartmentFlyout"
+                    >
+                        Cancel
+                    </flux:button>
+                    <flux:button type="submit" variant="primary">
+                        Add Department
+                    </flux:button>
+                </div>
+            </form>
+        </div>
+    </flux:modal>
 </section>
