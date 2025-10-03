@@ -7,7 +7,10 @@
                     wire:navigate
                     :class="request()->routeIs('attendance.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Attendance') }}
+                    <div class="flex items-center">
+                        <flux:icon name="clock" class="w-4 h-4 mr-3" />
+                        {{ __('Attendance') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -16,7 +19,10 @@
                     wire:navigate
                     :class="request()->routeIs('attendance.request') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Attendance Request') }}
+                    <div class="flex items-center">
+                        <flux:icon name="clipboard-document" class="w-4 h-4 mr-3" />
+                        {{ __('Attendance Request') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -25,7 +31,10 @@
                     wire:navigate
                     :class="request()->routeIs('attendance.exemption-request') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Exemption Request') }}
+                    <div class="flex items-center">
+                        <flux:icon name="exclamation-triangle" class="w-4 h-4 mr-3" />
+                        {{ __('Exemption Request') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -34,7 +43,10 @@
                     wire:navigate
                     :class="request()->routeIs('attendance.attendance-approval') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Attendance Approval') }}
+                    <div class="flex items-center">
+                        <flux:icon name="check-circle" class="w-4 h-4 mr-3" />
+                        {{ __('Attendance Approval') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -43,7 +55,10 @@
                     wire:navigate
                     :class="request()->routeIs('attendance.schedule') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Schedule') }}
+                    <div class="flex items-center">
+                        <flux:icon name="calendar-days" class="w-4 h-4 mr-3" />
+                        {{ __('Schedule') }}
+                    </div>
                 </flux:navlist.item>
             </div>
         </flux:navlist>

@@ -7,7 +7,10 @@
                     wire:navigate
                     :class="request()->routeIs('leaves.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('My Leaves') }}
+                    <div class="flex items-center">
+                        <flux:icon name="user" class="w-4 h-4 mr-3" />
+                        {{ __('My Leaves') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -16,7 +19,10 @@
                     wire:navigate
                     :class="request()->routeIs('leaves.employees-leaves') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Leave Requests') }}
+                    <div class="flex items-center">
+                        <flux:icon name="users" class="w-4 h-4 mr-3" />
+                        {{ __('Leave Requests') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -25,7 +31,10 @@
                     wire:navigate
                     :class="request()->routeIs('leaves.leave-request') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Leave Request') }}
+                    <div class="flex items-center">
+                        <flux:icon name="plus-circle" class="w-4 h-4 mr-3" />
+                        {{ __('Leave Request') }}
+                    </div>
                 </flux:navlist.item>
             </div>
         </flux:navlist>

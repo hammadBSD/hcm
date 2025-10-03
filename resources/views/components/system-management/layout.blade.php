@@ -8,7 +8,10 @@
                     wire:navigate
                     :class="request()->routeIs('system-management.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Dashboard') }}
+                    <div class="flex items-center">
+                        <flux:icon name="squares-2x2" class="w-4 h-4 mr-3" />
+                        {{ __('Dashboard') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <!-- Organization Settings -->
@@ -23,56 +26,80 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.department') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Department') }}
+                        <div class="flex items-center">
+                            <flux:icon name="building-office-2" class="w-4 h-4 mr-3" />
+                            {{ __('Department') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.designation')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.designation') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Designation') }}
+                        <div class="flex items-center">
+                            <flux:icon name="briefcase" class="w-4 h-4 mr-3" />
+                            {{ __('Designation') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.employment-status')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.employment-status') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Employment Status') }}
+                        <div class="flex items-center">
+                            <flux:icon name="check-circle" class="w-4 h-4 mr-3" />
+                            {{ __('Employment Status') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.employment-type')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.employment-type') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Employment Type') }}
+                        <div class="flex items-center">
+                            <flux:icon name="identification" class="w-4 h-4 mr-3" />
+                            {{ __('Employment Type') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.group')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.group') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Groups') }}
+                        <div class="flex items-center">
+                            <flux:icon name="users" class="w-4 h-4 mr-3" />
+                            {{ __('Groups') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.country')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.country') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Country') }}
+                        <div class="flex items-center">
+                            <flux:icon name="globe-alt" class="w-4 h-4 mr-3" />
+                            {{ __('Country') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.province')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.province') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Provinces') }}
+                        <div class="flex items-center">
+                            <flux:icon name="map" class="w-4 h-4 mr-3" />
+                            {{ __('Provinces') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.organization-setting.organization-settings')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.organization-settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Organization Info') }}
+                        <div class="flex items-center">
+                            <flux:icon name="building-office-2" class="w-4 h-4 mr-3" />
+                            {{ __('Organization Info') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -89,14 +116,20 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.user-management.user-roles') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Roles & Permissions') }}
+                        <div class="flex items-center">
+                            <flux:icon name="shield-check" class="w-4 h-4 mr-3" />
+                            {{ __('Roles & Permissions') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.user-management.users')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.user-management.users') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('System Users') }}
+                        <div class="flex items-center">
+                            <flux:icon name="users" class="w-4 h-4 mr-3" />
+                            {{ __('System Users') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -113,21 +146,30 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.financial-settings.bank-info') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Bank Info') }}
+                        <div class="flex items-center">
+                            <flux:icon name="building-library" class="w-4 h-4 mr-3" />
+                            {{ __('Bank Info') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.financial-settings.currencies')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.financial-settings.currencies') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Currencies') }}
+                        <div class="flex items-center">
+                            <flux:icon name="currency-dollar" class="w-4 h-4 mr-3" />
+                            {{ __('Currencies') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.financial-settings.vendors')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.financial-settings.vendors') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Vendor') }}
+                        <div class="flex items-center">
+                            <flux:icon name="truck" class="w-4 h-4 mr-3" />
+                            {{ __('Vendor') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -144,21 +186,30 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.attendance-settings.shift-schedule') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Shift Schedule') }}
+                        <div class="flex items-center">
+                            <flux:icon name="clock" class="w-4 h-4 mr-3" />
+                            {{ __('Shift Schedule') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.attendance-settings.work-schedule')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.attendance-settings.work-schedule') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Work Schedule') }}
+                        <div class="flex items-center">
+                            <flux:icon name="calendar-days" class="w-4 h-4 mr-3" />
+                            {{ __('Work Schedule') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.attendance-settings.attendance-rules')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.attendance-settings.attendance-rules') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Attendance Rules') }}
+                        <div class="flex items-center">
+                            <flux:icon name="clipboard-document" class="w-4 h-4 mr-3" />
+                            {{ __('Attendance Rules') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -175,21 +226,30 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.leaves-management.leave-types') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Leave Types') }}
+                        <div class="flex items-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                            {{ __('Leave Types') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.leaves-management.leave-policies')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.leaves-management.leave-policies') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Leave Policies') }}
+                        <div class="flex items-center">
+                            <flux:icon name="document-check" class="w-4 h-4 mr-3" />
+                            {{ __('Leave Policies') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.leaves-management.leave-balances')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.leaves-management.leave-balances') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Leave Balances') }}
+                        <div class="flex items-center">
+                            <flux:icon name="chart-bar" class="w-4 h-4 mr-3" />
+                            {{ __('Leave Balances') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -206,21 +266,30 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.payroll-settings.salary-components') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Salary Components') }}
+                        <div class="flex items-center">
+                            <flux:icon name="banknotes" class="w-4 h-4 mr-3" />
+                            {{ __('Salary Components') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.payroll-settings.payroll-periods')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.payroll-settings.payroll-periods') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Payroll Periods') }}
+                        <div class="flex items-center">
+                            <flux:icon name="calendar-days" class="w-4 h-4 mr-3" />
+                            {{ __('Payroll Periods') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.payroll-settings.tax-settings')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.payroll-settings.tax-settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Tax Settings') }}
+                        <div class="flex items-center">
+                            <flux:icon name="calculator" class="w-4 h-4 mr-3" />
+                            {{ __('Tax Settings') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -237,14 +306,20 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.security-access.geo-restrictions') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Geo-Location Restriction') }}
+                        <div class="flex items-center">
+                            <flux:icon name="map-pin" class="w-4 h-4 mr-3" />
+                            {{ __('Geo-Location Restriction') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.security-access.security')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.security-access.security') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Security Settings') }}
+                        <div class="flex items-center">
+                            <flux:icon name="shield-exclamation" class="w-4 h-4 mr-3" />
+                            {{ __('Security Settings') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -261,35 +336,50 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.operations.projects') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Project') }}
+                        <div class="flex items-center">
+                            <flux:icon name="folder" class="w-4 h-4 mr-3" />
+                            {{ __('Project') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.operations.tasks')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.operations.tasks') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Task') }}
+                        <div class="flex items-center">
+                            <flux:icon name="clipboard-document-check" class="w-4 h-4 mr-3" />
+                            {{ __('Task') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.operations.month-close')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.operations.month-close') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Month Close') }}
+                        <div class="flex items-center">
+                            <flux:icon name="calendar-days" class="w-4 h-4 mr-3" />
+                            {{ __('Month Close') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.operations.day-close')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.operations.day-close') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Day Close') }}
+                        <div class="flex items-center">
+                            <flux:icon name="sun" class="w-4 h-4 mr-3" />
+                            {{ __('Day Close') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.operations.constants')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.operations.constants') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Constant') }}
+                        <div class="flex items-center">
+                            <flux:icon name="adjustments-horizontal" class="w-4 h-4 mr-3" />
+                            {{ __('Constant') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>
@@ -306,28 +396,40 @@
                         wire:navigate
                         :class="request()->routeIs('system-management.system-configuration.system-logs') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('System Logs') }}
+                        <div class="flex items-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                            {{ __('System Logs') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.system-configuration.announcements')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.system-configuration.announcements') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Announcement') }}
+                        <div class="flex items-center">
+                            <flux:icon name="megaphone" class="w-4 h-4 mr-3" />
+                            {{ __('Announcement') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.system-configuration.polls')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.system-configuration.polls') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Poll') }}
+                        <div class="flex items-center">
+                            <flux:icon name="chart-bar" class="w-4 h-4 mr-3" />
+                            {{ __('Poll') }}
+                        </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
                         :href="route('system-management.system-configuration.holidays')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.system-configuration.holidays') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
-                        {{ __('Gazetted Holidays') }}
+                        <div class="flex items-center">
+                            <flux:icon name="calendar-days" class="w-4 h-4 mr-3" />
+                            {{ __('Gazetted Holidays') }}
+                        </div>
                     </flux:navlist.item>
                 </div>
             </div>

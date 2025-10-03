@@ -7,7 +7,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('My Profile') }}
+                    <div class="flex items-center">
+                        <flux:icon name="user-circle" class="w-4 h-4 mr-3" />
+                        {{ __('My Profile') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -16,7 +19,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.list') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Employees') }}
+                    <div class="flex items-center">
+                        <flux:icon name="users" class="w-4 h-4 mr-3" />
+                        {{ __('Employees') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -25,7 +31,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.register') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Create Employee') }}
+                    <div class="flex items-center">
+                        <flux:icon name="user-plus" class="w-4 h-4 mr-3" />
+                        {{ __('Create Employee') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -34,7 +43,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.import') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Import Employees') }}
+                    <div class="flex items-center">
+                        <flux:icon name="document-plus" class="w-4 h-4 mr-3" />
+                        {{ __('Import Employees') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -43,7 +55,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.role') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Roles & Permissions') }}
+                    <div class="flex items-center">
+                        <flux:icon name="shield-check" class="w-4 h-4 mr-3" />
+                        {{ __('Roles & Permissions') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -52,7 +67,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.transfer') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Transfer') }}
+                    <div class="flex items-center">
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-3" />
+                        {{ __('Transfer') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -61,7 +79,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.delegation-request') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Delegation Requests') }}
+                    <div class="flex items-center">
+                        <flux:icon name="hand-thumb-up" class="w-4 h-4 mr-3" />
+                        {{ __('Delegation Requests') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -70,7 +91,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.amend-dept') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Amend Employee Dept') }}
+                    <div class="flex items-center">
+                        <flux:icon name="pencil-square" class="w-4 h-4 mr-3" />
+                        {{ __('Amend Employee Dept') }}
+                    </div>
                 </flux:navlist.item>
             </div>
             <div class="mb-3">
@@ -79,7 +103,10 @@
                     wire:navigate
                     :class="request()->routeIs('employees.suggestions') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                 >
-                    {{ __('Suggestions') }}
+                    <div class="flex items-center">
+                        <flux:icon name="light-bulb" class="w-4 h-4 mr-3" />
+                        {{ __('Suggestions') }}
+                    </div>
                 </flux:navlist.item>
             </div>
         </flux:navlist>

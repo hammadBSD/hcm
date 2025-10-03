@@ -50,7 +50,7 @@
             <!-- Action Buttons -->
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <flux:button variant="primary" icon="plus" href="{{ route('employees.create') }}">
+                    <flux:button variant="primary" icon="plus" href="{{ route('employees.register') }}">
                         {{ __('Add Employee') }}
                     </flux:button>
                     
@@ -496,7 +496,7 @@
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-500">
                         {{ __('Get started by adding your first employee.') }}
                     </flux:text>
-                    <flux:button href="{{ route('employees.create') }}" icon="plus" class="mt-4">
+                    <flux:button href="{{ route('employees.register') }}" icon="plus" class="mt-4">
                         {{ __('Add Employee') }}
                     </flux:button>
                 </div>
