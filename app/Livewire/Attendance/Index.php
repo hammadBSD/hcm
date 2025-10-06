@@ -153,6 +153,7 @@ class Index extends Component
                 'check_in' => null,
                 'check_out' => null,
                 'total_hours' => null,
+                'breaks' => '0 (0h 0m total)',
                 'status' => $status
             ];
             
@@ -182,29 +183,68 @@ class Index extends Component
                 $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i A') : null;
                 $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i A') : null;
                 
-                // Calculate total hours by pairing check-ins with check-outs chronologically
-                if (!empty($checkIns) && !empty($checkOuts)) {
-                    $dayTotalMinutes = 0;
+                // Calculate total hours and breaks using the correct logic
+                $dayTotalMinutes = 0;
+                $breaksCount = 0;
+                $totalBreakMinutes = 0;
+                
+                if (!empty($dayRecords)) {
                     $sortedRecords = collect($dayRecords)->sortBy('punch_time');
-                    $checkInTime = null;
                     
-                    foreach ($sortedRecords as $record) {
-                        if ($record->device_type === 'IN') {
-                            $checkInTime = Carbon::parse($record->punch_time);
-                        } elseif ($record->device_type === 'OUT' && $checkInTime) {
-                            $checkOutTime = Carbon::parse($record->punch_time);
-                            if ($checkOutTime->gt($checkInTime)) {
-                                $dayTotalMinutes += $checkInTime->diffInMinutes($checkOutTime);
+                    // Skip first check-in and last check-out, process everything in between
+                    $middleRecords = $sortedRecords->slice(1, -1);
+                    
+                    $currentCheckIn = null;
+                    $lastCheckOut = null;
+                    
+                    foreach ($middleRecords as $record) {
+                        $recordTime = Carbon::parse($record->punch_time);
+                        
+                        if ($record->device_type === 'OUT') {
+                            // Store the check-out time
+                            $lastCheckOut = $recordTime;
+                        } elseif ($record->device_type === 'IN' && $lastCheckOut) {
+                            // This is a break: check-out → check-in
+                            $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
+                            if ($breakDuration > 0) {
+                                $breaksCount++;
+                                $totalBreakMinutes += $breakDuration;
                             }
-                            $checkInTime = null; // Reset for next pair
+                            $lastCheckOut = null; // Reset for next break
+                        } elseif ($record->device_type === 'IN' && !$lastCheckOut) {
+                            // This is start of a work session (not a break)
+                            $currentCheckIn = $recordTime;
                         }
                     }
                     
+                    // Now calculate total working hours by processing all records for work sessions
+                    $currentWorkStart = null;
+                    foreach ($sortedRecords as $record) {
+                        $recordTime = Carbon::parse($record->punch_time);
+                        
+                        if ($record->device_type === 'IN') {
+                            $currentWorkStart = $recordTime;
+                        } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
+                            // Valid work session: check-in → check-out
+                            $workDuration = $currentWorkStart->diffInMinutes($recordTime);
+                            if ($workDuration > 0) {
+                                $dayTotalMinutes += $workDuration;
+                            }
+                            $currentWorkStart = null; // Reset for next session
+                        }
+                    }
+                    
+                    // Format total hours
                     if ($dayTotalMinutes > 0) {
                         $hours = floor($dayTotalMinutes / 60);
                         $minutes = $dayTotalMinutes % 60;
                         $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                     }
+                    
+                    // Format breaks information
+                    $breakHours = floor($totalBreakMinutes / 60);
+                    $breakMinutes = $totalBreakMinutes % 60;
+                    $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
                 }
             }
             
@@ -344,6 +384,16 @@ class Index extends Component
                     $aHours = $a['total_hours'] ? strtotime('1970-01-01 ' . $a['total_hours']) : 0;
                     $bHours = $b['total_hours'] ? strtotime('1970-01-01 ' . $b['total_hours']) : 0;
                     return $this->sortDirection === 'asc' ? $aHours - $bHours : $bHours - $aHours;
+                });
+                break;
+            case 'breaks':
+                uasort($data, function($a, $b) {
+                    // Extract breaks count from the formatted string (e.g., "2 (1h 30m total)" -> 2)
+                    preg_match('/^(\d+)/', $a['breaks'], $aMatches);
+                    preg_match('/^(\d+)/', $b['breaks'], $bMatches);
+                    $aBreaks = isset($aMatches[1]) ? (int)$aMatches[1] : 0;
+                    $bBreaks = isset($bMatches[1]) ? (int)$bMatches[1] : 0;
+                    return $this->sortDirection === 'asc' ? $aBreaks - $bBreaks : $bBreaks - $aBreaks;
                 });
                 break;
             case 'status':

@@ -138,6 +138,14 @@
                                                 </button>
                                             </th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                <button wire:click="sort('breaks')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                                    {{ __('Breaks') }}
+                                                    @if($sortBy === 'breaks')
+                                                        <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                                    @endif
+                                                </button>
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 <button wire:click="sort('total_hours')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                                     {{ __('Total Hours') }}
                                                     @if($sortBy === 'total_hours')
@@ -182,6 +190,12 @@
                                                 <td class="px-6 py-6 whitespace-nowrap">
                                                     <div class="text-sm text-zinc-900 dark:text-zinc-100">
                                                         {{ $record['check_out'] ?? '-' }}
+                                                    </div>
+                                                </td>
+                                                
+                                                <td class="px-6 py-6 whitespace-nowrap">
+                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                        {{ $record['breaks'] ?? '-' }}
                                                     </div>
                                                 </td>
                                                 
