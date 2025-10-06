@@ -15,7 +15,7 @@ class ZKTecoApiService
 
     public function __construct()
     {
-        $this->baseUrl = config('zkteco.api_url', 'http://http://hcm.local/api');
+        $this->baseUrl = config('zkteco.api_url', 'http://hcm.local/api');
         $this->apiKey = config('zkteco.api_key');
         $this->timeout = config('zkteco.timeout', 30);
         $this->rateLimit = config('zkteco.rate_limit', 100);

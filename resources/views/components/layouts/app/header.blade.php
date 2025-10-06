@@ -25,7 +25,7 @@
                     <flux:navbar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                         {{ __('Attendance') }}
                     </flux:navbar.item>
-                    <flux:navbar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
+                    <flux:navbar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
                         {{ __('Payroll') }}
                     </flux:navbar.item>
                     <flux:navbar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
@@ -100,7 +100,7 @@
                 <flux:sidebar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                     {{ __('Attendance') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="currency-dollar" href="#" :current="request()->routeIs('payroll.*')">
+                <flux:sidebar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
                     {{ __('Payroll') }}
                 </flux:sidebar.item>
                 <flux:sidebar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>

@@ -10,7 +10,7 @@ return [
     |
     */
 
-    'api_url' => env('ZKTECO_API_URL', 'http://http://hcm.local/api'),
+    'api_url' => env('ZKTECO_API_URL', 'http://hcm.local/api'),
     'api_key' => env('ZKTECO_API_KEY', 'zkteco-secure-api-key-2024'),
     
     /*

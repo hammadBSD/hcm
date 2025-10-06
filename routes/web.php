@@ -72,6 +72,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('leaves/employees-leaves', \App\Livewire\Leaves\EmployeesLeaves\Index::class)->name('leaves.employees-leaves');
     Route::get('leaves/leave-request', \App\Livewire\Leaves\LeaveRequest::class)->name('leaves.leave-request');
 
+    // Payroll Routes
+    Route::redirect('payroll', 'payroll/index');
+    
+    // Payroll Module Routes
+    Route::get('payroll/index', \App\Livewire\Payroll\Index::class)->name('payroll.index');
+    Route::get('payroll/payroll-processing', \App\Livewire\Payroll\PayrollProcessing::class)->name('payroll.payroll-processing');
+    Route::get('payroll/salary-reports', \App\Livewire\Payroll\SalaryReports::class)->name('payroll.salary-reports');
+    Route::get('payroll/bonus-management', \App\Livewire\Payroll\BonusManagement::class)->name('payroll.bonus-management');
+    Route::get('payroll/advance-salary', \App\Livewire\Payroll\AdvanceSalary::class)->name('payroll.advance-salary');
+    Route::get('payroll/loan-management', \App\Livewire\Payroll\LoanManagement::class)->name('payroll.loan-management');
+    Route::get('payroll/tax-management', \App\Livewire\Payroll\TaxManagement::class)->name('payroll.tax-management');
+    Route::get('payroll/payroll-settings', \App\Livewire\Payroll\PayrollSettings::class)->name('payroll.payroll-settings');
+    Route::get('payroll/test', \App\Livewire\Payroll\Test::class)->name('payroll.test');
+
     // System Management Routes
     Route::redirect('system-management', 'system-management/index');
     
