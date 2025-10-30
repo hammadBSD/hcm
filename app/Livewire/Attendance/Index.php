@@ -219,10 +219,15 @@ class Index extends Component
                     
                     // Now calculate total working hours by processing all records for work sessions
                     $currentWorkStart = null;
+                    $hasMissingPair = false; // flag any unmatched IN/OUT
                     foreach ($sortedRecords as $record) {
                         $recordTime = Carbon::parse($record->punch_time);
                         
                         if ($record->device_type === 'IN') {
+                            // Consecutive IN without an OUT in between indicates a missing OUT
+                            if ($currentWorkStart !== null) {
+                                $hasMissingPair = true;
+                            }
                             $currentWorkStart = $recordTime;
                         } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
                             // Valid work session: check-in → check-out
@@ -231,23 +236,37 @@ class Index extends Component
                                 $dayTotalMinutes += $workDuration;
                             }
                             $currentWorkStart = null; // Reset for next session
+                        } elseif ($record->device_type === 'OUT' && $currentWorkStart === null) {
+                            // OUT without a prior IN indicates a missing IN
+                            $hasMissingPair = true;
                         }
                     }
-                    
-                    // Format total hours
-                    if ($dayTotalMinutes > 0) {
-                        $hours = floor($dayTotalMinutes / 60);
-                        $minutes = $dayTotalMinutes % 60;
-                        $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                    // If we ended the loop with an open IN, then the matching OUT is missing
+                    if ($currentWorkStart !== null) {
+                        $hasMissingPair = true;
                     }
                     
-                    // Format breaks information
-                    $breakHours = floor($totalBreakMinutes / 60);
-                    $breakMinutes = $totalBreakMinutes % 60;
-                    $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
-                    
-                    // Store individual break details for tooltip
-                    $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
+                    // If there was any missing pair, indicate and zero out totals as requested
+                    if ($hasMissingPair) {
+                        $processedData[$date]['breaks'] = '--';
+                        $processedData[$date]['total_hours'] = '0:00';
+                        $processedData[$date]['break_details'] = [];
+                    } else {
+                        // Format total hours
+                        if ($dayTotalMinutes > 0) {
+                            $hours = floor($dayTotalMinutes / 60);
+                            $minutes = $dayTotalMinutes % 60;
+                            $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                        }
+                        
+                        // Format breaks information
+                        $breakHours = floor($totalBreakMinutes / 60);
+                        $breakMinutes = $totalBreakMinutes % 60;
+                        $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
+                        
+                        // Store individual break details for tooltip
+                        $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
+                    }
                 }
             }
             
