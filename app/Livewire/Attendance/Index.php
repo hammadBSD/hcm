@@ -219,15 +219,10 @@ class Index extends Component
                     
                     // Now calculate total working hours by processing all records for work sessions
                     $currentWorkStart = null;
-                    $hasMissingPair = false; // flag any unmatched IN/OUT
                     foreach ($sortedRecords as $record) {
                         $recordTime = Carbon::parse($record->punch_time);
                         
                         if ($record->device_type === 'IN') {
-                            // Consecutive IN without an OUT in between indicates a missing OUT
-                            if ($currentWorkStart !== null) {
-                                $hasMissingPair = true;
-                            }
                             $currentWorkStart = $recordTime;
                         } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
                             // Valid work session: check-in → check-out
@@ -236,37 +231,23 @@ class Index extends Component
                                 $dayTotalMinutes += $workDuration;
                             }
                             $currentWorkStart = null; // Reset for next session
-                        } elseif ($record->device_type === 'OUT' && $currentWorkStart === null) {
-                            // OUT without a prior IN indicates a missing IN
-                            $hasMissingPair = true;
                         }
-                    }
-                    // If we ended the loop with an open IN, then the matching OUT is missing
-                    if ($currentWorkStart !== null) {
-                        $hasMissingPair = true;
                     }
                     
-                    // If there was any missing pair, indicate and zero out totals as requested
-                    if ($hasMissingPair) {
-                        $processedData[$date]['breaks'] = '--';
-                        $processedData[$date]['total_hours'] = '0:00';
-                        $processedData[$date]['break_details'] = [];
-                    } else {
-                        // Format total hours
-                        if ($dayTotalMinutes > 0) {
-                            $hours = floor($dayTotalMinutes / 60);
-                            $minutes = $dayTotalMinutes % 60;
-                            $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
-                        }
-                        
-                        // Format breaks information
-                        $breakHours = floor($totalBreakMinutes / 60);
-                        $breakMinutes = $totalBreakMinutes % 60;
-                        $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
-                        
-                        // Store individual break details for tooltip
-                        $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
+                    // Format total hours
+                    if ($dayTotalMinutes > 0) {
+                        $hours = floor($dayTotalMinutes / 60);
+                        $minutes = $dayTotalMinutes % 60;
+                        $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                     }
+                    
+                    // Format breaks information
+                    $breakHours = floor($totalBreakMinutes / 60);
+                    $breakMinutes = $totalBreakMinutes % 60;
+                    $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
+                    
+                    // Store individual break details for tooltip
+                    $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
                 }
             }
             
@@ -293,22 +274,49 @@ class Index extends Component
         
         foreach ($middleRecords as $record) {
             $recordTime = Carbon::parse($record['punch_time']);
+            $type = $record['device_type'];
             
-            if ($record['device_type'] === 'OUT') {
-                // Store the check-out time
-                $lastCheckOut = $recordTime;
-            } elseif ($record['device_type'] === 'IN' && $lastCheckOut) {
-                // This is a break: check-out → check-in
-                $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
-                if ($breakDuration > 0) {
+            if ($type === 'OUT') {
+                // Two OUTs in a row means previous IN missing → close prior as '--'
+                if ($lastCheckOut !== null) {
                     $breakDetails[] = [
                         'start' => $lastCheckOut->format('H:i'),
-                        'end' => $recordTime->format('H:i'),
-                        'duration' => $this->formatDuration($breakDuration)
+                        'end' => '--',
+                        'duration' => '--',
                     ];
                 }
-                $lastCheckOut = null; // Reset for next break
+                // Start a new potential break at this OUT
+                $lastCheckOut = $recordTime;
+            } elseif ($type === 'IN') {
+                if ($lastCheckOut) {
+                    // Normal complete pair: OUT → IN
+                    $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
+                    if ($breakDuration > 0) {
+                        $breakDetails[] = [
+                            'start' => $lastCheckOut->format('H:i'),
+                            'end' => $recordTime->format('H:i'),
+                            'duration' => $this->formatDuration($breakDuration),
+                        ];
+                    }
+                    $lastCheckOut = null; // Reset for next break
+                } else {
+                    // IN without prior OUT → missing OUT, show '--' → IN
+                    $breakDetails[] = [
+                        'start' => '--',
+                        'end' => $recordTime->format('H:i'),
+                        'duration' => '--',
+                    ];
+                }
             }
+        }
+        
+        // If the sequence ended with an OUT and no following IN, show OUT → '--'
+        if ($lastCheckOut !== null) {
+            $breakDetails[] = [
+                'start' => $lastCheckOut->format('H:i'),
+                'end' => '--',
+                'duration' => '--',
+            ];
         }
         
         return $breakDetails;
