@@ -211,6 +211,16 @@
                             {{ __('Attendance Rules') }}
                         </div>
                     </flux:navlist.item>
+                    <flux:navlist.item 
+                        :href="route('system-management.attendance-settings.break-settings')" 
+                        wire:navigate
+                        :class="request()->routeIs('system-management.attendance-settings.break-settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="pause" class="w-4 h-4 mr-3" />
+                            {{ __('Break Settings') }}
+                        </div>
+                    </flux:navlist.item>
                 </div>
             </div>
 

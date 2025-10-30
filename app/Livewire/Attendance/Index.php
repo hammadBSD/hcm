@@ -245,6 +245,9 @@ class Index extends Component
                     $breakHours = floor($totalBreakMinutes / 60);
                     $breakMinutes = $totalBreakMinutes % 60;
                     $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
+                    
+                    // Store individual break details for tooltip
+                    $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
                 }
             }
             
@@ -256,6 +259,59 @@ class Index extends Component
         $this->sortAttendanceData($processedData);
         
         return array_values($processedData);
+    }
+
+    private function getBreakDetails($sortedRecords)
+    {
+        $breakDetails = [];
+        $lastCheckOut = null;
+        
+        // Convert Collection to array if needed
+        $recordsArray = is_array($sortedRecords) ? $sortedRecords : $sortedRecords->toArray();
+        
+        // Skip first check-in and last check-out (boundary times)
+        $middleRecords = array_slice($recordsArray, 1, -1);
+        
+        foreach ($middleRecords as $record) {
+            $recordTime = Carbon::parse($record['punch_time']);
+            
+            if ($record['device_type'] === 'OUT') {
+                // Store the check-out time
+                $lastCheckOut = $recordTime;
+            } elseif ($record['device_type'] === 'IN' && $lastCheckOut) {
+                // This is a break: check-out → check-in
+                $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
+                if ($breakDuration > 0) {
+                    $breakDetails[] = [
+                        'start' => $lastCheckOut->format('H:i'),
+                        'end' => $recordTime->format('H:i'),
+                        'duration' => $this->formatDuration($breakDuration)
+                    ];
+                }
+                $lastCheckOut = null; // Reset for next break
+            }
+        }
+        
+        return $breakDetails;
+    }
+    
+    private function formatDuration($minutes)
+    {
+        // Round the minutes to the nearest whole number
+        $roundedMinutes = round($minutes);
+        
+        if ($roundedMinutes < 60) {
+            return $roundedMinutes . 'm';
+        }
+        
+        $hours = floor($roundedMinutes / 60);
+        $remainingMinutes = $roundedMinutes % 60;
+        
+        if ($remainingMinutes === 0) {
+            return $hours . 'h';
+        }
+        
+        return $hours . 'h ' . $remainingMinutes . 'm';
     }
 
     private function calculateAttendanceStats($records)

@@ -68,7 +68,7 @@
                         @if(count($payslips) > 0)
                             <div class="space-y-4">
                                 @foreach($payslips as $payslip)
-                                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center gap-4">
                                                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
