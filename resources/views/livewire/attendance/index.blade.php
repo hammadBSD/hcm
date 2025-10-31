@@ -225,7 +225,7 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                    <div class="text-sm {{ ($record['total_hours'] ?? '-') === 'N/A' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-900 dark:text-zinc-100' }}">
                                                         {{ $record['total_hours'] ?? '-' }}
                                                     </div>
                                                 </td>

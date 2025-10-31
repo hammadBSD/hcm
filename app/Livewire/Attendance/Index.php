@@ -219,10 +219,16 @@ class Index extends Component
                     
                     // Now calculate total working hours by processing all records for work sessions
                     $currentWorkStart = null;
+                    $hasMissingPair = false;
+                    
                     foreach ($sortedRecords as $record) {
                         $recordTime = Carbon::parse($record->punch_time);
                         
                         if ($record->device_type === 'IN') {
+                            // If we already have an IN pending, missing OUT before this
+                            if ($currentWorkStart !== null) {
+                                $hasMissingPair = true;
+                            }
                             $currentWorkStart = $recordTime;
                         } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
                             // Valid work session: check-in → check-out
@@ -231,11 +237,21 @@ class Index extends Component
                                 $dayTotalMinutes += $workDuration;
                             }
                             $currentWorkStart = null; // Reset for next session
+                        } elseif ($record->device_type === 'OUT' && $currentWorkStart === null) {
+                            // OUT without a prior IN indicates missing IN
+                            $hasMissingPair = true;
                         }
                     }
                     
-                    // Format total hours
-                    if ($dayTotalMinutes > 0) {
+                    // If we ended with an unmatched IN, missing OUT
+                    if ($currentWorkStart !== null) {
+                        $hasMissingPair = true;
+                    }
+                    
+                    // Format total hours - show N/A if missing pairs detected
+                    if ($hasMissingPair) {
+                        $processedData[$date]['total_hours'] = 'N/A';
+                    } elseif ($dayTotalMinutes > 0) {
                         $hours = floor($dayTotalMinutes / 60);
                         $minutes = $dayTotalMinutes % 60;
                         $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
@@ -601,3 +617,4 @@ class Index extends Component
             ->layout('components.layouts.app');
     }
 }
+
