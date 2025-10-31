@@ -191,19 +191,25 @@ class Index extends Component
                 if (!empty($dayRecords)) {
                     $sortedRecords = collect($dayRecords)->sortBy('punch_time');
                     
+                    // Deduplicate records before processing
+                    $deduplicatedRecords = $this->deduplicateRecords($sortedRecords->toArray());
+                    
+                    // Convert back to collection for slice operations
+                    $deduplicatedCollection = collect($deduplicatedRecords);
+                    
                     // Skip first check-in and last check-out, process everything in between
-                    $middleRecords = $sortedRecords->slice(1, -1);
+                    $middleRecords = $deduplicatedCollection->slice(1, -1);
                     
                     $currentCheckIn = null;
                     $lastCheckOut = null;
                     
                     foreach ($middleRecords as $record) {
-                        $recordTime = Carbon::parse($record->punch_time);
+                        $recordTime = Carbon::parse($record['punch_time']);
                         
-                        if ($record->device_type === 'OUT') {
+                        if ($record['device_type'] === 'OUT') {
                             // Store the check-out time
                             $lastCheckOut = $recordTime;
-                        } elseif ($record->device_type === 'IN' && $lastCheckOut) {
+                        } elseif ($record['device_type'] === 'IN' && $lastCheckOut) {
                             // This is a break: check-out → check-in
                             $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
                             if ($breakDuration > 0) {
@@ -211,7 +217,7 @@ class Index extends Component
                                 $totalBreakMinutes += $breakDuration;
                             }
                             $lastCheckOut = null; // Reset for next break
-                        } elseif ($record->device_type === 'IN' && !$lastCheckOut) {
+                        } elseif ($record['device_type'] === 'IN' && !$lastCheckOut) {
                             // This is start of a work session (not a break)
                             $currentCheckIn = $recordTime;
                         }
@@ -221,23 +227,23 @@ class Index extends Component
                     $currentWorkStart = null;
                     $hasMissingPair = false;
                     
-                    foreach ($sortedRecords as $record) {
-                        $recordTime = Carbon::parse($record->punch_time);
+                    foreach ($deduplicatedCollection as $record) {
+                        $recordTime = Carbon::parse($record['punch_time']);
                         
-                        if ($record->device_type === 'IN') {
+                        if ($record['device_type'] === 'IN') {
                             // If we already have an IN pending, missing OUT before this
                             if ($currentWorkStart !== null) {
                                 $hasMissingPair = true;
                             }
                             $currentWorkStart = $recordTime;
-                        } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
+                        } elseif ($record['device_type'] === 'OUT' && $currentWorkStart) {
                             // Valid work session: check-in → check-out
                             $workDuration = $currentWorkStart->diffInMinutes($recordTime);
                             if ($workDuration > 0) {
                                 $dayTotalMinutes += $workDuration;
                             }
                             $currentWorkStart = null; // Reset for next session
-                        } elseif ($record->device_type === 'OUT' && $currentWorkStart === null) {
+                        } elseif ($record['device_type'] === 'OUT' && $currentWorkStart === null) {
                             // OUT without a prior IN indicates missing IN
                             $hasMissingPair = true;
                         }
@@ -263,7 +269,7 @@ class Index extends Component
                     $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
                     
                     // Store individual break details for tooltip
-                    $processedData[$date]['break_details'] = $this->getBreakDetails($sortedRecords);
+                    $processedData[$date]['break_details'] = $this->getBreakDetails($deduplicatedCollection);
                 }
             }
             
@@ -285,8 +291,11 @@ class Index extends Component
         // Convert Collection to array if needed
         $recordsArray = is_array($sortedRecords) ? $sortedRecords : $sortedRecords->toArray();
         
+        // Deduplicate records before processing
+        $deduplicatedRecords = $this->deduplicateRecords($recordsArray);
+        
         // Skip first check-in and last check-out (boundary times)
-        $middleRecords = array_slice($recordsArray, 1, -1);
+        $middleRecords = array_slice($deduplicatedRecords, 1, -1);
         
         foreach ($middleRecords as $record) {
             $recordTime = Carbon::parse($record['punch_time']);
@@ -355,6 +364,59 @@ class Index extends Component
         }
         
         return $hours . 'h ' . $remainingMinutes . 'm';
+    }
+
+    /**
+     * Deduplicate attendance records that occur within 5 seconds of each other
+     * For consecutive same-type records, keep the latest one
+     */
+    private function deduplicateRecords($records)
+    {
+        if (empty($records)) {
+            return $records;
+        }
+
+        // Convert Collection to array if needed
+        $recordsArray = is_array($records) ? $records : $records->toArray();
+        
+        if (count($recordsArray) <= 1) {
+            return $recordsArray;
+        }
+
+        $deduplicated = [];
+        $lastRecord = null;
+        $lastTime = null;
+        
+        foreach ($recordsArray as $record) {
+            $recordTime = Carbon::parse($record['punch_time']);
+            $recordType = $record['device_type'];
+            
+            if ($lastRecord === null) {
+                // First record, always include
+                $deduplicated[] = $record;
+                $lastRecord = $record;
+                $lastTime = $recordTime;
+            } else {
+                $lastType = $lastRecord['device_type'];
+                $timeDiff = $lastTime->diffInSeconds($recordTime);
+                
+                // If same type and within 5 seconds, keep the later one (replace)
+                if ($recordType === $lastType && $timeDiff <= 5) {
+                    // Replace the last record with this one (keep the latest)
+                    array_pop($deduplicated);
+                    $deduplicated[] = $record;
+                    $lastRecord = $record;
+                    $lastTime = $recordTime;
+                } else {
+                    // Different type or more than 5 seconds apart, keep both
+                    $deduplicated[] = $record;
+                    $lastRecord = $record;
+                    $lastTime = $recordTime;
+                }
+            }
+        }
+        
+        return $deduplicated;
     }
 
     private function calculateAttendanceStats($records)
@@ -617,4 +679,5 @@ class Index extends Component
             ->layout('components.layouts.app');
     }
 }
+
 
