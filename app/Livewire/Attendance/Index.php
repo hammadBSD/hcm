@@ -191,6 +191,9 @@ class Index extends Component
                 if (!empty($dayRecords)) {
                     $sortedRecords = collect($dayRecords)->sortBy('punch_time');
                     
+                    // Remove duplicate consecutive punches (within 8 seconds) to handle device misreads
+                    $sortedRecords = $this->deduplicateConsecutivePunches($sortedRecords, 8);
+                    
                     // Skip first check-in and last check-out, process everything in between
                     $middleRecords = $sortedRecords->slice(1, -1);
                     
@@ -277,6 +280,53 @@ class Index extends Component
         $this->sortAttendanceData($processedData);
         
         return array_values($processedData);
+    }
+
+    /**
+     * Remove consecutive duplicate punches within a specified time threshold.
+     * This handles cases where a biometric device registers the same punch multiple times.
+     * 
+     * @param \Illuminate\Support\Collection $records Sorted attendance records
+     * @param int $thresholdSeconds Time threshold in seconds (default: 8)
+     * @return \Illuminate\Support\Collection Filtered records without duplicates
+     */
+    private function deduplicateConsecutivePunches($records, $thresholdSeconds = 8)
+    {
+        if ($records->isEmpty()) {
+            return $records;
+        }
+
+        $filtered = collect([]);
+        $previousRecord = null;
+        $previousTime = null;
+
+        foreach ($records as $currentRecord) {
+            $currentTime = Carbon::parse($currentRecord->punch_time);
+
+            // First record is always included
+            if ($previousRecord === null) {
+                $filtered->push($currentRecord);
+                $previousRecord = $currentRecord;
+                $previousTime = $currentTime;
+                continue;
+            }
+
+            $timeDiff = $currentTime->diffInSeconds($previousTime);
+            $sameType = $currentRecord->device_type === $previousRecord->device_type;
+
+            // If same type and within threshold, skip this duplicate
+            if ($sameType && $timeDiff <= $thresholdSeconds) {
+                // Skip this duplicate record
+                continue;
+            }
+
+            // Different type or outside threshold - valid record
+            $filtered->push($currentRecord);
+            $previousRecord = $currentRecord;
+            $previousTime = $currentTime;
+        }
+
+        return $filtered;
     }
 
     private function getBreakDetails($sortedRecords)
