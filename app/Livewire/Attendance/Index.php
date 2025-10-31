@@ -191,9 +191,6 @@ class Index extends Component
                 if (!empty($dayRecords)) {
                     $sortedRecords = collect($dayRecords)->sortBy('punch_time');
                     
-                    // Remove duplicate consecutive punches (within 8 seconds) to handle device misreads
-                    $sortedRecords = $this->deduplicateConsecutivePunches($sortedRecords, 8);
-                    
                     // Skip first check-in and last check-out, process everything in between
                     $middleRecords = $sortedRecords->slice(1, -1);
                     
@@ -222,41 +219,23 @@ class Index extends Component
                     
                     // Now calculate total working hours by processing all records for work sessions
                     $currentWorkStart = null;
-                    $hasMissingPair = false; // Flag to detect missing IN/OUT pairs
-                    
                     foreach ($sortedRecords as $record) {
                         $recordTime = Carbon::parse($record->punch_time);
                         
                         if ($record->device_type === 'IN') {
-                            // If we already have a check-in pending, that means previous OUT is missing
-                            if ($currentWorkStart !== null) {
-                                $hasMissingPair = true;
-                            }
                             $currentWorkStart = $recordTime;
-                        } elseif ($record->device_type === 'OUT') {
-                            if ($currentWorkStart) {
-                                // Valid work session: check-in → check-out
-                                $workDuration = $currentWorkStart->diffInMinutes($recordTime);
-                                if ($workDuration > 0) {
-                                    $dayTotalMinutes += $workDuration;
-                                }
-                                $currentWorkStart = null; // Reset for next session
-                            } else {
-                                // OUT without a prior IN indicates missing IN
-                                $hasMissingPair = true;
+                        } elseif ($record->device_type === 'OUT' && $currentWorkStart) {
+                            // Valid work session: check-in → check-out
+                            $workDuration = $currentWorkStart->diffInMinutes($recordTime);
+                            if ($workDuration > 0) {
+                                $dayTotalMinutes += $workDuration;
                             }
+                            $currentWorkStart = null; // Reset for next session
                         }
                     }
                     
-                    // If we ended with an unmatched IN, that means the OUT is missing
-                    if ($currentWorkStart !== null) {
-                        $hasMissingPair = true;
-                    }
-                    
-                    // Format total hours - show N/A if there are missing pairs
-                    if ($hasMissingPair) {
-                        $processedData[$date]['total_hours'] = 'N/A';
-                    } elseif ($dayTotalMinutes > 0) {
+                    // Format total hours
+                    if ($dayTotalMinutes > 0) {
                         $hours = floor($dayTotalMinutes / 60);
                         $minutes = $dayTotalMinutes % 60;
                         $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
@@ -280,53 +259,6 @@ class Index extends Component
         $this->sortAttendanceData($processedData);
         
         return array_values($processedData);
-    }
-
-    /**
-     * Remove consecutive duplicate punches within a specified time threshold.
-     * This handles cases where a biometric device registers the same punch multiple times.
-     * 
-     * @param \Illuminate\Support\Collection $records Sorted attendance records
-     * @param int $thresholdSeconds Time threshold in seconds (default: 8)
-     * @return \Illuminate\Support\Collection Filtered records without duplicates
-     */
-    private function deduplicateConsecutivePunches($records, $thresholdSeconds = 8)
-    {
-        if ($records->isEmpty()) {
-            return $records;
-        }
-
-        $filtered = collect([]);
-        $previousRecord = null;
-        $previousTime = null;
-
-        foreach ($records as $currentRecord) {
-            $currentTime = Carbon::parse($currentRecord->punch_time);
-
-            // First record is always included
-            if ($previousRecord === null) {
-                $filtered->push($currentRecord);
-                $previousRecord = $currentRecord;
-                $previousTime = $currentTime;
-                continue;
-            }
-
-            $timeDiff = $currentTime->diffInSeconds($previousTime);
-            $sameType = $currentRecord->device_type === $previousRecord->device_type;
-
-            // If same type and within threshold, skip this duplicate
-            if ($sameType && $timeDiff <= $thresholdSeconds) {
-                // Skip this duplicate record
-                continue;
-            }
-
-            // Different type or outside threshold - valid record
-            $filtered->push($currentRecord);
-            $previousRecord = $currentRecord;
-            $previousTime = $currentTime;
-        }
-
-        return $filtered;
     }
 
     private function getBreakDetails($sortedRecords)

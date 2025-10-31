@@ -43,7 +43,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+            </div>
 
                 <!-- Personal Information Section -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
@@ -135,7 +135,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Area</label>
                                 <p class="text-sm text-zinc-900 dark:text-zinc-100">{{ $additionalInfo->area ?? '-' }}</p>
-                            </div>
+            </div>
                             <div>
                                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Zip Code</label>
                                 <p class="text-sm text-zinc-900 dark:text-zinc-100">{{ $additionalInfo->zip_code ?? '-' }}</p>
@@ -309,7 +309,7 @@
                     <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
                         <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
                             Salary & Legal Compliance
-                        </flux:heading>
+                                </flux:heading>
                     </div>
                     <div class="p-6">
                         <!-- Salary Information -->
@@ -360,7 +360,7 @@
                                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Salary Notes</label>
                                 <p class="text-sm text-zinc-900 dark:text-zinc-100">{{ $salaryLegalCompliance->salary_notes }}</p>
                             </div>
-                            @endif
+                                    @endif
                         </div>
 
                         <!-- Banking Information -->
