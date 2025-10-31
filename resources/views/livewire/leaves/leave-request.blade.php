@@ -36,7 +36,7 @@
                 <div class="mb-8">
                     <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
                         Add Leave Request
-                    </flux:heading>
+            </flux:heading>
                 </div>
 
                 <form wire:submit="submit" class="space-y-6 mt-5">

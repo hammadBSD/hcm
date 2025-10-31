@@ -194,9 +194,34 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['breaks'] ?? '-' }}
-                                                    </div>
+                                                    @if(isset($record['break_details']) && count($record['break_details']) > 0)
+                                                        <flux:tooltip>
+                                                            <div class="text-sm text-zinc-900 dark:text-zinc-100 cursor-help">
+                                                                {{ $record['breaks'] ?? '-' }}
+                                                            </div>
+                                                            <flux:tooltip.content class="max-w-[20rem]">
+                                                                <div class="space-y-2">
+                                                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                                        {{ __('Break Details') }}
+                                                                    </div>
+                                                                    @foreach($record['break_details'] as $index => $break)
+                                                                        <div class="text-sm">
+                                                                            <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                                                                                <span class="text-red-600 dark:text-red-400 font-medium">{{ $break['start'] }}</span>
+                                                                                <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500" />
+                                                                                <span class="text-green-600 dark:text-green-400 font-medium">{{ $break['end'] }}</span>
+                                                                                <span class="text-zinc-600 dark:text-zinc-400">({{ $break['duration'] }})</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </flux:tooltip.content>
+                                                        </flux:tooltip>
+                                                    @else
+                                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                            {{ $record['breaks'] ?? '-' }}
+                                                        </div>
+                                                    @endif
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
