@@ -3,17 +3,31 @@
 namespace App\Livewire\SystemManagement\OrganizationSetting\EmploymentType;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\EmploymentType;
 
 class Index extends Component
 {
-    public $sortBy = '';
+    use WithPagination;
+
+    public $sortBy = 'name';
     public $sortDirection = 'asc';
+    public $search = '';
     
     // Add Employment Type Flyout Properties
     public $showAddEmploymentTypeFlyout = false;
+    public $editingId = null;
     public $typeName = '';
+    public $typeCode = '';
     public $description = '';
-    public $isActive = true;
+    public $status = 'active';
+
+    protected $paginationTheme = 'tailwind';
+
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
 
     public function sort($field)
     {
@@ -23,6 +37,7 @@ class Index extends Component
             $this->sortBy = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
 
     public function createEmploymentType()
@@ -41,30 +56,84 @@ class Index extends Component
     {
         $this->validate([
             'typeName' => 'required|string|max:255',
+            'typeCode' => 'nullable|string|max:50|unique:employment_types,code,' . $this->editingId,
             'description' => 'nullable|string',
-            'isActive' => 'boolean',
+            'status' => 'required|in:active,inactive',
         ]);
+
+        if ($this->editingId) {
+            // Update existing
+            $employmentType = EmploymentType::findOrFail($this->editingId);
+            $employmentType->update([
+                'name' => $this->typeName,
+                'code' => $this->typeCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Employment Type updated successfully!');
+        } else {
+            // Create new
+            EmploymentType::create([
+                'name' => $this->typeName,
+                'code' => $this->typeCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Employment Type created successfully!');
+        }
         
-        // Here you would save the employment type to the database
-        // For now, we'll just close the flyout and show a success message
-        session()->flash('message', 'Employment Type created successfully!');
         $this->closeAddEmploymentTypeFlyout();
     }
     
     private function resetForm()
     {
+        $this->editingId = null;
         $this->typeName = '';
+        $this->typeCode = '';
         $this->description = '';
-        $this->isActive = true;
+        $this->status = 'active';
     }
 
-    public function editEmploymentType($id) { /* ... */ }
-    public function viewEmploymentType($id) { /* ... */ }
-    public function deleteEmploymentType($id) { /* ... */ }
+    public function editEmploymentType($id)
+    {
+        $employmentType = EmploymentType::findOrFail($id);
+        $this->editingId = $employmentType->id;
+        $this->typeName = $employmentType->name;
+        $this->typeCode = $employmentType->code ?? '';
+        $this->description = $employmentType->description ?? '';
+        $this->status = $employmentType->status;
+        $this->showAddEmploymentTypeFlyout = true;
+    }
+
+    public function deleteEmploymentType($id)
+    {
+        $employmentType = EmploymentType::findOrFail($id);
+        $employmentType->delete();
+        session()->flash('message', 'Employment Type deleted successfully!');
+    }
 
     public function render()
     {
-        return view('livewire.system-management.organization-setting.employment-type.index')
+        $query = EmploymentType::query();
+
+        // Apply search filter
+        if (!empty($this->search)) {
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('code', 'like', '%' . $this->search . '%')
+                  ->orWhere('description', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        // Apply sorting
+        $query->orderBy($this->sortBy, $this->sortDirection);
+
+        // Get paginated results
+        $employmentTypes = $query->paginate(10);
+
+        return view('livewire.system-management.organization-setting.employment-type.index', [
+            'employmentTypes' => $employmentTypes,
+        ])
             ->layout('components.layouts.app');
     }
 }

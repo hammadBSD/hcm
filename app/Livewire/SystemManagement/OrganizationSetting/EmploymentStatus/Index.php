@@ -3,17 +3,31 @@
 namespace App\Livewire\SystemManagement\OrganizationSetting\EmploymentStatus;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\EmploymentStatus;
 
 class Index extends Component
 {
-    public $sortBy = '';
+    use WithPagination;
+
+    public $sortBy = 'name';
     public $sortDirection = 'asc';
+    public $search = '';
     
     // Add Employment Status Flyout Properties
     public $showAddEmploymentStatusFlyout = false;
+    public $editingId = null;
     public $statusName = '';
+    public $statusCode = '';
     public $description = '';
-    public $isActive = true;
+    public $status = 'active';
+
+    protected $paginationTheme = 'tailwind';
+
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
 
     public function sort($field)
     {
@@ -23,6 +37,7 @@ class Index extends Component
             $this->sortBy = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
 
     public function createEmploymentStatus()
@@ -41,30 +56,78 @@ class Index extends Component
     {
         $this->validate([
             'statusName' => 'required|string|max:255',
+            'statusCode' => 'nullable|string|max:50|unique:employment_statuses,code,' . $this->editingId,
             'description' => 'nullable|string',
-            'isActive' => 'boolean',
+            'status' => 'required|in:active,inactive',
         ]);
+
+        if ($this->editingId) {
+            $employmentStatus = EmploymentStatus::findOrFail($this->editingId);
+            $employmentStatus->update([
+                'name' => $this->statusName,
+                'code' => $this->statusCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Employment Status updated successfully!');
+        } else {
+            EmploymentStatus::create([
+                'name' => $this->statusName,
+                'code' => $this->statusCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Employment Status created successfully!');
+        }
         
-        // Here you would save the employment status to the database
-        // For now, we'll just close the flyout and show a success message
-        session()->flash('message', 'Employment Status created successfully!');
         $this->closeAddEmploymentStatusFlyout();
     }
     
     private function resetForm()
     {
+        $this->editingId = null;
         $this->statusName = '';
+        $this->statusCode = '';
         $this->description = '';
-        $this->isActive = true;
+        $this->status = 'active';
     }
 
-    public function editEmploymentStatus($id) { /* ... */ }
-    public function viewEmploymentStatus($id) { /* ... */ }
-    public function deleteEmploymentStatus($id) { /* ... */ }
+    public function editEmploymentStatus($id)
+    {
+        $employmentStatus = EmploymentStatus::findOrFail($id);
+        $this->editingId = $employmentStatus->id;
+        $this->statusName = $employmentStatus->name;
+        $this->statusCode = $employmentStatus->code ?? '';
+        $this->description = $employmentStatus->description ?? '';
+        $this->status = $employmentStatus->status;
+        $this->showAddEmploymentStatusFlyout = true;
+    }
+
+    public function deleteEmploymentStatus($id)
+    {
+        $employmentStatus = EmploymentStatus::findOrFail($id);
+        $employmentStatus->delete();
+        session()->flash('message', 'Employment Status deleted successfully!');
+    }
 
     public function render()
     {
-        return view('livewire.system-management.organization-setting.employment-status.index')
+        $query = EmploymentStatus::query();
+
+        if (!empty($this->search)) {
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('code', 'like', '%' . $this->search . '%')
+                  ->orWhere('description', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $query->orderBy($this->sortBy, $this->sortDirection);
+        $employmentStatuses = $query->paginate(10);
+
+        return view('livewire.system-management.organization-setting.employment-status.index', [
+            'employmentStatuses' => $employmentStatuses,
+        ])
             ->layout('components.layouts.app');
     }
 }

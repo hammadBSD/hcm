@@ -13,7 +13,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seed roles and permissions first
+        // Seed organization structure data first
+        $this->call([
+            CountrySeeder::class,
+            ProvinceSeeder::class,
+            CurrencySeeder::class,
+            EmploymentTypeSeeder::class,
+            EmploymentStatusSeeder::class,
+        ]);
+
+        // Seed roles and permissions
         $this->call([
             RolesAndPermissionsSeeder::class,
         ]);

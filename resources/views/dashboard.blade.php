@@ -100,13 +100,16 @@
             </div>
         </div>
 
-        <!-- Leave Types Chart -->
+        <!-- Monthly Attendance Chart -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
-            <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100 mb-4 md:mb-6">
-                Leave Types Distribution
-            </flux:heading>
+            <div class="flex items-center justify-between mb-4 md:mb-6">
+                <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
+                    Monthly Attendance
+                </flux:heading>
+                <livewire:dashboard.monthly-attendance />
+            </div>
             <div class="h-48 md:h-64 relative overflow-hidden">
-                <canvas id="leaveTypesChart"></canvas>
+                <canvas id="monthlyAttendanceChart"></canvas>
             </div>
         </div>
 
@@ -171,12 +174,14 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
-        // Chart instances storage
-        let charts = {
+        // Chart instances storage (exposed globally)
+        window.charts = {
             attendance: null,
             department: null,
-            leaveTypes: null
+            monthlyAttendance: null
         };
+        
+        let charts = window.charts;
 
         // Function to destroy existing charts
         function destroyCharts() {
@@ -185,15 +190,16 @@
                     chart.destroy();
                 }
             });
-            charts = {
+            window.charts = {
                 attendance: null,
                 department: null,
-                leaveTypes: null
+                monthlyAttendance: null
             };
+            charts = window.charts;
         }
 
-        // Function to initialize all charts
-        function initializeCharts() {
+        // Function to initialize all charts (exposed globally)
+        window.initializeCharts = function initializeCharts() {
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
                 console.error('Chart.js not loaded');
@@ -319,53 +325,12 @@
             }
         });
 
-            // Leave Types Distribution Chart (Bar Chart)
-            const leaveTypesCanvas = document.getElementById('leaveTypesChart');
-            if (!leaveTypesCanvas) {
-                console.error('Leave types chart canvas not found');
-                return;
+            // Monthly Attendance Chart - initialize if function exists
+            if (typeof window.initMonthlyAttendanceChart === 'function') {
+                setTimeout(() => {
+                    window.initMonthlyAttendanceChart();
+                }, 300);
             }
-            const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
-            charts.leaveTypes = new Chart(leaveTypesCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Sick', 'Vacation', 'Personal', 'Emergency'],
-                datasets: [{
-                    label: 'Requests',
-                    data: [8, 15, 5, 3],
-                    backgroundColor: [
-                        '#ef4444',
-                        '#10b981',
-                        '#f59e0b',
-                        '#8b5cf6'
-                    ],
-                    borderRadius: 8,
-                    borderSkipped: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: document.documentElement.classList.contains('dark') ? '#27272a' : '#f4f4f5'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                }
-            }
-        });
         }
 
         // Initialize charts when page loads
@@ -390,19 +355,19 @@
                 // Check if charts are missing and re-initialize
                 const attendanceCanvas = document.getElementById('attendanceChart');
                 const departmentCanvas = document.getElementById('departmentChart');
-                const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+                const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
                 
-                if (attendanceCanvas && departmentCanvas && leaveTypesCanvas) {
+                if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
                     const attendanceCtx = attendanceCanvas.getContext('2d');
                     const departmentCtx = departmentCanvas.getContext('2d');
-                    const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
+                    const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                     
                     // Check if any canvas is empty (no chart data)
                     const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
                     const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
-                    const leaveTypesEmpty = leaveTypesCtx.getImageData(0, 0, leaveTypesCanvas.width, leaveTypesCanvas.height).data.every(pixel => pixel === 0);
+                    const monthlyAttendanceEmpty = monthlyAttendanceCtx.getImageData(0, 0, monthlyAttendanceCanvas.width, monthlyAttendanceCanvas.height).data.every(pixel => pixel === 0);
                     
-                    if (attendanceEmpty || departmentEmpty || leaveTypesEmpty) {
+                    if (attendanceEmpty || departmentEmpty || monthlyAttendanceEmpty) {
                         console.log('Charts not rendered properly, re-initializing...');
                         destroyCharts();
                         initializeCharts();
@@ -418,12 +383,12 @@
                     // Check if charts are blank and re-initialize if needed
                     const attendanceCanvas = document.getElementById('attendanceChart');
                     const departmentCanvas = document.getElementById('departmentChart');
-                    const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+                    const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
                     
-                    if (attendanceCanvas && departmentCanvas && leaveTypesCanvas) {
+                    if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
                         const attendanceCtx = attendanceCanvas.getContext('2d');
                         const departmentCtx = departmentCanvas.getContext('2d');
-                        const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
+                        const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                         
                         // Check if canvas is empty (no chart data)
                         if (attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0)) {
@@ -458,19 +423,19 @@
         setTimeout(() => {
             const attendanceCanvas = document.getElementById('attendanceChart');
             const departmentCanvas = document.getElementById('departmentChart');
-            const leaveTypesCanvas = document.getElementById('leaveTypesChart');
+            const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
             
-            if (attendanceCanvas && departmentCanvas && leaveTypesCanvas) {
+            if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
                 const attendanceCtx = attendanceCanvas.getContext('2d');
                 const departmentCtx = departmentCanvas.getContext('2d');
-                const leaveTypesCtx = leaveTypesCanvas.getContext('2d');
+                const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                 
                 // Check if any canvas is empty (no chart data)
                 const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
                 const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
-                const leaveTypesEmpty = leaveTypesCtx.getImageData(0, 0, leaveTypesCanvas.width, leaveTypesCanvas.height).data.every(pixel => pixel === 0);
+                const monthlyAttendanceEmpty = monthlyAttendanceCtx.getImageData(0, 0, monthlyAttendanceCanvas.width, monthlyAttendanceCanvas.height).data.every(pixel => pixel === 0);
                 
-                if (attendanceEmpty || departmentEmpty || leaveTypesEmpty) {
+                if (attendanceEmpty || departmentEmpty || monthlyAttendanceEmpty) {
                     console.log('Final fallback: Charts not rendered, re-initializing...');
                     destroyCharts();
                     initializeCharts();

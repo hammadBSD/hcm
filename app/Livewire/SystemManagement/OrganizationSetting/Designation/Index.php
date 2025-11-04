@@ -3,17 +3,31 @@
 namespace App\Livewire\SystemManagement\OrganizationSetting\Designation;
 
 use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\Designation;
 
 class Index extends Component
 {
-    public $sortBy = '';
+    use WithPagination;
+
+    public $sortBy = 'name';
     public $sortDirection = 'asc';
+    public $search = '';
     
     // Add Designation Flyout Properties
     public $showAddDesignationFlyout = false;
+    public $editingId = null;
     public $designationName = '';
+    public $designationCode = '';
     public $description = '';
-    public $isActive = true;
+    public $status = 'active';
+
+    protected $paginationTheme = 'tailwind';
+
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
 
     public function sort($field)
     {
@@ -23,6 +37,7 @@ class Index extends Component
             $this->sortBy = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
 
     public function createDesignation()
@@ -41,30 +56,78 @@ class Index extends Component
     {
         $this->validate([
             'designationName' => 'required|string|max:255',
+            'designationCode' => 'nullable|string|max:50|unique:designations,code,' . $this->editingId,
             'description' => 'nullable|string',
-            'isActive' => 'boolean',
+            'status' => 'required|in:active,inactive',
         ]);
+
+        if ($this->editingId) {
+            $designation = Designation::findOrFail($this->editingId);
+            $designation->update([
+                'name' => $this->designationName,
+                'code' => $this->designationCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Designation updated successfully!');
+        } else {
+            Designation::create([
+                'name' => $this->designationName,
+                'code' => $this->designationCode ?: null,
+                'description' => $this->description,
+                'status' => $this->status,
+            ]);
+            session()->flash('message', 'Designation created successfully!');
+        }
         
-        // Here you would save the designation to the database
-        // For now, we'll just close the flyout and show a success message
-        session()->flash('message', 'Designation created successfully!');
         $this->closeAddDesignationFlyout();
     }
     
     private function resetForm()
     {
+        $this->editingId = null;
         $this->designationName = '';
+        $this->designationCode = '';
         $this->description = '';
-        $this->isActive = true;
+        $this->status = 'active';
     }
 
-    public function editDesignation($id) { /* ... */ }
-    public function viewDesignation($id) { /* ... */ }
-    public function deleteDesignation($id) { /* ... */ }
+    public function editDesignation($id)
+    {
+        $designation = Designation::findOrFail($id);
+        $this->editingId = $designation->id;
+        $this->designationName = $designation->name;
+        $this->designationCode = $designation->code ?? '';
+        $this->description = $designation->description ?? '';
+        $this->status = $designation->status;
+        $this->showAddDesignationFlyout = true;
+    }
+
+    public function deleteDesignation($id)
+    {
+        $designation = Designation::findOrFail($id);
+        $designation->delete();
+        session()->flash('message', 'Designation deleted successfully!');
+    }
 
     public function render()
     {
-        return view('livewire.system-management.organization-setting.designation.index')
+        $query = Designation::query();
+
+        if (!empty($this->search)) {
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('code', 'like', '%' . $this->search . '%')
+                  ->orWhere('description', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $query->orderBy($this->sortBy, $this->sortDirection);
+        $designations = $query->paginate(10);
+
+        return view('livewire.system-management.organization-setting.designation.index', [
+            'designations' => $designations,
+        ])
             ->layout('components.layouts.app');
     }
 }
