@@ -52,22 +52,24 @@ class ZKTecoSyncController extends Controller
 
             foreach ($attendanceRecords as $record) {
                 try {
-                    // Check for duplicates
-                    $exists = DeviceAttendance::where('punch_code', $record['punch_code_id'])
-                        ->where('device_ip', $record['device_ip'])
-                        ->where('punch_time', $record['punch_time'])
-                        ->exists();
-
-                    if (!$exists) {
-                        DeviceAttendance::create([
+                    // Use updateOrCreate to handle duplicates gracefully
+                    // This matches the unique constraint: (punch_code, device_ip, punch_time)
+                    $attendance = DeviceAttendance::updateOrCreate(
+                        [
                             'punch_code' => $record['punch_code_id'],
                             'device_ip' => $record['device_ip'],
-                            'device_type' => $record['device_type'],
                             'punch_time' => Carbon::parse($record['punch_time']),
+                        ],
+                        [
+                            'device_type' => $record['device_type'],
                             'verify_mode' => $record['verify_mode'],
                             'is_processed' => $record['is_processed'] ?? false,
                             'sync_timestamp' => Carbon::parse($syncTimestamp),
-                        ]);
+                        ]
+                    );
+                    
+                    // Check if it was newly created or updated
+                    if ($attendance->wasRecentlyCreated) {
                         $savedCount++;
                     } else {
                         $duplicateCount++;
@@ -237,24 +239,26 @@ class ZKTecoSyncController extends Controller
 
             foreach ($monthlyRecords as $record) {
                 try {
-                    // Check for duplicates
-                    $exists = DeviceAttendance::where('punch_code', $record['punch_code'])
-                        ->where('device_ip', $record['device_ip'])
-                        ->where('punch_time', $record['punch_time'])
-                        ->exists();
-
-                    if (!$exists) {
-                        DeviceAttendance::create([
+                    // Use updateOrCreate to handle duplicates gracefully
+                    // This matches the unique constraint: (punch_code, device_ip, punch_time)
+                    $attendance = DeviceAttendance::updateOrCreate(
+                        [
                             'punch_code' => $record['punch_code'],
                             'device_ip' => $record['device_ip'],
-                            'device_type' => $record['device_type'],
                             'punch_time' => Carbon::parse($record['punch_time']),
+                        ],
+                        [
+                            'device_type' => $record['device_type'],
                             'punch_type' => $record['punch_type'] ?? null,
                             'verify_mode' => $record['verify_mode'] ?? null,
                             'is_processed' => $record['is_processed'] ?? false,
                             'status' => 'On Time', // Default status for monthly attendance
                             'sync_timestamp' => Carbon::parse($syncTimestamp),
-                        ]);
+                        ]
+                    );
+                    
+                    // Check if it was newly created or updated
+                    if ($attendance->wasRecentlyCreated) {
                         $savedCount++;
                     } else {
                         $duplicateCount++;

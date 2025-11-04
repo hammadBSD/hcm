@@ -92,6 +92,14 @@
                                 <div class="flex items-center justify-between">
                                     <flux:heading size="lg">Recent Attendance Records</flux:heading>
                                     <div class="flex items-center gap-3">
+                                        <flux:select wire:model.live="selectedUserId" placeholder="Select User" class="w-64">
+                                            @if(!$selectedUserId)
+                                                <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
+                                            @endif
+                                            @foreach($availableUsers as $user)
+                                                <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
+                                            @endforeach
+                                        </flux:select>
                                         <flux:select wire:model.live="selectedMonth" placeholder="{{ $currentMonth }}" class="w-40">
                                             <option value="">{{ $currentMonth }} (Current)</option>
                                             @foreach($availableMonths as $month)

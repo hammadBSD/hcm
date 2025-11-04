@@ -6,6 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
+use App\Models\User;
 use Carbon\Carbon;
 
 class Index extends Component
@@ -17,6 +18,9 @@ class Index extends Component
     public $punchCode = null;
     public $employee = null;
     public $availableMonths = [];
+    public $selectedUserId = null;
+    public $availableUsers = [];
+    public $userSearchTerm = '';
     
     // Sorting Properties
     public $sortBy = 'date';
@@ -36,7 +40,29 @@ class Index extends Component
     {
         $this->currentMonth = Carbon::now()->format('F Y');
         $this->selectedMonth = ''; // Default to current month
+        $this->loadAvailableUsers();
         $this->loadUserAttendance();
+    }
+    
+    public function loadAvailableUsers()
+    {
+        // Get all employees with punch codes and their associated users
+        $employees = Employee::whereNotNull('punch_code')
+            ->whereNotNull('user_id')
+            ->with('user:id,name,email')
+            ->get();
+        
+        $this->availableUsers = $employees->map(function($employee) {
+            $user = $employee->user;
+            return [
+                'id' => $user->id,
+                'name' => $user->name ?? ($employee->first_name . ' ' . $employee->last_name),
+                'punch_code' => $employee->punch_code,
+            ];
+        })
+        ->sortBy('name')
+        ->values()
+        ->toArray();
     }
 
     public function loadAvailableMonths()
@@ -67,15 +93,16 @@ class Index extends Component
 
     public function loadUserAttendance()
     {
-        // Get the logged-in user
-        $user = Auth::user();
+        // Determine which user to load attendance for
+        // If selectedUserId is null or empty, use current logged-in user
+        $userId = !empty($this->selectedUserId) ? $this->selectedUserId : Auth::id();
         
-        if (!$user) {
+        if (!$userId) {
             return;
         }
 
         // Find the employee record for this user
-        $this->employee = Employee::where('user_id', $user->id)->first();
+        $this->employee = Employee::where('user_id', $userId)->first();
         
         if (!$this->employee) {
             return;
@@ -489,6 +516,14 @@ class Index extends Component
         ];
     }
 
+    public function updatedSelectedUserId()
+    {
+        // Reset month to current month when user changes
+        $this->selectedMonth = '';
+        // Reload attendance data when user filter changes
+        $this->loadUserAttendance();
+    }
+
     public function updatedSelectedMonth()
     {
         // Reload attendance data when month filter changes
@@ -673,9 +708,23 @@ class Index extends Component
         $this->leaveDays = '1.00 Working Day';
     }
 
+    public function getFilteredUsersProperty()
+    {
+        if (empty($this->userSearchTerm)) {
+            return $this->availableUsers;
+        }
+        
+        $searchTerm = strtolower($this->userSearchTerm);
+        return array_filter($this->availableUsers, function($user) use ($searchTerm) {
+            return str_contains(strtolower($user['name']), $searchTerm);
+        });
+    }
+
     public function render()
     {
-        return view('livewire.attendance.index')
+        return view('livewire.attendance.index', [
+            'filteredUsers' => $this->filteredUsers,
+        ])
             ->layout('components.layouts.app');
     }
 }
