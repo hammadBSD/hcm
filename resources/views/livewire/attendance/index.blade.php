@@ -190,14 +190,30 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['check_in'] ?? '-' }}
+                                                    <div class="flex flex-col gap-1">
+                                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                            {{ $record['check_in'] ?? '-' }}
+                                                        </div>
+                                                        @if(isset($record['is_late']) && $record['is_late'])
+                                                            <flux:badge color="red" size="xs" class="w-fit">
+                                                                <flux:icon name="clock" class="w-3 h-3 mr-1" />
+                                                                Late
+                                                            </flux:badge>
+                                                        @endif
                                                     </div>
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['check_out'] ?? '-' }}
+                                                    <div class="flex flex-col gap-1">
+                                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                            {{ $record['check_out'] ?? '-' }}
+                                                        </div>
+                                                        @if(isset($record['is_early']) && $record['is_early'])
+                                                            <flux:badge color="orange" size="xs" class="w-fit">
+                                                                <flux:icon name="clock" class="w-3 h-3 mr-1" />
+                                                                Early
+                                                            </flux:badge>
+                                                        @endif
                                                     </div>
                                                 </td>
                                                 
@@ -256,8 +272,10 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm {{ ($record['total_hours'] ?? '-') === 'N/A' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-900 dark:text-zinc-100' }}">
-                                                        {{ $record['total_hours'] ?? '-' }}
+                                                    <div class="flex flex-col gap-1">
+                                                        <div class="text-sm {{ ($record['total_hours'] ?? '-') === 'N/A' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-900 dark:text-zinc-100' }}">
+                                                            {{ $record['total_hours'] ?? '-' }}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 
@@ -265,14 +283,34 @@
                                                     @php
                                                         $statusColor = match($record['status']) {
                                                             'present' => 'green',
+                                                            'present_late' => 'yellow',
+                                                            'present_early' => 'orange',
+                                                            'present_late_early' => 'amber',
                                                             'off' => 'zinc',
                                                             'absent' => 'red',
                                                             default => 'zinc'
                                                         };
+                                                        
+                                                        $statusLabel = match($record['status']) {
+                                                            'present' => 'Present',
+                                                            'present_late' => 'Present (Late)',
+                                                            'present_early' => 'Present (Early)',
+                                                            'present_late_early' => 'Present (Late & Early)',
+                                                            'off' => 'Off Day',
+                                                            'absent' => 'Absent',
+                                                            default => ucfirst($record['status'])
+                                                        };
                                                     @endphp
-                                                    <flux:badge color="{{ $statusColor }}" size="sm">
-                                                        {{ ucfirst($record['status']) }}
-                                                    </flux:badge>
+                                                    <div class="flex flex-col gap-1">
+                                                        <flux:badge color="{{ $statusColor }}" size="sm">
+                                                            {{ $statusLabel }}
+                                                        </flux:badge>
+                                                        @if(isset($record['shift_name']) && $record['shift_name'])
+                                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                                Shift: {{ $record['shift_name'] }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\Shift;
 use Carbon\Carbon;
 
 class Index extends Component
@@ -17,10 +18,14 @@ class Index extends Component
     public $attendanceStats = [];
     public $punchCode = null;
     public $employee = null;
+    public $employeeShift = null;
     public $availableMonths = [];
     public $selectedUserId = null;
     public $availableUsers = [];
     public $userSearchTerm = '';
+    
+    // Grace period for late check-in (in minutes)
+    public $lateGracePeriod = 15;
     
     // Sorting Properties
     public $sortBy = 'date';
@@ -102,7 +107,7 @@ class Index extends Component
         }
 
         // Find the employee record for this user
-        $this->employee = Employee::where('user_id', $userId)->first();
+        $this->employee = Employee::where('user_id', $userId)->with('shift')->first();
         
         if (!$this->employee) {
             return;
@@ -110,6 +115,9 @@ class Index extends Component
 
         // Get the punch code
         $this->punchCode = $this->employee->punch_code;
+        
+        // Get the employee's assigned shift
+        $this->employeeShift = $this->employee->shift;
         
         if (!$this->punchCode) {
             return;
@@ -181,7 +189,16 @@ class Index extends Component
                 'check_out' => null,
                 'total_hours' => null,
                 'breaks' => '0 (0h 0m total)',
-                'status' => $status
+                'status' => $status,
+                'shift_name' => $this->employeeShift ? $this->employeeShift->shift_name : null,
+                'expected_check_in' => null,
+                'expected_check_out' => null,
+                'is_late' => false,
+                'late_minutes' => 0,
+                'is_early' => false,
+                'early_minutes' => 0,
+                'actual_hours' => null,
+                'expected_hours' => null,
             ];
             
             // Process attendance records for this day if they exist
@@ -209,6 +226,29 @@ class Index extends Component
                 
                 $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i A') : null;
                 $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i A') : null;
+                
+                // Validate against shift and calculate late/early if shift exists
+                if ($this->employeeShift && $firstCheckIn) {
+                    $shiftValidation = $this->validateShiftAttendance($current, $firstCheckIn, $lastCheckOut);
+                    $processedData[$date]['expected_check_in'] = $shiftValidation['expected_check_in'];
+                    $processedData[$date]['expected_check_out'] = $shiftValidation['expected_check_out'];
+                    $processedData[$date]['is_late'] = $shiftValidation['is_late'];
+                    $processedData[$date]['late_minutes'] = $shiftValidation['late_minutes'];
+                    $processedData[$date]['is_early'] = $shiftValidation['is_early'];
+                    $processedData[$date]['early_minutes'] = $shiftValidation['early_minutes'];
+                    $processedData[$date]['expected_hours'] = $shiftValidation['expected_hours'];
+                    
+                    // Update status to include late/early information
+                    if ($processedData[$date]['status'] === 'present') {
+                        if ($processedData[$date]['is_late'] && $processedData[$date]['is_early']) {
+                            $processedData[$date]['status'] = 'present_late_early';
+                        } elseif ($processedData[$date]['is_late']) {
+                            $processedData[$date]['status'] = 'present_late';
+                        } elseif ($processedData[$date]['is_early']) {
+                            $processedData[$date]['status'] = 'present_early';
+                        }
+                    }
+                }
                 
                 // Calculate total hours and breaks using the correct logic
                 $dayTotalMinutes = 0;
@@ -284,10 +324,12 @@ class Index extends Component
                     // Format total hours - show N/A if missing pairs detected
                     if ($hasMissingPair) {
                         $processedData[$date]['total_hours'] = 'N/A';
+                        $processedData[$date]['actual_hours'] = null;
                     } elseif ($dayTotalMinutes > 0) {
                         $hours = floor($dayTotalMinutes / 60);
                         $minutes = $dayTotalMinutes % 60;
                         $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                        $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                     }
                     
                     // Format breaks information
@@ -308,6 +350,123 @@ class Index extends Component
         $this->sortAttendanceData($processedData);
         
         return array_values($processedData);
+    }
+
+    /**
+     * Validate attendance against employee's shift
+     * Handles regular shifts and overnight shifts (where time_from > time_to)
+     */
+    private function validateShiftAttendance($date, $actualCheckIn, $actualCheckOut = null)
+    {
+        if (!$this->employeeShift) {
+            return [
+                'expected_check_in' => null,
+                'expected_check_out' => null,
+                'is_late' => false,
+                'late_minutes' => 0,
+                'is_early' => false,
+                'early_minutes' => 0,
+                'expected_hours' => null,
+            ];
+        }
+
+        $shift = $this->employeeShift;
+        $dateString = $date->format('Y-m-d');
+        
+        // Parse shift times - handle various formats
+        // Use Carbon's parse which is more flexible, then extract time components
+        $timeFromStr = $shift->time_from;
+        $timeToStr = $shift->time_to;
+        
+        // Parse using Carbon's flexible parser, then create a Carbon instance for today to get time
+        $timeFromParts = explode(':', $timeFromStr);
+        $timeToParts = explode(':', $timeToStr);
+        
+        $timeFrom = Carbon::createFromTime(
+            (int)($timeFromParts[0] ?? 0),
+            (int)($timeFromParts[1] ?? 0),
+            (int)($timeFromParts[2] ?? 0)
+        );
+        
+        $timeTo = Carbon::createFromTime(
+            (int)($timeToParts[0] ?? 0),
+            (int)($timeToParts[1] ?? 0),
+            (int)($timeToParts[2] ?? 0)
+        );
+        
+        // Check if it's an overnight shift (time_from > time_to)
+        $isOvernight = $timeFrom->gt($timeTo);
+        
+        // Calculate expected check-in time for this date
+        $expectedCheckIn = Carbon::parse($dateString)->setTime(
+            $timeFrom->hour,
+            $timeFrom->minute,
+            $timeFrom->second
+        );
+        
+        // Calculate expected check-out time
+        if ($isOvernight) {
+            // For overnight shifts, check-out is on the next day
+            $expectedCheckOut = Carbon::parse($dateString)->addDay()->setTime(
+                $timeTo->hour,
+                $timeTo->minute,
+                $timeTo->second
+            );
+        } else {
+            $expectedCheckOut = Carbon::parse($dateString)->setTime(
+                $timeTo->hour,
+                $timeTo->minute,
+                $timeTo->second
+            );
+        }
+        
+        // Validate check-in
+        $isLate = false;
+        $lateMinutes = 0;
+        
+        if ($actualCheckIn) {
+            // Allow grace period
+            $checkInDeadline = $expectedCheckIn->copy()->addMinutes($this->lateGracePeriod);
+            
+            if ($actualCheckIn->gt($checkInDeadline)) {
+                $isLate = true;
+                $lateMinutes = $expectedCheckIn->diffInMinutes($actualCheckIn);
+            }
+        }
+        
+        // Validate check-out
+        $isEarly = false;
+        $earlyMinutes = 0;
+        
+        if ($actualCheckOut) {
+            // For overnight shifts, we need to handle the check-out time properly
+            if ($isOvernight && $actualCheckOut->lt($expectedCheckIn)) {
+                // Check-out happened before midnight, so it's on the next day
+                $actualCheckOutDate = $actualCheckOut->copy()->addDay();
+            } else {
+                $actualCheckOutDate = $actualCheckOut->copy();
+            }
+            
+            if ($actualCheckOutDate->lt($expectedCheckOut)) {
+                $isEarly = true;
+                $earlyMinutes = $actualCheckOutDate->diffInMinutes($expectedCheckOut);
+            }
+        }
+        
+        // Calculate expected shift duration in hours
+        $expectedMinutes = $expectedCheckIn->diffInMinutes($expectedCheckOut);
+        $expectedHours = floor($expectedMinutes / 60);
+        $expectedMins = $expectedMinutes % 60;
+        
+        return [
+            'expected_check_in' => $expectedCheckIn->format('h:i A'),
+            'expected_check_out' => $expectedCheckOut->format('h:i A'),
+            'is_late' => $isLate,
+            'late_minutes' => $lateMinutes,
+            'is_early' => $isEarly,
+            'early_minutes' => $earlyMinutes,
+            'expected_hours' => sprintf('%d:%02d', $expectedHours, $expectedMins),
+        ];
     }
 
     private function getBreakDetails($sortedRecords)
@@ -446,6 +605,53 @@ class Index extends Component
         return $deduplicated;
     }
 
+    /**
+     * Calculate expected hours based on employee's shift
+     */
+    private function calculateExpectedHours($workingDays)
+    {
+        if (!$this->employeeShift) {
+            // Default to 8 hours per day if no shift assigned
+            return sprintf('%d:%02d', $workingDays * 8, 0);
+        }
+
+        $shift = $this->employeeShift;
+        
+        // Parse shift times - handle various formats
+        $timeFromStr = $shift->time_from;
+        $timeToStr = $shift->time_to;
+        
+        // Parse using time components
+        $timeFromParts = explode(':', $timeFromStr);
+        $timeToParts = explode(':', $timeToStr);
+        
+        $timeFrom = Carbon::createFromTime(
+            (int)($timeFromParts[0] ?? 0),
+            (int)($timeFromParts[1] ?? 0),
+            (int)($timeFromParts[2] ?? 0)
+        );
+        
+        $timeTo = Carbon::createFromTime(
+            (int)($timeToParts[0] ?? 0),
+            (int)($timeToParts[1] ?? 0),
+            (int)($timeToParts[2] ?? 0)
+        );
+        
+        // Calculate shift duration
+        $timeToCopy = $timeTo->copy();
+        if ($timeFrom->gt($timeTo)) {
+            // Overnight shift - add 24 hours to time_to
+            $timeToCopy->addDay();
+        }
+        
+        $shiftMinutes = $timeFrom->diffInMinutes($timeToCopy);
+        $totalExpectedMinutes = $workingDays * $shiftMinutes;
+        $expectedHours = floor($totalExpectedMinutes / 60);
+        $expectedMins = $totalExpectedMinutes % 60;
+        
+        return sprintf('%d:%02d', $expectedHours, $expectedMins);
+    }
+
     private function calculateAttendanceStats($records)
     {
         // Use the same month as the records
@@ -512,7 +718,7 @@ class Index extends Component
             'absent_days' => $workingDays - $attendedDays,
             'attendance_percentage' => $workingDays > 0 ? round(($attendedDays / $workingDays) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
-            'expected_hours' => sprintf('%d:%02d', $workingDays * 8, 0), // Assuming 8 hours per day
+            'expected_hours' => $this->calculateExpectedHours($workingDays), // Calculate based on shift
         ];
     }
 
@@ -594,9 +800,16 @@ class Index extends Component
                 break;
             case 'status':
                 uasort($data, function($a, $b) {
-                    $statusOrder = ['present' => 1, 'off' => 2, 'absent' => 3];
-                    $aOrder = $statusOrder[$a['status']] ?? 4;
-                    $bOrder = $statusOrder[$b['status']] ?? 4;
+                    $statusOrder = [
+                        'present' => 1,
+                        'present_late' => 2,
+                        'present_early' => 3,
+                        'present_late_early' => 4,
+                        'off' => 5,
+                        'absent' => 6
+                    ];
+                    $aOrder = $statusOrder[$a['status']] ?? 7;
+                    $bOrder = $statusOrder[$b['status']] ?? 7;
                     return $this->sortDirection === 'asc' ? $aOrder - $bOrder : $bOrder - $aOrder;
                 });
                 break;
