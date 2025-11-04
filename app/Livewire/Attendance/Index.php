@@ -305,7 +305,7 @@ class Index extends Component
                 // Two OUTs in a row means previous IN missing → close prior as '--'
                 if ($lastCheckOut !== null) {
                     $breakDetails[] = [
-                        'start' => $lastCheckOut->format('H:i'),
+                        'start' => $lastCheckOut->format('h:i A'),
                         'end' => '--',
                         'duration' => '--',
                     ];
@@ -318,8 +318,8 @@ class Index extends Component
                     $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
                     if ($breakDuration > 0) {
                         $breakDetails[] = [
-                            'start' => $lastCheckOut->format('H:i'),
-                            'end' => $recordTime->format('H:i'),
+                            'start' => $lastCheckOut->format('h:i A'),
+                            'end' => $recordTime->format('h:i A'),
                             'duration' => $this->formatDuration($breakDuration),
                         ];
                     }
@@ -328,7 +328,7 @@ class Index extends Component
                     // IN without prior OUT → missing OUT, show '--' → IN
                     $breakDetails[] = [
                         'start' => '--',
-                        'end' => $recordTime->format('H:i'),
+                        'end' => $recordTime->format('h:i A'),
                         'duration' => '--',
                     ];
                 }
@@ -338,7 +338,7 @@ class Index extends Component
         // If the sequence ended with an OUT and no following IN, show OUT → '--'
         if ($lastCheckOut !== null) {
             $breakDetails[] = [
-                'start' => $lastCheckOut->format('H:i'),
+                'start' => $lastCheckOut->format('h:i A'),
                 'end' => '--',
                 'duration' => '--',
             ];

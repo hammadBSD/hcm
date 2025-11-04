@@ -205,12 +205,35 @@
                                                                         {{ __('Break Details') }}
                                                                     </div>
                                                                     @foreach($record['break_details'] as $index => $break)
-                                                                        <div class="text-sm">
-                                                                            <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                                                                                <span class="text-red-600 dark:text-red-400 font-medium">{{ $break['start'] }}</span>
-                                                                                <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500" />
-                                                                                <span class="text-green-600 dark:text-green-400 font-medium">{{ $break['end'] }}</span>
-                                                                                <span class="text-zinc-600 dark:text-zinc-400">({{ $break['duration'] }})</span>
+                                                                        <div class="text-sm py-1">
+                                                                            <div class="flex items-center gap-2">
+                                                                                @if($break['start'] === '--')
+                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                        <flux:icon name="exclamation-circle" class="w-3 h-3" />
+                                                                                        Missing Check-out
+                                                                                    </span>
+                                                                                @else
+                                                                                    <span class="text-red-600 dark:text-red-400 font-medium">{{ $break['start'] }}</span>
+                                                                                @endif
+                                                                                
+                                                                                <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+                                                                                
+                                                                                @if($break['end'] === '--')
+                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                        <flux:icon name="exclamation-circle" class="w-3 h-3" />
+                                                                                        Missing Check-in
+                                                                                    </span>
+                                                                                @else
+                                                                                    <span class="text-green-600 dark:text-green-400 font-medium">{{ $break['end'] }}</span>
+                                                                                @endif
+                                                                                
+                                                                                @if($break['duration'] === '--')
+                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                        N/A
+                                                                                    </span>
+                                                                                @else
+                                                                                    <span class="text-zinc-500 dark:text-zinc-400">({{ $break['duration'] }})</span>
+                                                                                @endif
                                                                             </div>
                                                                         </div>
                                                                     @endforeach
