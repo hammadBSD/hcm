@@ -21,6 +21,9 @@
                     <flux:button variant="outline" icon="arrow-down-tray">
                         Export
                     </flux:button>
+                    <flux:button variant="outline" icon="users" wire:click="openBulkAssignFlyout">
+                        Bulk Assign Employees
+                    </flux:button>
                     <flux:button variant="primary" icon="plus" wire:click="createDepartment">
                         Add Department
                     </flux:button>
@@ -62,6 +65,14 @@
                                     <button wire:click="sort('count')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                         {{ __('Employee Count') }}
                                         @if($sortBy === 'count')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('shift')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                        {{ __('Shift') }}
+                                        @if($sortBy === 'shift')
                                             <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                         @endif
                                     </button>
@@ -120,6 +131,19 @@
                                         <div class="text-sm text-zinc-900 dark:text-zinc-100">
                                             {{ $department->employees()->count() ?? 0 }}
                                         </div>
+                                    </td>
+                                    
+                                    <td class="px-6 py-6 whitespace-nowrap">
+                                        @if($department->shift)
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="clock" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                <span class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                    {{ $department->shift->shift_name }}
+                                                </span>
+                                            </div>
+                                        @else
+                                            <span class="text-sm text-zinc-500 dark:text-zinc-400">N/A</span>
+                                        @endif
                                     </td>
                                     
                                     <td class="px-6 py-6 whitespace-nowrap">
@@ -199,9 +223,13 @@
                         <flux:label>Head Of Department</flux:label>
                         <flux:select wire:model="departmentHead" placeholder="Select-One">
                             <option value="">Select-One</option>
-                            @foreach($employees as $employee)
-                                <option value="{{ $employee['id'] }}">{{ $employee['name'] }}</option>
-                            @endforeach
+                            @if(isset($employees) && is_array($employees))
+                                @foreach($employees as $employee)
+                                    @if(isset($employee['id']) && isset($employee['name']))
+                                        <option value="{{ $employee['id'] }}">{{ $employee['name'] }}</option>
+                                    @endif
+                                @endforeach
+                            @endif
                         </flux:select>
                         <flux:error name="departmentHead" />
                     </flux:field>
@@ -234,7 +262,22 @@
                     </flux:field>
                 </div>
                 
-                <!-- Fourth Row: Status -->
+                <!-- Fourth Row: Shift -->
+                <div class="grid grid-cols-1 gap-6">
+                    <flux:field>
+                        <flux:label>Shift</flux:label>
+                        <flux:description>{{ __('Assign a default shift to this department. Employees without individual shifts will inherit this shift.') }}</flux:description>
+                        <flux:select wire:model="shiftId">
+                            <option value="">{{ __('No Shift (Optional)') }}</option>
+                            @foreach($shifts as $shift)
+                                <option value="{{ $shift['value'] }}">{{ $shift['label'] }}</option>
+                            @endforeach
+                        </flux:select>
+                        <flux:error name="shiftId" />
+                    </flux:field>
+                </div>
+                
+                <!-- Fifth Row: Status -->
                 <div class="grid grid-cols-1 gap-6">
                     <flux:field>
                         <flux:label>Status</flux:label>
@@ -261,5 +304,132 @@
                 </div>
             </form>
         </div>
+    </flux:modal>
+
+    <!-- Bulk Assign Employees Flyout -->
+    <flux:modal variant="flyout" :show="$showBulkAssignFlyout" wire:model="showBulkAssignFlyout">
+        <form wire:submit="bulkAssignDepartment">
+            <div class="p-6 space-y-6">
+                <div>
+                    <flux:heading size="lg" level="3">{{ __('Bulk Assign Employees to Department') }}</flux:heading>
+                    <flux:subheading>{{ __('Assign multiple employees to a department at once') }}</flux:subheading>
+                </div>
+
+                @if (session()->has('message'))
+                    <flux:callout variant="success" icon="check-circle" dismissible>
+                        {{ session('message') }}
+                    </flux:callout>
+                @endif
+
+                <flux:field>
+                    <flux:label>{{ __('Department') }}</flux:label>
+                    <flux:description>{{ __('Select the department to assign selected employees to') }}</flux:description>
+                    <flux:select wire:model="bulkSelectedDepartmentId" required>
+                        <option value="">{{ __('Select a department') }}</option>
+                        @foreach($allDepartments as $department)
+                            <option value="{{ $department->id }}">{{ $department->title }}</option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="bulkSelectedDepartmentId" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Select Employees') }}</flux:label>
+                    
+                    <!-- Search Input for Employees -->
+                    <div class="mb-3">
+                        <flux:input 
+                            wire:model.live.debounce.300ms="employeeSearchTerm"
+                            placeholder="Search employees..."
+                            icon="magnifying-glass"
+                        />
+                    </div>
+                    
+                    <div class="relative">
+                        <select 
+                            wire:model.live="bulkSelectedEmployeeIds" 
+                            multiple 
+                            class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                            size="6"
+                            style="min-height: 150px;"
+                        >
+                            @foreach($filteredEmployees as $employee)
+                                <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:bg-blue-100 dark:focus:bg-blue-900">
+                                    {{ $employee['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <flux:description>{{ __('Search and select employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
+                    <flux:error name="bulkSelectedEmployeeIds" />
+                </flux:field>
+
+                <!-- Selected Employees Display -->
+                @if(count($bulkSelectedEmployeeIds) > 0)
+                    <div class="mt-4">
+                        <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
+                            <flux:icon name="check-circle" class="w-4 h-4 text-green-500" />
+                            Selected Employees ({{ count($bulkSelectedEmployeeIds) }})
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($bulkSelectedEmployeeIds as $employeeId)
+                                @php
+                                    $selectedEmployee = collect($this->employees)->firstWhere('value', $employeeId);
+                                @endphp
+                                @if($selectedEmployee)
+                                    <span class="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 rounded-lg text-sm border border-blue-200 dark:border-blue-700 shadow-sm">
+                                        <flux:icon name="user" class="w-3 h-3 text-blue-700 dark:text-blue-200" />
+                                        {{ $selectedEmployee['name'] }}
+                                        <button 
+                                            type="button" 
+                                            wire:click="removeEmployeeSelection({{ $employeeId }})" 
+                                            class="ml-1 text-blue-600 dark:text-blue-200 hover:text-blue-800 dark:hover:text-blue-100 transition-colors p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
+                                        >
+                                            <flux:icon name="x-mark" class="w-3 h-3" />
+                                        </button>
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <flux:field>
+                    <flux:label>{{ __('Effective Date') }}</flux:label>
+                    <flux:description>{{ __('The date from which this department assignment will be effective') }}</flux:description>
+                    <flux:input type="date" wire:model="bulkDepartmentStartDate" required />
+                    <flux:error name="bulkDepartmentStartDate" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Reason') }}</flux:label>
+                    <flux:description>{{ __('Reason for the department change') }}</flux:description>
+                    <flux:select wire:model="bulkDepartmentReason">
+                        <option value="">{{ __('Select a reason (optional)') }}</option>
+                        <option value="transfer">{{ __('Transfer') }}</option>
+                        <option value="promotion">{{ __('Promotion') }}</option>
+                        <option value="reorganization">{{ __('Reorganization') }}</option>
+                        <option value="other">{{ __('Other') }}</option>
+                    </flux:select>
+                    <flux:error name="bulkDepartmentReason" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Notes') }}</flux:label>
+                    <flux:description>{{ __('Optional notes about this bulk department assignment') }}</flux:description>
+                    <flux:textarea wire:model="bulkDepartmentNotes" rows="3" placeholder="{{ __('Add any notes about this department assignment...') }}" />
+                    <flux:error name="bulkDepartmentNotes" />
+                </flux:field>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button variant="ghost" wire:click="closeBulkAssignFlyout">
+                    {{ __('Cancel') }}
+                </flux:button>
+                <flux:button type="submit">
+                    {{ __('Assign Department') }}
+                </flux:button>
+            </div>
+        </form>
     </flux:modal>
 </section>

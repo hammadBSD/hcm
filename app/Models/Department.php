@@ -19,6 +19,7 @@ class Department extends Model
         'department_head_id',
         'description',
         'status',
+        'shift_id',
     ];
 
     protected $casts = [
@@ -48,5 +49,13 @@ class Department extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class, 'department_id');
+    }
+
+    /**
+     * Get the shift assigned to this department
+     */
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
     }
 }

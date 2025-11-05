@@ -309,6 +309,11 @@
                                                             <div class="text-xs text-zinc-500 dark:text-zinc-400">
                                                                 Shift: {{ $record['shift_name'] }}
                                                             </div>
+                                                        @else
+                                                            <div class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                                <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                                                                No Shift Assigned
+                                                            </div>
                                                         @endif
                                                     </div>
                                                 </td>

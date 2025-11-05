@@ -175,7 +175,10 @@ class Index extends Component
         }
 
         // Find the employee record for this user
-        $this->employee = Employee::where('user_id', $userId)->with('shift')->first();
+        // Eager load shift and department (with its shift) for fallback logic
+        $this->employee = Employee::where('user_id', $userId)
+            ->with(['shift', 'department.shift'])
+            ->first();
         
         if (!$this->employee) {
             return;
@@ -184,8 +187,15 @@ class Index extends Component
         // Get the punch code
         $this->punchCode = $this->employee->punch_code;
         
-        // Get the employee's assigned shift
-        $this->employeeShift = $this->employee->shift;
+        // Get the effective shift (checks employee shift first, then falls back to department shift)
+        $this->employeeShift = $this->employee->getEffectiveShift();
+        
+        // Debug: Log if shift is found (can be removed later)
+        if (!$this->employeeShift && $this->employee->department_id) {
+            // Try to ensure department relationship is loaded
+            $this->employee->load('department.shift');
+            $this->employeeShift = $this->employee->getEffectiveShift();
+        }
         
         if (!$this->punchCode) {
             return;

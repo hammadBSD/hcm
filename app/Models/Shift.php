@@ -41,4 +41,12 @@ class Shift extends Model
     {
         return $this->hasMany(EmployeeShift::class);
     }
+
+    /**
+     * Get departments assigned to this shift
+     */
+    public function departments(): HasMany
+    {
+        return $this->hasMany(Department::class);
+    }
 }

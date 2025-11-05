@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Models\Shift;
 use App\Models\EmployeeShift;
+use App\Models\Department;
+use App\Models\EmployeeDepartmentChange;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -61,9 +63,18 @@ class EmployeeList extends Component
     public $shiftNotes = '';
     public $shifts = [];
 
+    // Department Assignment Flyout Properties
+    public $showAssignDepartmentFlyout = false;
+    public $selectedDepartmentId = null;
+    public $departmentStartDate = '';
+    public $departmentNotes = '';
+    public $departmentReason = null;
+    public $departments = [];
+
     public function mount()
     {
         $this->loadShifts();
+        $this->loadDepartments();
     }
 
     public function loadShifts()
@@ -75,6 +86,20 @@ class EmployeeList extends Component
                 return [
                     'value' => $shift->id,
                     'label' => $shift->shift_name . ' (' . date('h:i A', strtotime($shift->time_from)) . ' - ' . date('h:i A', strtotime($shift->time_to)) . ')'
+                ];
+            })
+            ->toArray();
+    }
+
+    public function loadDepartments()
+    {
+        $this->departments = Department::where('status', 'active')
+            ->orderBy('title')
+            ->get()
+            ->map(function ($department) {
+                return [
+                    'value' => $department->id,
+                    'label' => $department->title . ($department->code ? ' (' . $department->code . ')' : '')
                 ];
             })
             ->toArray();
@@ -152,6 +177,70 @@ class EmployeeList extends Component
         $this->closeAssignShiftFlyout();
     }
 
+    public function openAssignDepartmentFlyout($userId)
+    {
+        $this->selectedEmployeeId = $userId;
+        $employee = Employee::where('user_id', $userId)->first();
+        $this->selectedDepartmentId = $employee ? $employee->department_id : null;
+        $this->departmentStartDate = Carbon::now()->format('Y-m-d');
+        $this->departmentNotes = '';
+        $this->departmentReason = null;
+        $this->showAssignDepartmentFlyout = true;
+    }
+
+    public function closeAssignDepartmentFlyout()
+    {
+        $this->showAssignDepartmentFlyout = false;
+        $this->selectedEmployeeId = null;
+        $this->selectedDepartmentId = null;
+        $this->departmentStartDate = '';
+        $this->departmentNotes = '';
+        $this->departmentReason = null;
+    }
+
+    public function assignDepartment()
+    {
+        $this->validate([
+            'selectedDepartmentId' => 'required|exists:departments,id',
+            'departmentStartDate' => 'required|date',
+            'departmentNotes' => 'nullable|string|max:500',
+            'departmentReason' => 'nullable|in:transfer,promotion,reorganization,other',
+        ]);
+
+        $employee = Employee::where('user_id', $this->selectedEmployeeId)->first();
+        
+        if (!$employee) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+
+        // Get the previous department for history tracking
+        $previousDepartmentId = $employee->department_id;
+
+        // Update the employee's current department
+        $employee->department_id = $this->selectedDepartmentId;
+        $employee->save();
+
+        // Create department change history record if department changed
+        if ($previousDepartmentId != $this->selectedDepartmentId) {
+            EmployeeDepartmentChange::create([
+                'employee_id' => $employee->id,
+                'old_department_id' => $previousDepartmentId,
+                'new_department_id' => $this->selectedDepartmentId,
+                'changed_by' => Auth::id(),
+                'changed_at' => Carbon::parse($this->departmentStartDate),
+                'notes' => $this->departmentNotes,
+                'reason' => $this->departmentReason,
+            ]);
+
+            session()->flash('message', 'Department assigned successfully!');
+        } else {
+            session()->flash('message', 'Employee already in this department.');
+        }
+
+        $this->closeAssignDepartmentFlyout();
+    }
+
     public function render()
     {
         return view('livewire.employees.list', [
@@ -164,7 +253,7 @@ class EmployeeList extends Component
         // Start with base query - join employees table directly for proper sorting
         $query = User::select('users.*')
             ->join('employees', 'users.id', '=', 'employees.user_id')
-            ->with(['employee.shift']);
+            ->with(['employee.shift', 'employee.department']);
 
         // Apply search filter
         if ($this->search) {

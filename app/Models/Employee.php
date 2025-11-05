@@ -132,4 +132,48 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeShift::class);
     }
+
+    /**
+     * Get the department change history for this employee
+     */
+    public function departmentChanges(): HasMany
+    {
+        return $this->hasMany(EmployeeDepartmentChange::class);
+    }
+
+    /**
+     * Get the effective shift for this employee
+     * Priority:
+     * 1. Employee's individual shift (shift_id)
+     * 2. Department's shift (if employee has department_id)
+     * 3. null (no shift assigned)
+     * 
+     * @return Shift|null
+     */
+    public function getEffectiveShift()
+    {
+        // First priority: Check if employee has individual shift assigned
+        if ($this->shift_id) {
+            return $this->shift;
+        }
+
+        // Second priority: Check if employee has department and department has shift
+        if ($this->department_id) {
+            // Always use the relationship method to avoid conflict with old varchar column
+            // Don't use $this->department attribute as it might return the old varchar value
+            $department = $this->department()->with('shift')->first();
+            
+            // Verify it's an object and has shift_id
+            if ($department && is_object($department) && $department->shift_id) {
+                // Ensure shift is loaded
+                if (!$department->relationLoaded('shift')) {
+                    $department->load('shift');
+                }
+                return $department->shift;
+            }
+        }
+
+        // No shift assigned
+        return null;
+    }
 }

@@ -2,6 +2,18 @@
     @include('partials.employees-heading')
     
     <x-employees.layout :heading="__('Employee List')" :subheading="__('View and manage all employees')">
+        @if (session()->has('message'))
+            <flux:callout variant="success" icon="check-circle" dismissible class="mb-6">
+                {{ session('message') }}
+            </flux:callout>
+        @endif
+
+        @if (session()->has('error'))
+            <flux:callout variant="danger" icon="exclamation-circle" dismissible class="mb-6">
+                {{ session('error') }}
+            </flux:callout>
+        @endif
+
         <!-- Search and Filter Controls -->
         <div class="my-6 w-full space-y-4">
             <div class="flex flex-col sm:flex-row gap-4">
@@ -438,9 +450,36 @@
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $employee->department ?? 'N/A' }}
-                                            </div>
+                                            @php
+                                                $employeeModel = $employee->employee ?? null;
+                                                $department = null;
+                                                
+                                                if ($employeeModel && $employeeModel->department_id) {
+                                                    // Check if relationship is loaded and is an object (not the old varchar column)
+                                                    if ($employeeModel->relationLoaded('department')) {
+                                                        $dept = $employeeModel->getRelation('department');
+                                                        if ($dept && is_object($dept)) {
+                                                            $department = $dept;
+                                                        }
+                                                    }
+                                                    
+                                                    // If not loaded or not an object, fetch it via relationship
+                                                    if (!$department) {
+                                                        $department = $employeeModel->department()->first();
+                                                    }
+                                                }
+                                            @endphp
+                                            
+                                            @if($department)
+                                                <div class="flex items-center gap-2">
+                                                    <flux:icon name="building-office" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                    <span class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                        {{ $department->title }}
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <span class="text-sm text-zinc-500 dark:text-zinc-400">N/A</span>
+                                            @endif
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
@@ -484,6 +523,9 @@
                                                         </flux:menu.item>
                                                         <flux:menu.item icon="clock" wire:click="openAssignShiftFlyout({{ $employee->id }})">
                                                             {{ __('Assign Shift') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item icon="building-office" wire:click="openAssignDepartmentFlyout({{ $employee->id }})">
+                                                            {{ __('Assign Department') }}
                                                         </flux:menu.item>
                                                         <!-- <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
                                                             {{ __('Reset Password') }}
@@ -581,6 +623,78 @@
                         </flux:button>
                         <flux:button type="submit">
                             {{ __('Assign Shift') }}
+                        </flux:button>
+                    </div>
+                </form>
+            </flux:modal>
+
+            <!-- Assign Department Flyout -->
+            <flux:modal variant="flyout" :show="$showAssignDepartmentFlyout" wire:model="showAssignDepartmentFlyout">
+                <form wire:submit="assignDepartment">
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <flux:heading size="lg" level="3">{{ __('Assign Department') }}</flux:heading>
+                            <flux:subheading>{{ __('Assign or change department for this employee') }}</flux:subheading>
+                        </div>
+
+                        @if (session()->has('message'))
+                            <flux:callout variant="success" icon="check-circle" dismissible>
+                                {{ session('message') }}
+                            </flux:callout>
+                        @endif
+
+                        @if (session()->has('error'))
+                            <flux:callout variant="danger" icon="exclamation-circle" dismissible>
+                                {{ session('error') }}
+                            </flux:callout>
+                        @endif
+
+                        <flux:field>
+                            <flux:label>{{ __('Department') }}</flux:label>
+                            <flux:description>{{ __('Select the department to assign to this employee') }}</flux:description>
+                            <flux:select wire:model="selectedDepartmentId" required>
+                                <option value="">{{ __('Select a department') }}</option>
+                                @foreach($departments as $department)
+                                    <option value="{{ $department['value'] }}">{{ $department['label'] }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="selectedDepartmentId" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Effective Date') }}</flux:label>
+                            <flux:description>{{ __('The date from which this department assignment will be effective') }}</flux:description>
+                            <flux:input type="date" wire:model="departmentStartDate" required />
+                            <flux:error name="departmentStartDate" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Reason') }}</flux:label>
+                            <flux:description>{{ __('Reason for the department change') }}</flux:description>
+                            <flux:select wire:model="departmentReason">
+                                <option value="">{{ __('Select a reason (optional)') }}</option>
+                                <option value="transfer">{{ __('Transfer') }}</option>
+                                <option value="promotion">{{ __('Promotion') }}</option>
+                                <option value="reorganization">{{ __('Reorganization') }}</option>
+                                <option value="other">{{ __('Other') }}</option>
+                            </flux:select>
+                            <flux:error name="departmentReason" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Notes') }}</flux:label>
+                            <flux:description>{{ __('Optional notes about this department assignment') }}</flux:description>
+                            <flux:textarea wire:model="departmentNotes" rows="3" placeholder="{{ __('Add any notes about this department assignment...') }}" />
+                            <flux:error name="departmentNotes" />
+                        </flux:field>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">
+                        <flux:button variant="ghost" wire:click="closeAssignDepartmentFlyout">
+                            {{ __('Cancel') }}
+                        </flux:button>
+                        <flux:button type="submit">
+                            {{ __('Assign Department') }}
                         </flux:button>
                     </div>
                 </form>
