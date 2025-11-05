@@ -32,11 +32,40 @@
                 window.charts.monthlyAttendance = null;
             }
             
-            // Prepare data for stacked bar chart
+            // Prepare data for bar chart
             const labels = dailyData.map(item => item.label || '');
-            const presentData = dailyData.map(item => item.present || 0);
-            const absentData = dailyData.map(item => item.absent || 0);
-            const offDaysData = dailyData.map(item => item.off_days || 0);
+            
+            // Find max hours for Y-axis scaling (calculate before using it)
+            const maxHours = Math.max(
+                ...dailyData.map(item => item.hours || 0),
+                8 // Minimum 8 hours scale
+            );
+            const yAxisMax = Math.ceil(maxHours / 2) * 2; // Round up to nearest even number
+            
+            // Create single dataset with hours as values and conditional colors
+            const hoursData = dailyData.map(item => {
+                if (item.status === 'off') {
+                    return 0.5; // Small bar for off days
+                } else if (item.status === 'absent') {
+                    // For absent, show a full-height bar (use max hours or 8 hours)
+                    return Math.max(maxHours, 8); // Full height bar for absent
+                } else {
+                    return item.hours || 0; // Actual hours for present/late
+                }
+            });
+            
+            // Create color array based on status
+            const backgroundColors = dailyData.map(item => {
+                if (item.status === 'off') {
+                    return '#6b7280'; // Gray
+                } else if (item.status === 'absent') {
+                    return '#ef4444'; // Red
+                } else if (item.status === 'present_late' || item.status === 'present_late_early' || item.status === 'present_early') {
+                    return '#eab308'; // Yellow for late or early
+                } else {
+                    return '#10b981'; // Green
+                }
+            });
             
             const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
             window.charts.monthlyAttendance = new Chart(monthlyAttendanceCtx, {
@@ -45,23 +74,9 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Present',
-                            data: presentData,
-                            backgroundColor: '#10b981', // Green
-                            borderRadius: 4,
-                            borderSkipped: false,
-                        },
-                        {
-                            label: 'Absent',
-                            data: absentData,
-                            backgroundColor: '#ef4444', // Red
-                            borderRadius: 4,
-                            borderSkipped: false,
-                        },
-                        {
-                            label: 'Off Days',
-                            data: offDaysData,
-                            backgroundColor: '#6b7280', // Gray
+                            label: 'Attendance',
+                            data: hoursData,
+                            backgroundColor: backgroundColors,
                             borderRadius: 4,
                             borderSkipped: false,
                         }
@@ -72,31 +87,60 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 10,
-                                font: {
-                                    size: 12
-                                }
-                            }
+                            display: false, // Hide the legend
                         },
                         tooltip: {
                             callbacks: {
-                                afterLabel: function(context) {
-                                    const total = dailyData[context.dataIndex]?.total || 0;
-                                    if (context.datasetIndex === 0) {
-                                        return `Total: ${total} day${total !== 1 ? 's' : ''}`;
+                                title: function(context) {
+                                    const dataIndex = context[0].dataIndex;
+                                    const dayData = dailyData[dataIndex];
+                                    return dayData ? dayData.date : '';
+                                },
+                                label: function(context) {
+                                    const dataIndex = context.dataIndex;
+                                    const dayData = dailyData[dataIndex];
+                                    const value = context.parsed.y;
+                                    
+                                    if (!dayData) return '';
+                                    
+                                    let tooltip = [];
+                                    
+                                    // Status label
+                                    let statusLabel = 'Present';
+                                    if (dayData.status === 'off') {
+                                        statusLabel = 'Off Day';
+                                    } else if (dayData.status === 'absent') {
+                                        statusLabel = 'Absent';
+                                    } else if (dayData.status === 'present_late' || dayData.status === 'present_late_early') {
+                                        statusLabel = 'Late';
                                     }
-                                    return '';
+                                    
+                                    tooltip.push(`Status: ${statusLabel}`);
+                                    
+                                    // Hours info
+                                    if (dayData.status === 'off') {
+                                        tooltip.push('Weekend/Off Day');
+                                    } else if (dayData.status === 'absent') {
+                                        tooltip.push('No attendance recorded');
+                                    } else {
+                                        tooltip.push(`Hours: ${value.toFixed(1)}h`);
+                                        tooltip.push(`Check In: ${dayData.check_in || '--'}`);
+                                        tooltip.push(`Check Out: ${dayData.check_out || '--'}`);
+                                        tooltip.push(`Total Hours: ${dayData.total_hours || 'N/A'}`);
+                                        
+                                        if (dayData.is_late) {
+                                            tooltip.push('⚠️ Late arrival');
+                                        }
+                                    }
+                                    
+                                    return tooltip;
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
-                            stacked: true,
+                            stacked: false, // Not stacked
                             grid: {
                                 display: false
                             },
@@ -109,16 +153,28 @@
                             }
                         },
                         y: {
-                            stacked: true,
+                            stacked: false, // Not stacked - each bar shows independently
                             beginAtZero: true,
+                            max: yAxisMax,
                             ticks: {
-                                stepSize: 1,
+                                stepSize: 2, // Show ticks every 2 hours
                                 callback: function(value) {
-                                    return value;
+                                    if (value === 0) return '0h';
+                                    return value + 'h';
+                                },
+                                font: {
+                                    size: 11
                                 }
                             },
                             grid: {
                                 color: document.documentElement.classList.contains('dark') ? '#27272a' : '#f4f4f5'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Hours',
+                                font: {
+                                    size: 12
+                                }
                             }
                         }
                     }

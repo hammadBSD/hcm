@@ -381,9 +381,20 @@ class EmployeeList extends Component
         $this->dispatch('reset-password', $employeeId);
     }
 
-    public function deactivate($employeeId)
+    public function deactivate($userId)
     {
-        // Deactivate employee functionality
-        $this->dispatch('deactivate-employee', $employeeId);
+        // Find the employee record for this user
+        $employee = Employee::where('user_id', $userId)->first();
+        
+        if (!$employee) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+        
+        // Update employee status to inactive
+        $employee->status = 'inactive';
+        $employee->save();
+        
+        session()->flash('message', 'Employee deactivated successfully!');
     }
 }

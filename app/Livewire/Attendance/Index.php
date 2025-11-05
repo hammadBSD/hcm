@@ -119,17 +119,17 @@ class Index extends Component
     
     public function loadAvailableUsers()
     {
-        // Get all employees with punch codes and their associated users
+        // Get only active employees with punch codes and their associated users
         $employees = Employee::whereNotNull('punch_code')
             ->whereNotNull('user_id')
+            ->where('status', 'active')
             ->with('user:id,name,email')
             ->get();
         
         $this->availableUsers = $employees->map(function($employee) {
-            $user = $employee->user;
             return [
-                'id' => $user->id,
-                'name' => $user->name ?? ($employee->first_name . ' ' . $employee->last_name),
+                'id' => $employee->user_id,
+                'name' => trim($employee->first_name . ' ' . $employee->last_name),
                 'punch_code' => $employee->punch_code,
             ];
         })

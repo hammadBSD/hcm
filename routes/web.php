@@ -9,7 +9,10 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-    return view('welcome');
+    if (auth()->check()) {
+        return redirect()->away('https://hrm.bsdtechs.com/dashboard');
+    }
+    return redirect()->route('login');
 })->name('home');
 
 Route::view('dashboard', 'dashboard')
