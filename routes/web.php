@@ -133,6 +133,7 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     Route::get('system-management/attendance-settings/work-schedule', \App\Livewire\SystemManagement\AttendanceSettings\WorkSchedule\Index::class)->name('system-management.attendance-settings.work-schedule');
     Route::get('system-management/attendance-settings/attendance-rules', \App\Livewire\SystemManagement\AttendanceSettings\AttendanceRules\Index::class)->name('system-management.attendance-settings.attendance-rules');
     Route::get('system-management/attendance-settings/break-settings', \App\Livewire\SystemManagement\AttendanceSettings\BreakSettings::class)->name('system-management.attendance-settings.break-settings');
+    Route::get('system-management/attendance-settings/global-grace-time', \App\Livewire\SystemManagement\AttendanceSettings\GlobalGraceTime::class)->name('system-management.attendance-settings.global-grace-time');
     
     // Leaves Management
     Route::get('system-management/leaves-management/leave-types', \App\Livewire\SystemManagement\LeavesManagement\LeaveTypes\Index::class)->name('system-management.leaves-management.leave-types');

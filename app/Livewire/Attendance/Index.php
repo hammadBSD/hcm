@@ -8,6 +8,7 @@ use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\Shift;
+use App\Models\Constant;
 use Carbon\Carbon;
 
 class Index extends Component
@@ -24,8 +25,9 @@ class Index extends Component
     public $availableUsers = [];
     public $userSearchTerm = '';
     
-    // Grace period for late check-in (in minutes)
-    public $lateGracePeriod = 15;
+    // Global grace period settings (loaded from constants)
+    public $globalGracePeriodLateIn = 30;
+    public $globalGracePeriodEarlyOut = 30;
     
     // Sorting Properties
     public $sortBy = 'date';
@@ -45,8 +47,74 @@ class Index extends Component
     {
         $this->currentMonth = Carbon::now()->format('F Y');
         $this->selectedMonth = ''; // Default to current month
+        $this->loadGlobalGracePeriods();
         $this->loadAvailableUsers();
         $this->loadUserAttendance();
+    }
+    
+    /**
+     * Load global grace period settings from constants table
+     */
+    private function loadGlobalGracePeriods()
+    {
+        // Try to get global grace period settings from constants
+        $lateInConstant = Constant::where('key', 'attendance_grace_period_late_in')
+            ->where('status', 'active')
+            ->first();
+        
+        $earlyOutConstant = Constant::where('key', 'attendance_grace_period_early_out')
+            ->where('status', 'active')
+            ->first();
+        
+        if ($lateInConstant) {
+            $this->globalGracePeriodLateIn = (int) $lateInConstant->value;
+        }
+        
+        if ($earlyOutConstant) {
+            $this->globalGracePeriodEarlyOut = (int) $earlyOutConstant->value;
+        }
+    }
+    
+    /**
+     * Get effective grace period for late check-in
+     * Returns shift-specific if set, otherwise global, but respects disable flag
+     */
+    private function getEffectiveGracePeriodLateIn()
+    {
+        if (!$this->employeeShift) {
+            return $this->globalGracePeriodLateIn;
+        }
+        
+        // If grace period is completely disabled for this shift, return 0
+        if ($this->employeeShift->disable_grace_period) {
+            return 0;
+        }
+        
+        // Return shift-specific if set, otherwise global
+        return $this->employeeShift->grace_period_late_in !== null 
+            ? $this->employeeShift->grace_period_late_in 
+            : $this->globalGracePeriodLateIn;
+    }
+    
+    /**
+     * Get effective grace period for early check-out
+     * Returns shift-specific if set, otherwise global, but respects disable flag
+     */
+    private function getEffectiveGracePeriodEarlyOut()
+    {
+        if (!$this->employeeShift) {
+            return $this->globalGracePeriodEarlyOut;
+        }
+        
+        // If grace period is completely disabled for this shift, return 0
+        if ($this->employeeShift->disable_grace_period) {
+            return 0;
+        }
+        
+        // Return shift-specific if set, otherwise global
+        return $this->employeeShift->grace_period_early_out !== null 
+            ? $this->employeeShift->grace_period_early_out 
+            : $this->globalGracePeriodEarlyOut;
     }
     
     public function loadAvailableUsers()
@@ -173,11 +241,67 @@ class Index extends Component
             $date = $current->format('Y-m-d');
             $dayRecords = $groupedRecords[$date] ?? [];
             
+            // Determine shift characteristics once for this day
+            $isOvernight = false;
+            $shiftStartsInPM = false;
+            $timeFrom = null;
+            $timeTo = null;
+            $expectedCheckOutTime = null;
+            
+            if ($this->employeeShift) {
+                $timeFromParts = explode(':', $this->employeeShift->time_from);
+                $timeToParts = explode(':', $this->employeeShift->time_to);
+                $timeFrom = Carbon::createFromTime(
+                    (int)($timeFromParts[0] ?? 0),
+                    (int)($timeFromParts[1] ?? 0),
+                    (int)($timeFromParts[2] ?? 0)
+                );
+                $timeTo = Carbon::createFromTime(
+                    (int)($timeToParts[0] ?? 0),
+                    (int)($timeToParts[1] ?? 0),
+                    (int)($timeToParts[2] ?? 0)
+                );
+                $isOvernight = $timeFrom->gt($timeTo);
+                $shiftStartsInPM = $timeFrom->hour >= 12;
+                
+                if ($isOvernight) {
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $expectedCheckOutTime = Carbon::parse($nextDate)->setTime(
+                        $timeTo->hour,
+                        $timeTo->minute,
+                        $timeTo->second
+                    );
+                }
+            }
+            
+            // Determine if there's valid attendance for this day
+            $hasValidAttendance = false;
+            if ($this->employeeShift && !empty($dayRecords)) {
+                // For PM-start shifts, only count PM check-ins as valid attendance
+                if ($isOvernight && $shiftStartsInPM) {
+                    foreach ($dayRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $checkInTime = Carbon::parse($record->punch_time);
+                            if ($checkInTime->hour >= 12) {
+                                $hasValidAttendance = true;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // For other shifts, any records mean attendance
+                    $hasValidAttendance = true;
+                }
+            } elseif (!empty($dayRecords)) {
+                // No shift assigned, any records mean attendance
+                $hasValidAttendance = true;
+            }
+            
             // Determine day status
             $status = 'absent'; // Default
             if ($current->isWeekend()) {
                 $status = 'off';
-            } elseif (!empty($dayRecords)) {
+            } elseif ($hasValidAttendance) {
                 $status = 'present';
             }
             
@@ -208,21 +332,124 @@ class Index extends Component
                     return Carbon::parse($a->punch_time)->timestamp - Carbon::parse($b->punch_time)->timestamp;
                 });
                 
-                $checkIns = [];
-                $checkOuts = [];
+                // Filter records based on shift type (shift characteristics already calculated above)
+                $validCheckIns = [];
+                $validCheckOuts = [];
                 
-                // Separate check-ins and check-outs (rely primarily on device_type)
-                foreach ($dayRecords as $record) {
-                    if ($record->device_type === 'IN') {
-                        $checkIns[] = Carbon::parse($record->punch_time);
-                    } elseif ($record->device_type === 'OUT') {
-                        $checkOuts[] = Carbon::parse($record->punch_time);
+                if ($isOvernight && $shiftStartsInPM) {
+                    // For PM-start overnight shifts:
+                    // - Only include PM check-ins (AM check-ins belong to previous day)
+                    // - Only include AM check-outs that are before shift end time (these belong to previous day's shift)
+                    // - Exclude AM check-outs on current day (these belong to previous shift)
+                    
+                    $expectedCheckInTime = Carbon::parse($date)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    
+                    // For check-ins: only PM check-ins count for this day
+                    foreach ($dayRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $checkInTime = Carbon::parse($record->punch_time);
+                            // Only include check-ins that are PM (12 PM or later) - these are the shift start
+                            if ($checkInTime->hour >= 12) {
+                                $validCheckIns[] = $checkInTime;
+                            }
+                            // AM check-ins are ignored (they belong to previous day)
+                        } elseif ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            // Exclude AM check-outs on current day (they belong to previous shift)
+                            // Only include PM check-outs (these could be overtime or same-day)
+                            if ($checkOutTime->hour >= 12) {
+                                $validCheckOuts[] = $checkOutTime;
+                            }
+                        }
+                    }
+                    
+                    // Get next day's AM check-outs that belong to this shift
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    
+                    foreach ($nextDayRecords as $record) {
+                        if ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
+                            // They logically belong to the previous day's shift that started in PM
+                            if ($checkOutTime->hour < 12) {
+                                $validCheckOuts[] = $checkOutTime;
+                            }
+                            // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
+                            // But limit to next shift start time to avoid confusion
+                            elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
+                                // This is overtime (checkout after midnight but before next shift start at 9 PM)
+                                $nextShiftStart = Carbon::parse($nextDate)->setTime(
+                                    $timeFrom->hour,
+                                    $timeFrom->minute,
+                                    $timeFrom->second
+                                );
+                                if ($checkOutTime->lt($nextShiftStart)) {
+                                    $validCheckOuts[] = $checkOutTime;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // For regular shifts or AM-start overnight shifts, use all records
+                    foreach ($dayRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $validCheckIns[] = Carbon::parse($record->punch_time);
+                        } elseif ($record->device_type === 'OUT') {
+                            $validCheckOuts[] = Carbon::parse($record->punch_time);
+                        }
+                    }
+                    
+                    // For AM-start overnight shifts, get next day's check-outs
+                    if ($isOvernight && !$shiftStartsInPM) {
+                        $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                        $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                        
+                        foreach ($nextDayRecords as $record) {
+                            if ($record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                if ($checkOutTime->lte($expectedCheckOutTime)) {
+                                    $validCheckOuts[] = $checkOutTime;
+                                }
+                            }
+                        }
                     }
                 }
                 
-                // Get first check-in and last check-out of the day
-                $firstCheckIn = !empty($checkIns) ? $checkIns[0] : null;
-                $lastCheckOut = !empty($checkOuts) ? end($checkOuts) : null;
+                // For off days with PM-start shifts: if only AM check-out exists, don't show it
+                if ($current->isWeekend() && $isOvernight && $shiftStartsInPM && empty($validCheckIns)) {
+                    // This is an off day and the only records are AM check-outs from previous shift
+                    // Don't show them - they belong to the previous day
+                    $validCheckOuts = [];
+                }
+                
+                // Get first check-in and last check-out
+                usort($validCheckIns, function($a, $b) {
+                    return $a->timestamp - $b->timestamp;
+                });
+                usort($validCheckOuts, function($a, $b) {
+                    return $a->timestamp - $b->timestamp;
+                });
+                
+                $firstCheckIn = !empty($validCheckIns) ? $validCheckIns[0] : null;
+                $lastCheckOut = !empty($validCheckOuts) ? end($validCheckOuts) : null;
+                
+                // Update status: only mark as present if there's a valid check-in for PM-start shifts
+                if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
+                    // Only AM check-out exists (belongs to previous day), don't mark as present
+                    $firstCheckIn = null;
+                    $lastCheckOut = null;
+                    if ($current->isWeekend()) {
+                        $status = 'off';
+                    } else {
+                        $status = 'absent';
+                    }
+                    $processedData[$date]['status'] = $status;
+                }
                 
                 $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i A') : null;
                 $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i A') : null;
@@ -255,8 +482,87 @@ class Index extends Component
                 $breaksCount = 0;
                 $totalBreakMinutes = 0;
                 
-                if (!empty($dayRecords)) {
-                    $sortedRecords = collect($dayRecords)->sortBy('punch_time');
+                // For overnight shifts, merge next day's check-out records into current day's records for calculation
+                // Use the same filtering logic as above for consistency
+                $recordsForCalculation = [];
+                if ($this->employeeShift && $isOvernight && $shiftStartsInPM) {
+                    // For PM-start overnight shifts, use the same filtered logic
+                    // Only include PM check-ins and next-day AM check-outs
+                    foreach ($dayRecords as $record) {
+                        $recordTime = Carbon::parse($record->punch_time);
+                        // Only include PM check-ins (12 PM or later)
+                        if ($record->device_type === 'IN' && $recordTime->hour >= 12) {
+                            $recordsForCalculation[] = $record;
+                        }
+                        // Only include PM check-outs on current day (overtime scenarios)
+                        if ($record->device_type === 'OUT' && $recordTime->hour >= 12) {
+                            $recordsForCalculation[] = $record;
+                        }
+                    }
+                    
+                    // Get next day's AM check-outs that belong to this shift
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    
+                    foreach ($nextDayRecords as $record) {
+                        if ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
+                            // They logically belong to the previous day's shift that started in PM
+                            if ($checkOutTime->hour < 12) {
+                                $recordsForCalculation[] = $record;
+                            }
+                            // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
+                            // But limit to next shift start time to avoid confusion
+                            elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
+                                // This is overtime (checkout after midnight but before next shift start at 9 PM)
+                                $nextShiftStart = Carbon::parse($nextDate)->setTime(
+                                    $timeFrom->hour,
+                                    $timeFrom->minute,
+                                    $timeFrom->second
+                                );
+                                if ($checkOutTime->lt($nextShiftStart)) {
+                                    $recordsForCalculation[] = $record;
+                                }
+                            }
+                        }
+                    }
+                } elseif ($this->employeeShift && $isOvernight && !$shiftStartsInPM) {
+                    // For AM-start overnight shifts
+                    $expectedCheckInTime = Carbon::parse($date)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    
+                    foreach ($dayRecords as $record) {
+                        $recordTime = Carbon::parse($record->punch_time);
+                        // Include all check-ins, but only include check-outs that are after shift start time
+                        if ($record->device_type === 'IN' || 
+                            ($record->device_type === 'OUT' && $recordTime->gte($expectedCheckInTime))) {
+                            $recordsForCalculation[] = $record;
+                        }
+                    }
+                    
+                    // Get next day's check-outs that belong to this shift
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    
+                    foreach ($nextDayRecords as $record) {
+                        if ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            if ($checkOutTime->lte($expectedCheckOutTime)) {
+                                $recordsForCalculation[] = $record;
+                            }
+                        }
+                    }
+                } else {
+                    // For regular (non-overnight) shifts, use all records from the day
+                    $recordsForCalculation = $dayRecords;
+                }
+                
+                if (!empty($recordsForCalculation)) {
+                    $sortedRecords = collect($recordsForCalculation)->sortBy('punch_time');
                     
                     // Deduplicate records before processing
                     $deduplicatedRecords = $this->deduplicateRecords($sortedRecords->toArray());
@@ -425,8 +731,9 @@ class Index extends Component
         $lateMinutes = 0;
         
         if ($actualCheckIn) {
-            // Allow grace period
-            $checkInDeadline = $expectedCheckIn->copy()->addMinutes($this->lateGracePeriod);
+            // Get effective grace period (shift-specific or global, respecting disable flag)
+            $gracePeriodLateIn = $this->getEffectiveGracePeriodLateIn();
+            $checkInDeadline = $expectedCheckIn->copy()->addMinutes($gracePeriodLateIn);
             
             if ($actualCheckIn->gt($checkInDeadline)) {
                 $isLate = true;
@@ -440,6 +747,8 @@ class Index extends Component
         
         if ($actualCheckOut) {
             // For overnight shifts, we need to handle the check-out time properly
+            // If it's an overnight shift and check-out is earlier than expected check-in on same day,
+            // it means the check-out belongs to the next day (previous shift's check-out)
             if ($isOvernight && $actualCheckOut->lt($expectedCheckIn)) {
                 // Check-out happened before midnight, so it's on the next day
                 $actualCheckOutDate = $actualCheckOut->copy()->addDay();
@@ -447,7 +756,11 @@ class Index extends Component
                 $actualCheckOutDate = $actualCheckOut->copy();
             }
             
-            if ($actualCheckOutDate->lt($expectedCheckOut)) {
+            // Get effective grace period for early check-out
+            $gracePeriodEarlyOut = $this->getEffectiveGracePeriodEarlyOut();
+            $checkOutDeadline = $expectedCheckOut->copy()->subMinutes($gracePeriodEarlyOut);
+            
+            if ($actualCheckOutDate->lt($checkOutDeadline)) {
                 $isEarly = true;
                 $earlyMinutes = $actualCheckOutDate->diffInMinutes($expectedCheckOut);
             }

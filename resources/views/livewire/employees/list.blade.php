@@ -368,6 +368,14 @@
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button wire:click="sort('shift')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Shift') }}
+                                            @if($sortBy === 'shift')
+                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                            @endif
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         <button wire:click="sort('department')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Department') }}
                                             @if($sortBy === 'department')
@@ -417,8 +425,21 @@
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
+                                            @if($employee->employee && $employee->employee->shift)
+                                                <div class="flex items-center gap-2">
+                                                    <flux:icon name="clock" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                    <span class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                        {{ $employee->employee->shift->shift_name }}
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <span class="text-sm text-zinc-500 dark:text-zinc-400">N/A</span>
+                                            @endif
+                                        </td>
+                                        
+                                        <td class="px-6 py-6 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $employee->department ?? 'Not assigned' }}
+                                                {{ $employee->department ?? 'N/A' }}
                                             </div>
                                         </td>
                                         
@@ -434,7 +455,8 @@
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             @php
-                                                $statusColor = match($employee->status ?? 'active') {
+                                                $employeeStatus = $employee->employee->status ?? 'active';
+                                                $statusColor = match($employeeStatus) {
                                                     'active' => 'green',
                                                     'inactive' => 'zinc',
                                                     'on-leave' => 'yellow',
@@ -443,7 +465,7 @@
                                                 };
                                             @endphp
                                             <flux:badge color="{{ $statusColor }}" size="sm">
-                                                {{ ucfirst($employee->status ?? 'Active') }}
+                                                {{ ucfirst($employeeStatus) }}
                                             </flux:badge>
                                         </td>
                                         
@@ -459,6 +481,9 @@
                                                         </flux:menu.item>
                                                         <flux:menu.item icon="pencil" href="{{ route('employees.edit', $employee->id) }}">
                                                             {{ __('Edit Details') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item icon="clock" wire:click="openAssignShiftFlyout({{ $employee->id }})">
+                                                            {{ __('Assign Shift') }}
                                                         </flux:menu.item>
                                                         <!-- <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
                                                             {{ __('Reset Password') }}
@@ -501,6 +526,65 @@
                     </flux:button>
                 </div>
             @endif
+
+            <!-- Assign Shift Flyout -->
+            <flux:modal variant="flyout" :show="$showAssignShiftFlyout" wire:model="showAssignShiftFlyout">
+                <form wire:submit="assignShift">
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <flux:heading size="lg" level="3">{{ __('Assign Shift') }}</flux:heading>
+                            <flux:subheading>{{ __('Assign or change shift for this employee') }}</flux:subheading>
+                        </div>
+
+                        @if (session()->has('message'))
+                            <flux:callout variant="success" icon="check-circle" dismissible>
+                                {{ session('message') }}
+                            </flux:callout>
+                        @endif
+
+                        @if (session()->has('error'))
+                            <flux:callout variant="danger" icon="exclamation-circle" dismissible>
+                                {{ session('error') }}
+                            </flux:callout>
+                        @endif
+
+                        <flux:field>
+                            <flux:label>{{ __('Shift') }}</flux:label>
+                            <flux:description>{{ __('Select the shift to assign to this employee') }}</flux:description>
+                            <flux:select wire:model="selectedShiftId" required>
+                                <option value="">{{ __('Select a shift') }}</option>
+                                @foreach($shifts as $shift)
+                                    <option value="{{ $shift['value'] }}">{{ $shift['label'] }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="selectedShiftId" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Start Date') }}</flux:label>
+                            <flux:description>{{ __('The date from which this shift assignment will be effective') }}</flux:description>
+                            <flux:input type="date" wire:model="shiftStartDate" required />
+                            <flux:error name="shiftStartDate" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Notes') }}</flux:label>
+                            <flux:description>{{ __('Optional notes about this shift assignment') }}</flux:description>
+                            <flux:textarea wire:model="shiftNotes" rows="3" placeholder="{{ __('Add any notes about this shift assignment...') }}" />
+                            <flux:error name="shiftNotes" />
+                        </flux:field>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">
+                        <flux:button variant="ghost" wire:click="closeAssignShiftFlyout">
+                            {{ __('Cancel') }}
+                        </flux:button>
+                        <flux:button type="submit">
+                            {{ __('Assign Shift') }}
+                        </flux:button>
+                    </div>
+                </form>
+            </flux:modal>
         </div>
     </x-employees.layout>
 </section>

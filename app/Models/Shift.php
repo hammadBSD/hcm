@@ -15,6 +15,13 @@ class Shift extends Model
         'time_from',
         'time_to',
         'status',
+        'grace_period_late_in',
+        'grace_period_early_out',
+        'disable_grace_period',
+    ];
+
+    protected $casts = [
+        'disable_grace_period' => 'boolean',
     ];
 
 

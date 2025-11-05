@@ -6,6 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
+use App\Models\Shift;
 use Carbon\Carbon;
 
 class MonthlyAttendance extends Component
@@ -43,7 +44,13 @@ class MonthlyAttendance extends Component
 
         $currentMonth = Carbon::now()->format('Y-m');
 
-        // Get all months that have attendance data
+        // Get all months that have attendance data (need to load employee first)
+        $employee = Employee::where('user_id', $user->id)->first();
+        if (!$employee || !$employee->punch_code) {
+            $this->availableMonths = [];
+            return;
+        }
+        
         $months = DeviceAttendance::where('punch_code', $employee->punch_code)
             ->selectRaw('DATE_FORMAT(punch_time, "%Y-%m") as month')
             ->distinct()
@@ -87,13 +94,16 @@ class MonthlyAttendance extends Component
             return;
         }
         
-        // Get the employee record for this user
-        $employee = Employee::where('user_id', $user->id)->first();
+        // Get the employee record for this user with shift
+        $employee = Employee::where('user_id', $user->id)->with('shift')->first();
         
         if (!$employee || !$employee->punch_code) {
             $this->dailyStats = [];
             return;
         }
+        
+        // Get employee's shift for shift-based logic
+        $employeeShift = $employee->shift;
         
         // Determine which month to load
         $targetMonth = $this->selectedMonth ?: Carbon::now()->format('Y-m');
@@ -114,31 +124,79 @@ class MonthlyAttendance extends Component
             $dateKey = $current->format('Y-m-d');
             $dayNumber = $current->format('d'); // 01, 02, etc.
             
+            // Determine shift characteristics
+            $isOvernight = false;
+            $shiftStartsInPM = false;
+            
+            if ($employeeShift) {
+                $timeFromParts = explode(':', $employeeShift->time_from);
+                $timeToParts = explode(':', $employeeShift->time_to);
+                $timeFrom = Carbon::createFromTime(
+                    (int)($timeFromParts[0] ?? 0),
+                    (int)($timeFromParts[1] ?? 0),
+                    (int)($timeFromParts[2] ?? 0)
+                );
+                $timeTo = Carbon::createFromTime(
+                    (int)($timeToParts[0] ?? 0),
+                    (int)($timeToParts[1] ?? 0),
+                    (int)($timeToParts[2] ?? 0)
+                );
+                $isOvernight = $timeFrom->gt($timeTo);
+                $shiftStartsInPM = $timeFrom->hour >= 12;
+            }
+            
             // Check if it's a weekend (off day)
             if ($current->isWeekend()) {
+                // For off days with PM-start shifts, check if there are AM check-outs from previous shift
+                // If only AM check-outs exist, don't count them as attendance for this off day
+                $hasValidAttendance = false;
+                if ($employeeShift && $isOvernight && $shiftStartsInPM) {
+                    // Check if there's a PM check-in on this off day (shouldn't happen, but check anyway)
+                    $pmCheckIn = DeviceAttendance::where('punch_code', $employee->punch_code)
+                        ->whereDate('punch_time', $dateKey)
+                        ->where('device_type', 'IN')
+                        ->whereRaw('HOUR(punch_time) >= 12')
+                        ->exists();
+                    $hasValidAttendance = $pmCheckIn;
+                }
+                
                 $dailyData[] = [
                     'date' => $dateKey,
                     'label' => $dayNumber . '-' . $current->format('M'),
                     'present' => 0,
                     'absent' => 0,
-                    'off_days' => 1, // 1 for the user's off day
+                    'off_days' => 1,
                     'total' => 1,
                     'status' => 'off'
                 ];
             } else {
-                // It's a weekday - check if user has attendance for this day
-                $hasAttendance = DeviceAttendance::where('punch_code', $employee->punch_code)
-                    ->whereDate('punch_time', $dateKey)
-                    ->exists();
+                // It's a weekday - use shift-based logic to determine attendance
+                $hasValidAttendance = false;
+                
+                if ($employeeShift && $isOvernight && $shiftStartsInPM) {
+                    // For PM-start overnight shifts, only count PM check-ins as valid attendance
+                    $pmCheckIn = DeviceAttendance::where('punch_code', $employee->punch_code)
+                        ->whereDate('punch_time', $dateKey)
+                        ->where('device_type', 'IN')
+                        ->whereRaw('HOUR(punch_time) >= 12')
+                        ->exists();
+                    $hasValidAttendance = $pmCheckIn;
+                } else {
+                    // For regular shifts or AM-start overnight shifts, any attendance record counts
+                    $hasAttendance = DeviceAttendance::where('punch_code', $employee->punch_code)
+                        ->whereDate('punch_time', $dateKey)
+                        ->exists();
+                    $hasValidAttendance = $hasAttendance;
+                }
                 
                 $dailyData[] = [
                     'date' => $dateKey,
                     'label' => $dayNumber . '-' . $current->format('M'),
-                    'present' => $hasAttendance ? 1 : 0,
-                    'absent' => $hasAttendance ? 0 : 1,
+                    'present' => $hasValidAttendance ? 1 : 0,
+                    'absent' => $hasValidAttendance ? 0 : 1,
                     'off_days' => 0,
                     'total' => 1,
-                    'status' => $hasAttendance ? 'present' : 'absent'
+                    'status' => $hasValidAttendance ? 'present' : 'absent'
                 ];
             }
             

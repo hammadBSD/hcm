@@ -27,6 +27,9 @@
                     <flux:button variant="outline" icon="arrow-down-tray">
                         Export
                     </flux:button>
+                    <flux:button variant="outline" icon="users" wire:click="openBulkAssignFlyout">
+                        Bulk Assign Shift
+                    </flux:button>
                     <flux:button variant="primary" icon="plus" wire:click="createShift">
                         Add Shift
                     </flux:button>
@@ -216,7 +219,48 @@
                     </flux:field>
                 </div>
                 
-                <!-- Third Row: Status -->
+                <!-- Third Row: Grace Periods -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Grace Period Late In -->
+                    <flux:field>
+                        <flux:label>Grace Period Late Check-in (minutes)</flux:label>
+                        <flux:input 
+                            type="number"
+                            wire:model="gracePeriodLateIn" 
+                            placeholder="Leave empty to use global setting"
+                            min="0"
+                        />
+                        <flux:description>Leave empty to use global default. Set to 0 for no grace period.</flux:description>
+                        <flux:error name="gracePeriodLateIn" />
+                    </flux:field>
+                    
+                    <!-- Grace Period Early Out -->
+                    <flux:field>
+                        <flux:label>Grace Period Early Check-out (minutes)</flux:label>
+                        <flux:input 
+                            type="number"
+                            wire:model="gracePeriodEarlyOut" 
+                            placeholder="Leave empty to use global setting"
+                            min="0"
+                        />
+                        <flux:description>Leave empty to use global default. Set to 0 for no grace period.</flux:description>
+                        <flux:error name="gracePeriodEarlyOut" />
+                    </flux:field>
+                </div>
+                
+                <!-- Fourth Row: Disable Grace Period -->
+                <div class="grid grid-cols-1 gap-6">
+                    <flux:field>
+                        <flux:label>Grace Period Settings</flux:label>
+                        <flux:checkbox wire:model="disableGracePeriod">
+                            Completely disable grace period for this shift
+                        </flux:checkbox>
+                        <flux:description>If enabled, this shift will ignore both shift-specific and global grace period settings.</flux:description>
+                        <flux:error name="disableGracePeriod" />
+                    </flux:field>
+                </div>
+                
+                <!-- Fifth Row: Status -->
                 <div class="grid grid-cols-1 gap-6">
                     <flux:field>
                         <flux:label>Status</flux:label>
@@ -243,5 +287,119 @@
                 </div>
             </form>
         </div>
+    </flux:modal>
+
+    <!-- Bulk Assign Shift Flyout -->
+    <flux:modal variant="flyout" :show="$showBulkAssignFlyout" wire:model="showBulkAssignFlyout">
+        <form wire:submit="bulkAssignShift">
+            <div class="p-6 space-y-6">
+                <div>
+                    <flux:heading size="lg" level="3">{{ __('Bulk Assign Shift') }}</flux:heading>
+                    <flux:subheading>{{ __('Assign a shift to multiple employees at once') }}</flux:subheading>
+                </div>
+
+                @if (session()->has('message'))
+                    <flux:callout variant="success" icon="check-circle" dismissible>
+                        {{ session('message') }}
+                    </flux:callout>
+                @endif
+
+                <flux:field>
+                    <flux:label>{{ __('Shift') }}</flux:label>
+                    <flux:description>{{ __('Select the shift to assign to selected employees') }}</flux:description>
+                    <flux:select wire:model="bulkSelectedShiftId" required>
+                        <option value="">{{ __('Select a shift') }}</option>
+                        @foreach($shifts as $shift)
+                            <option value="{{ $shift->id }}">{{ $shift->shift_name }} ({{ date('h:i A', strtotime($shift->time_from)) }} - {{ date('h:i A', strtotime($shift->time_to)) }})</option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="bulkSelectedShiftId" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Select Employees') }}</flux:label>
+                    
+                    <!-- Search Input for Employees -->
+                    <div class="mb-3">
+                        <flux:input 
+                            wire:model.live.debounce.300ms="employeeSearchTerm"
+                            placeholder="Search employees..."
+                            icon="magnifying-glass"
+                        />
+                    </div>
+                    
+                    <div class="relative">
+                        <select 
+                            wire:model.live="bulkSelectedEmployeeIds" 
+                            multiple 
+                            class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                            size="6"
+                            style="min-height: 150px;"
+                        >
+                            @foreach($filteredEmployees as $employee)
+                                <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:bg-blue-100 dark:focus:bg-blue-900">
+                                    {{ $employee['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <flux:description>{{ __('Search and select employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
+                    <flux:error name="bulkSelectedEmployeeIds" />
+                </flux:field>
+
+                <!-- Selected Employees Display -->
+                @if(count($bulkSelectedEmployeeIds) > 0)
+                    <div class="mt-4">
+                        <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
+                            <flux:icon name="check-circle" class="w-4 h-4 text-green-500" />
+                            Selected Employees ({{ count($bulkSelectedEmployeeIds) }})
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($bulkSelectedEmployeeIds as $employeeId)
+                                @php
+                                    $selectedEmployee = collect($employees)->firstWhere('value', $employeeId);
+                                @endphp
+                                @if($selectedEmployee)
+                                    <span class="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 rounded-lg text-sm border border-blue-200 dark:border-blue-700 shadow-sm">
+                                        <flux:icon name="user" class="w-3 h-3 text-blue-700 dark:text-blue-200" />
+                                        {{ $selectedEmployee['name'] }}
+                                        <button 
+                                            type="button" 
+                                            wire:click="removeEmployeeSelection({{ $employeeId }})" 
+                                            class="ml-1 text-blue-600 dark:text-blue-200 hover:text-blue-800 dark:hover:text-blue-100 transition-colors p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
+                                        >
+                                            <flux:icon name="x-mark" class="w-3 h-3" />
+                                        </button>
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <flux:field>
+                    <flux:label>{{ __('Start Date') }}</flux:label>
+                    <flux:description>{{ __('The date from which this shift assignment will be effective') }}</flux:description>
+                    <flux:input type="date" wire:model="bulkShiftStartDate" required />
+                    <flux:error name="bulkShiftStartDate" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Notes') }}</flux:label>
+                    <flux:description>{{ __('Optional notes about this bulk shift assignment') }}</flux:description>
+                    <flux:textarea wire:model="bulkShiftNotes" rows="3" placeholder="{{ __('Add any notes about this shift assignment...') }}" />
+                    <flux:error name="bulkShiftNotes" />
+                </flux:field>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button variant="ghost" wire:click="closeBulkAssignFlyout">
+                    {{ __('Cancel') }}
+                </flux:button>
+                <flux:button type="submit">
+                    {{ __('Assign Shift') }}
+                </flux:button>
+            </div>
+        </form>
     </flux:modal>
 </section>

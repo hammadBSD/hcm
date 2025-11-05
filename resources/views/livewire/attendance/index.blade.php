@@ -195,10 +195,10 @@
                                                             {{ $record['check_in'] ?? '-' }}
                                                         </div>
                                                         @if(isset($record['is_late']) && $record['is_late'])
-                                                            <flux:badge color="red" size="xs" class="w-fit">
+                                                            <!-- <flux:badge color="red" size="xs" class="w-fit">
                                                                 <flux:icon name="clock" class="w-3 h-3 mr-1" />
                                                                 Late
-                                                            </flux:badge>
+                                                            </flux:badge> -->
                                                         @endif
                                                     </div>
                                                 </td>
@@ -209,10 +209,10 @@
                                                             {{ $record['check_out'] ?? '-' }}
                                                         </div>
                                                         @if(isset($record['is_early']) && $record['is_early'])
-                                                            <flux:badge color="orange" size="xs" class="w-fit">
+                                                            <!-- <flux:badge color="orange" size="xs" class="w-fit">
                                                                 <flux:icon name="clock" class="w-3 h-3 mr-1" />
                                                                 Early
-                                                            </flux:badge>
+                                                            </flux:badge> -->
                                                         @endif
                                                     </div>
                                                 </td>

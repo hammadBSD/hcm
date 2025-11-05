@@ -182,13 +182,13 @@
                                             $selectedEmployee = collect($employees)->firstWhere('value', $userId);
                                         @endphp
                                         @if($selectedEmployee)
-                                            <span class="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-lg text-sm border border-blue-200 dark:border-blue-800 shadow-sm">
-                                                <flux:icon name="user" class="w-3 h-3" />
+                                            <span class="inline-flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 rounded-lg text-sm border border-blue-200 dark:border-blue-700 shadow-sm">
+                                                <flux:icon name="user" class="w-3 h-3 text-blue-700 dark:text-blue-200" />
                                                 {{ $selectedEmployee['name'] }}
                                                 <button 
                                                     type="button" 
                                                     wire:click="removeUser({{ $userId }})" 
-                                                    class="ml-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100 transition-colors p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                                                    class="ml-1 text-blue-600 dark:text-blue-200 hover:text-blue-800 dark:hover:text-blue-100 transition-colors p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
                                                 >
                                                     <flux:icon name="x-mark" class="w-3 h-3" />
                                                 </button>
@@ -249,13 +249,13 @@
                                             $selectedRole = collect($roles)->firstWhere('value', $roleId);
                                         @endphp
                                         @if($selectedRole)
-                                            <span class="inline-flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-lg text-sm border border-green-200 dark:border-green-800 shadow-sm">
-                                                <flux:icon name="shield-check" class="w-3 h-3" />
+                                            <span class="inline-flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 rounded-lg text-sm border border-green-200 dark:border-green-700 shadow-sm">
+                                                <flux:icon name="shield-check" class="w-3 h-3 text-green-700 dark:text-green-200" />
                                                 {{ $selectedRole['name'] }}
                                                 <button 
                                                     type="button" 
                                                     wire:click="removeRole({{ $roleId }})" 
-                                                    class="ml-1 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-100 transition-colors p-1 rounded hover:bg-green-200 dark:hover:bg-green-800"
+                                                    class="ml-1 text-green-600 dark:text-green-200 hover:text-green-800 dark:hover:text-green-100 transition-colors p-1 rounded hover:bg-green-200 dark:hover:bg-green-700"
                                                 >
                                                     <flux:icon name="x-mark" class="w-3 h-3" />
                                                 </button>

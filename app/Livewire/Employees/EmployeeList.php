@@ -5,6 +5,11 @@ namespace App\Livewire\Employees;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\User;
+use App\Models\Employee;
+use App\Models\Shift;
+use App\Models\EmployeeShift;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class EmployeeList extends Component
 {
@@ -48,6 +53,105 @@ class EmployeeList extends Component
     // Pagination
     protected $paginationTheme = 'tailwind';
 
+    // Shift Assignment Flyout Properties
+    public $showAssignShiftFlyout = false;
+    public $selectedEmployeeId = null;
+    public $selectedShiftId = null;
+    public $shiftStartDate = '';
+    public $shiftNotes = '';
+    public $shifts = [];
+
+    public function mount()
+    {
+        $this->loadShifts();
+    }
+
+    public function loadShifts()
+    {
+        $this->shifts = Shift::where('status', 'active')
+            ->orderBy('shift_name')
+            ->get()
+            ->map(function ($shift) {
+                return [
+                    'value' => $shift->id,
+                    'label' => $shift->shift_name . ' (' . date('h:i A', strtotime($shift->time_from)) . ' - ' . date('h:i A', strtotime($shift->time_to)) . ')'
+                ];
+            })
+            ->toArray();
+    }
+
+    public function openAssignShiftFlyout($userId)
+    {
+        $this->selectedEmployeeId = $userId;
+        $employee = Employee::where('user_id', $userId)->first();
+        $this->selectedShiftId = $employee ? $employee->shift_id : null;
+        $this->shiftStartDate = Carbon::now()->format('Y-m-d');
+        $this->shiftNotes = '';
+        $this->showAssignShiftFlyout = true;
+    }
+
+    public function closeAssignShiftFlyout()
+    {
+        $this->showAssignShiftFlyout = false;
+        $this->selectedEmployeeId = null;
+        $this->selectedShiftId = null;
+        $this->shiftStartDate = '';
+        $this->shiftNotes = '';
+    }
+
+    public function assignShift()
+    {
+        $this->validate([
+            'selectedShiftId' => 'required|exists:shifts,id',
+            'shiftStartDate' => 'required|date',
+            'shiftNotes' => 'nullable|string|max:500',
+        ]);
+
+        $employee = Employee::where('user_id', $this->selectedEmployeeId)->first();
+        
+        if (!$employee) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+
+        // Get the previous shift for history tracking
+        $previousShiftId = $employee->shift_id;
+
+        // Update the employee's current shift
+        $employee->shift_id = $this->selectedShiftId;
+        $employee->save();
+
+        // Create shift history record if shift changed
+        if ($previousShiftId != $this->selectedShiftId) {
+            // End the previous shift history record if exists
+            $previousShiftHistory = EmployeeShift::where('employee_id', $employee->id)
+                ->whereNull('end_date')
+                ->latest()
+                ->first();
+
+            if ($previousShiftHistory) {
+                $previousShiftHistory->end_date = Carbon::parse($this->shiftStartDate)->subDay()->format('Y-m-d');
+                $previousShiftHistory->save();
+            }
+
+            // Create new shift history record
+            EmployeeShift::create([
+                'employee_id' => $employee->id,
+                'shift_id' => $this->selectedShiftId,
+                'start_date' => $this->shiftStartDate,
+                'end_date' => null, // Current shift
+                'changed_by' => Auth::id(),
+                'notes' => $this->shiftNotes,
+            ]);
+
+            session()->flash('message', 'Shift assigned successfully!');
+        } else {
+            session()->flash('message', 'Employee already has this shift assigned.');
+        }
+
+        $this->closeAssignShiftFlyout();
+    }
+
     public function render()
     {
         return view('livewire.employees.list', [
@@ -57,25 +161,30 @@ class EmployeeList extends Component
 
     public function getEmployees()
     {
-        $query = User::query();
+        // Start with base query - join employees table directly for proper sorting
+        $query = User::select('users.*')
+            ->join('employees', 'users.id', '=', 'employees.user_id')
+            ->with(['employee.shift']);
 
         // Apply search filter
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%')
-                  ->orWhere('employee_id', 'like', '%' . $this->search . '%');
+                $q->where('users.name', 'like', '%' . $this->search . '%')
+                  ->orWhere('users.email', 'like', '%' . $this->search . '%')
+                  ->orWhere('employees.employee_code', 'like', '%' . $this->search . '%')
+                  ->orWhere('employees.first_name', 'like', '%' . $this->search . '%')
+                  ->orWhere('employees.last_name', 'like', '%' . $this->search . '%');
             });
         }
 
         // Apply department filter
         if ($this->filterDepartment) {
-            $query->where('department', $this->filterDepartment);
+            $query->where('users.department', $this->filterDepartment);
         }
 
-        // Apply status filter
+        // Apply status filter - use employees table status
         if ($this->filterStatus) {
-            $query->where('status', $this->filterStatus);
+            $query->where('employees.status', $this->filterStatus);
         }
 
         // Apply role filter
@@ -87,16 +196,59 @@ class EmployeeList extends Component
 
         // Apply date filters
         if ($this->hireDateFrom) {
-            $query->whereDate('created_at', '>=', $this->hireDateFrom);
+            $query->whereDate('users.created_at', '>=', $this->hireDateFrom);
         }
 
         if ($this->hireDateTo) {
-            $query->whereDate('created_at', '<=', $this->hireDateTo);
+            $query->whereDate('users.created_at', '<=', $this->hireDateTo);
         }
+
+        // Group by to avoid duplicates from joins (must be before sorting)
+        $query->groupBy('users.id');
 
         // Apply sorting
         if ($this->sortBy) {
-            $query->orderBy($this->sortBy, $this->sortDirection);
+            if ($this->sortBy === 'shift') {
+                // Sort by shift name using subquery to avoid GROUP BY issues
+                $query->orderByRaw('(
+                    SELECT shifts.shift_name 
+                    FROM shifts 
+                    WHERE shifts.id = employees.shift_id 
+                    LIMIT 1
+                ) ' . ($this->sortDirection === 'asc' ? 'ASC' : 'DESC'));
+            } elseif ($this->sortBy === 'status') {
+                // Sort by employees table status - active first using subquery to avoid GROUP BY issues
+                $query->orderByRaw('(
+                    SELECT CASE 
+                        WHEN LOWER(employees.status) = "active" THEN 0 
+                        ELSE 1 
+                    END
+                    FROM employees 
+                    WHERE employees.user_id = users.id 
+                    LIMIT 1
+                ) ASC')
+                ->orderByRaw('(
+                    SELECT employees.status
+                    FROM employees 
+                    WHERE employees.user_id = users.id 
+                    LIMIT 1
+                ) ' . ($this->sortDirection === 'asc' ? 'ASC' : 'DESC'));
+            } else {
+                $query->orderBy('users.' . $this->sortBy, $this->sortDirection);
+            }
+        } else {
+            // Default sorting: Active employees first (from employees table), then inactive, then by name
+            // Use subquery to avoid GROUP BY issues
+            $query->orderByRaw('(
+                SELECT CASE 
+                    WHEN LOWER(employees.status) = "active" THEN 0 
+                    ELSE 1 
+                END
+                FROM employees 
+                WHERE employees.user_id = users.id 
+                LIMIT 1
+            ) ASC')
+            ->orderBy('users.name', 'asc');
         }
 
         return $query->paginate(10);
