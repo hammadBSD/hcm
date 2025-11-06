@@ -212,9 +212,37 @@ class Index extends Component
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
         
         // Extend the end date to include next day's records that might belong to the last day
-        // (for non-overnight shifts with grace period - up to 5 hours after shift end)
-        // Maximum grace period is 5 hours, so we need records up to 5 hours after month end
+        // Default: 5 hours after month end (for non-overnight shifts)
         $extendedEndDate = $endOfMonth->copy()->addHours(5);
+        
+        // For overnight shifts, calculate proper extension based on shift end time + grace period
+        if ($this->employeeShift) {
+            $timeFromParts = explode(':', $this->employeeShift->time_from);
+            $timeToParts = explode(':', $this->employeeShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int)($timeFromParts[0] ?? 0),
+                (int)($timeFromParts[1] ?? 0),
+                (int)($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int)($timeToParts[0] ?? 0),
+                (int)($timeToParts[1] ?? 0),
+                (int)($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+            
+            if ($isOvernight && $timeFrom->hour >= 12) {
+                // For PM-start overnight shifts, shift ends on next day
+                // Calculate: next day at shift end time + 5 hours grace period
+                $nextDay = $endOfMonth->copy()->addDay();
+                $shiftEndOnNextDay = $nextDay->copy()->setTime(
+                    $timeTo->hour,
+                    $timeTo->minute,
+                    $timeTo->second
+                );
+                $extendedEndDate = $shiftEndOnNextDay->copy()->addHours(5);
+            }
+        }
 
         $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
             ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
@@ -463,25 +491,51 @@ class Index extends Component
                     $nextDate = $current->copy()->addDay()->format('Y-m-d');
                     $nextDayRecords = $groupedRecords[$nextDate] ?? [];
                     
-                    foreach ($nextDayRecords as $record) {
-                        if ($record->device_type === 'OUT') {
-                            $checkOutTime = Carbon::parse($record->punch_time);
-                            // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
-                            // They logically belong to the previous day's shift that started in PM
-                            if ($checkOutTime->hour < 12) {
-                                $validCheckOuts[] = $checkOutTime;
-                            }
-                            // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
-                            // But limit to next shift start time to avoid confusion
-                            elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
-                                // This is overtime (checkout after midnight but before next shift start at 9 PM)
-                                $nextShiftStart = Carbon::parse($nextDate)->setTime(
-                                    $timeFrom->hour,
-                                    $timeFrom->minute,
-                                    $timeFrom->second
+                    // Special handling for last day of month: also check original records
+                    // This ensures we catch next month's records that are in the query but might not be grouped yet
+                    $isLastDayOfMonth = $current->format('Y-m-d') === $endOfMonth->format('Y-m-d');
+                    if ($isLastDayOfMonth && empty($nextDayRecords)) {
+                        // For last day of month, check original records array for next day's check-outs
+                        foreach ($records as $record) {
+                            $recordDate = Carbon::parse($record->punch_time)->format('Y-m-d');
+                            if ($recordDate === $nextDate && $record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                // Calculate shift end time on next day + 5 hours grace period
+                                $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
                                 );
-                                if ($checkOutTime->lt($nextShiftStart)) {
+                                $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours(5);
+                                
+                                // Include AM check-outs within grace period (shift end + 5 hours)
+                                if ($checkOutTime->hour < 12 && $checkOutTime->lte($checkOutCutoff)) {
                                     $validCheckOuts[] = $checkOutTime;
+                                }
+                            }
+                        }
+                    } else {
+                        // For regular days, use grouped records
+                        foreach ($nextDayRecords as $record) {
+                            if ($record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
+                                // They logically belong to the previous day's shift that started in PM
+                                if ($checkOutTime->hour < 12) {
+                                    $validCheckOuts[] = $checkOutTime;
+                                }
+                                // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
+                                // But limit to next shift start time to avoid confusion
+                                elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
+                                    // This is overtime (checkout after midnight but before next shift start at 9 PM)
+                                    $nextShiftStart = Carbon::parse($nextDate)->setTime(
+                                        $timeFrom->hour,
+                                        $timeFrom->minute,
+                                        $timeFrom->second
+                                    );
+                                    if ($checkOutTime->lt($nextShiftStart)) {
+                                        $validCheckOuts[] = $checkOutTime;
+                                    }
                                 }
                             }
                         }
