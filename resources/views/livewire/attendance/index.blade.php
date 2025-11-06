@@ -237,7 +237,12 @@
                                                                                         Missing Check-out
                                                                                     </span>
                                                                                 @else
-                                                                                    <span class="text-red-600 dark:text-red-400 font-medium">{{ $break['start'] }}</span>
+                                                                                    <span class="font-medium {{ isset($break['start_manual']) && $break['start_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400' }}">
+                                                                                        {{ $break['start'] }}
+                                                                                        @if(isset($break['start_manual']) && $break['start_manual'])
+                                                                                            <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
+                                                                                        @endif
+                                                                                    </span>
                                                                                 @endif
                                                                                 
                                                                                 <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
@@ -248,7 +253,12 @@
                                                                                         Missing Check-in
                                                                                     </span>
                                                                                 @else
-                                                                                    <span class="text-green-600 dark:text-green-400 font-medium">{{ $break['end'] }}</span>
+                                                                                    <span class="font-medium {{ isset($break['end_manual']) && $break['end_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}">
+                                                                                        {{ $break['end'] }}
+                                                                                        @if(isset($break['end_manual']) && $break['end_manual'])
+                                                                                            <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
+                                                                                        @endif
+                                                                                    </span>
                                                                                 @endif
                                                                                 
                                                                                 @if($break['duration'] === '--')
@@ -320,9 +330,20 @@
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
                                                     <div class="flex items-center gap-1">
-                                                        @if($record['status'] === 'absent')
-                                                            <flux:button variant="ghost" size="sm" icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')" />
-                                                        @endif
+                                                        <flux:dropdown>
+                                                            <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                            <flux:menu>
+                                                                <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
+                                                                    {{ __('Add Missing Entry') }}
+                                                                </flux:menu.item>
+                                                                @if($record['status'] === 'absent')
+                                                                    <flux:menu.separator />
+                                                                    <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
+                                                                        {{ __('Request Leave') }}
+                                                                    </flux:menu.item>
+                                                                @endif
+                                                            </flux:menu>
+                                                        </flux:dropdown>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -363,6 +384,69 @@
                 </div>
             @endif
         </div>
+
+        <!-- Missing Entry Flyout -->
+        <flux:modal wire:model.self="showMissingEntryFlyout" variant="flyout" class="w-[32rem]">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Add Missing Entry</flux:heading>
+                    <flux:text class="text-zinc-600 dark:text-zinc-400 mt-1">
+                        Add a missing check-in or check-out entry for {{ $missingEntryDate ? \Carbon\Carbon::parse($missingEntryDate)->format('F d, Y') : '' }}
+                    </flux:text>
+                </div>
+                
+                @if(session()->has('success'))
+                    <flux:callout color="green" icon="check-circle">
+                        {{ session('success') }}
+                    </flux:callout>
+                @endif
+
+                @if(session()->has('error'))
+                    <flux:callout color="red" icon="exclamation-circle">
+                        {{ session('error') }}
+                    </flux:callout>
+                @endif
+
+                <!-- Entry Type -->
+                <flux:field>
+                    <flux:label>Entry Type <span class="text-red-500">*</span></flux:label>
+                    <flux:select wire:model="missingEntryType" placeholder="Select Entry Type">
+                        <option value="">Select Entry Type</option>
+                        <option value="IN">Check-in</option>
+                        <option value="OUT">Check-out</option>
+                    </flux:select>
+                    <flux:error name="missingEntryType" />
+                </flux:field>
+
+                <!-- Date -->
+                <flux:field>
+                    <flux:label>Date <span class="text-red-500">*</span></flux:label>
+                    <flux:input wire:model="missingEntryDate" type="date" disabled />
+                    <flux:error name="missingEntryDate" />
+                </flux:field>
+
+                <!-- Time -->
+                <flux:field>
+                    <flux:label>Time <span class="text-red-500">*</span></flux:label>
+                    <flux:input wire:model="missingEntryTime" type="time" />
+                    <flux:error name="missingEntryTime" />
+                </flux:field>
+
+                <!-- Notes -->
+                <flux:field>
+                    <flux:label>Notes</flux:label>
+                    <flux:textarea wire:model="missingEntryNotes" rows="3" placeholder="Optional: Add any notes about this entry..."></flux:textarea>
+                    <flux:error name="missingEntryNotes" />
+                </flux:field>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2">
+                    <flux:spacer />
+                    <flux:button wire:click="closeMissingEntryFlyout" variant="ghost">Cancel</flux:button>
+                    <flux:button wire:click="saveMissingEntry" variant="primary">Add Entry</flux:button>
+                </div>
+            </div>
+        </flux:modal>
 
         <!-- Leave Request Modal -->
         <flux:modal wire:model.self="showLeaveRequestModal" variant="flyout" class="w-[48rem]">

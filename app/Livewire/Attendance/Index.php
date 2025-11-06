@@ -4,6 +4,7 @@ namespace App\Livewire\Attendance;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\QueryException;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\User;
@@ -42,6 +43,13 @@ class Index extends Component
     public $leaveFrom = '';
     public $leaveTo = '';
     public $reason = '';
+    
+    // Missing Entry Flyout Properties
+    public $showMissingEntryFlyout = false;
+    public $missingEntryDate = '';
+    public $missingEntryType = ''; // 'IN' or 'OUT'
+    public $missingEntryTime = '';
+    public $missingEntryNotes = '';
 
     public function mount()
     {
@@ -712,7 +720,15 @@ class Index extends Component
                 }
                 
                 if (!empty($recordsForCalculation)) {
-                    $sortedRecords = collect($recordsForCalculation)->sortBy('punch_time');
+                    // Convert DeviceAttendance models to arrays with all attributes
+                    $recordsArray = collect($recordsForCalculation)->map(function($record) {
+                        if (is_object($record) && method_exists($record, 'toArray')) {
+                            return $record->toArray();
+                        }
+                        return $record;
+                    })->toArray();
+                    
+                    $sortedRecords = collect($recordsArray)->sortBy('punch_time');
                     
                     // Deduplicate records before processing
                     $deduplicatedRecords = $this->deduplicateRecords($sortedRecords->toArray());
@@ -936,6 +952,7 @@ class Index extends Component
     {
         $breakDetails = [];
         $lastCheckOut = null;
+        $lastCheckOutRecord = null; // Track the record for manual entry check
         
         // Convert Collection to array if needed
         $recordsArray = is_array($sortedRecords) ? $sortedRecords : $sortedRecords->toArray();
@@ -957,11 +974,15 @@ class Index extends Component
                         'start' => $lastCheckOut->format('h:i A'),
                         'end' => '--',
                         'duration' => '--',
+                        'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
                     ];
                 }
                 // Start a new potential break at this OUT
                 $lastCheckOut = $recordTime;
+                $lastCheckOutRecord = $record; // Store the record
             } elseif ($type === 'IN') {
+                $isManualCheckIn = isset($record['is_manual_entry']) && $record['is_manual_entry'] ? true : false;
+                
                 if ($lastCheckOut) {
                     // Normal complete pair: OUT → IN
                     $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
@@ -970,15 +991,19 @@ class Index extends Component
                             'start' => $lastCheckOut->format('h:i A'),
                             'end' => $recordTime->format('h:i A'),
                             'duration' => $this->formatDuration($breakDuration),
+                            'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
+                            'end_manual' => $isManualCheckIn,
                         ];
                     }
                     $lastCheckOut = null; // Reset for next break
+                    $lastCheckOutRecord = null;
                 } else {
                     // IN without prior OUT → missing OUT, show '--' → IN
                     $breakDetails[] = [
                         'start' => '--',
                         'end' => $recordTime->format('h:i A'),
                         'duration' => '--',
+                        'end_manual' => $isManualCheckIn,
                     ];
                 }
             }
@@ -990,6 +1015,7 @@ class Index extends Component
                 'start' => $lastCheckOut->format('h:i A'),
                 'end' => '--',
                 'duration' => '--',
+                'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
             ];
         }
         
@@ -1394,6 +1420,111 @@ class Index extends Component
         return array_filter($this->availableUsers, function($user) use ($searchTerm) {
             return str_contains(strtolower($user['name']), $searchTerm);
         });
+    }
+
+    /**
+     * Open missing entry flyout
+     */
+    public function openMissingEntryFlyout($date)
+    {
+        $this->missingEntryDate = $date;
+        $this->showMissingEntryFlyout = true;
+    }
+
+    /**
+     * Close missing entry flyout
+     */
+    public function closeMissingEntryFlyout()
+    {
+        $this->showMissingEntryFlyout = false;
+        $this->resetMissingEntryForm();
+    }
+
+    /**
+     * Reset missing entry form
+     */
+    private function resetMissingEntryForm()
+    {
+        $this->missingEntryDate = '';
+        $this->missingEntryType = '';
+        $this->missingEntryTime = '';
+        $this->missingEntryNotes = '';
+    }
+
+    /**
+     * Save missing entry
+     */
+    public function saveMissingEntry()
+    {
+        $this->validate([
+            'missingEntryDate' => 'required|date',
+            'missingEntryType' => 'required|in:IN,OUT',
+            'missingEntryTime' => 'required',
+            'missingEntryNotes' => 'nullable|string|max:500',
+        ], [
+            'missingEntryDate.required' => 'Date is required.',
+            'missingEntryType.required' => 'Entry type is required.',
+            'missingEntryType.in' => 'Entry type must be Check-in or Check-out.',
+            'missingEntryTime.required' => 'Time is required.',
+        ]);
+
+        if (!$this->punchCode) {
+            session()->flash('error', 'Punch code not found. Please contact HR.');
+            return;
+        }
+
+        try {
+            // Combine date and time
+            $dateTime = Carbon::createFromFormat('Y-m-d H:i', $this->missingEntryDate . ' ' . $this->missingEntryTime);
+            
+            // Check if entry already exists for this exact time (within 1 minute tolerance)
+            $existingEntry = DeviceAttendance::where('punch_code', $this->punchCode)
+                ->where('device_type', $this->missingEntryType)
+                ->whereBetween('punch_time', [
+                    $dateTime->copy()->subMinute(),
+                    $dateTime->copy()->addMinute()
+                ])
+                ->first();
+
+            if ($existingEntry) {
+                session()->flash('error', 'An entry already exists for this date and time.');
+                return;
+            }
+
+            // Create manual entry
+            // Note: punch_time has a unique constraint, so we need to handle potential conflicts
+            try {
+                DeviceAttendance::create([
+                    'punch_code' => $this->punchCode,
+                    'device_ip' => '0.0.0.0', // Manual entry indicator
+                    'device_type' => $this->missingEntryType,
+                    'punch_time' => $dateTime,
+                    'punch_type' => $this->missingEntryType === 'IN' ? 'check_in' : 'check_out',
+                    'status' => null,
+                    'verify_mode' => null,
+                    'is_processed' => false,
+                    'is_manual_entry' => true,
+                    'updated_by' => Auth::id(),
+                    'notes' => $this->missingEntryNotes,
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Handle unique constraint violation
+                if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry')) {
+                    session()->flash('error', 'An entry already exists for this exact date and time. Please choose a different time.');
+                    return;
+                }
+                throw $e; // Re-throw if it's a different error
+            }
+
+            session()->flash('success', 'Missing entry added successfully.');
+            
+            // Close flyout and reload attendance
+            $this->closeMissingEntryFlyout();
+            $this->loadUserAttendance();
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to add missing entry: ' . $e->getMessage());
+        }
     }
 
     public function render()

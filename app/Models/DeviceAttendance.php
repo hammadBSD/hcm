@@ -18,6 +18,9 @@ class DeviceAttendance extends Model
         'verify_mode',
         'is_processed',
         'sync_timestamp',
+        'is_manual_entry',
+        'updated_by',
+        'notes',
     ];
 
     protected $casts = [
@@ -25,5 +28,11 @@ class DeviceAttendance extends Model
         'sync_timestamp' => 'datetime',
         'is_processed' => 'boolean',
         'verify_mode' => 'integer',
+        'is_manual_entry' => 'boolean',
     ];
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
 }
