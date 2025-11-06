@@ -632,8 +632,8 @@ class Index extends Component
                     $processedData[$date]['status'] = $status;
                 }
                 
-                $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i A') : null;
-                $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i A') : null;
+                $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i:s A') : null;
+                $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i:s A') : null;
                 
                 // Validate against shift and calculate late/early if shift exists
                 if ($this->employeeShift && $firstCheckIn) {
@@ -1016,7 +1016,7 @@ class Index extends Component
                 // Two OUTs in a row means previous IN missing → close prior as '--'
                 if ($lastCheckOut !== null) {
                     $breakDetails[] = [
-                        'start' => $lastCheckOut->format('h:i A'),
+                        'start' => $lastCheckOut->format('h:i:s A'),
                         'end' => '--',
                         'duration' => '--',
                         'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
@@ -1033,8 +1033,8 @@ class Index extends Component
                     $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
                     if ($breakDuration > 0) {
                         $breakDetails[] = [
-                            'start' => $lastCheckOut->format('h:i A'),
-                            'end' => $recordTime->format('h:i A'),
+                            'start' => $lastCheckOut->format('h:i:s A'),
+                            'end' => $recordTime->format('h:i:s A'),
                             'duration' => $this->formatDuration($breakDuration),
                             'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
                             'end_manual' => $isManualCheckIn,
@@ -1046,7 +1046,7 @@ class Index extends Component
                     // IN without prior OUT → missing OUT, show '--' → IN
                     $breakDetails[] = [
                         'start' => '--',
-                        'end' => $recordTime->format('h:i A'),
+                        'end' => $recordTime->format('h:i:s A'),
                         'duration' => '--',
                         'end_manual' => $isManualCheckIn,
                     ];
@@ -1057,7 +1057,7 @@ class Index extends Component
         // If the sequence ended with an OUT and no following IN, show OUT → '--'
         if ($lastCheckOut !== null) {
             $breakDetails[] = [
-                'start' => $lastCheckOut->format('h:i A'),
+                'start' => $lastCheckOut->format('h:i:s A'),
                 'end' => '--',
                 'duration' => '--',
                 'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
@@ -1580,7 +1580,8 @@ class Index extends Component
 
         try {
             // Combine date and time
-            $dateTime = Carbon::createFromFormat('Y-m-d H:i', $this->missingEntryDate . ' ' . $this->missingEntryTime);
+            // Carbon::parse can handle both H:i and H:i:s formats automatically
+            $dateTime = Carbon::parse($this->missingEntryDate . ' ' . $this->missingEntryTime);
             
             // Check if entry already exists for this exact time (within 1 minute tolerance)
             $existingEntry = DeviceAttendance::where('punch_code', $this->punchCode)
@@ -1648,10 +1649,32 @@ class Index extends Component
         $startOfDay = Carbon::parse($date)->startOfDay();
         $endOfDay = Carbon::parse($date)->endOfDay();
         
-        $this->manualEntries = DeviceAttendance::where('punch_code', $this->punchCode)
-            ->where('is_manual_entry', true)
-            ->whereBetween('punch_time', [$startOfDay, $endOfDay])
-            ->with('updatedBy:id,name')
+        // For PM-start overnight shifts, we need to also check the next day for AM entries
+        // that were date-adjusted when created (AM times get adjusted to next day)
+        $query = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->where('is_manual_entry', true);
+        
+        // Check if employee has PM-start overnight shift
+        if ($this->isPMStartOvernightShift()) {
+            // For PM-start overnight shifts, check:
+            // - Current day (for all entries on current day)
+            // - Next day AM (for AM entries that were date-adjusted and belong to current day's shift)
+            $nextDayStart = $endOfDay->copy()->addDay()->startOfDay();
+            
+            $query->where(function($q) use ($startOfDay, $endOfDay, $nextDayStart) {
+                // Current day (all entries)
+                $q->whereBetween('punch_time', [$startOfDay, $endOfDay])
+                  // Next day AM entries (before 12 PM) that belong to current day's shift
+                  ->orWhere(function($q2) use ($nextDayStart) {
+                      $q2->whereBetween('punch_time', [$nextDayStart, $nextDayStart->copy()->setTime(11, 59, 59)]);
+                  });
+            });
+        } else {
+            // For non-overnight shifts, just check the current day
+            $query->whereBetween('punch_time', [$startOfDay, $endOfDay]);
+        }
+        
+        $this->manualEntries = $query->with('updatedBy:id,name')
             ->orderBy('punch_time', 'asc')
             ->get()
             ->map(function($entry) {
@@ -1659,9 +1682,9 @@ class Index extends Component
                     'id' => $entry->id,
                     'type' => $entry->device_type,
                     'type_label' => $entry->device_type === 'IN' ? 'Check-in' : 'Check-out',
-                    'time' => Carbon::parse($entry->punch_time)->format('h:i A'),
-                    'date_time' => Carbon::parse($entry->punch_time)->format('M d, Y h:i A'),
-                    'created_at' => $entry->created_at ? $entry->created_at->format('M d, Y h:i A') : null,
+                    'time' => Carbon::parse($entry->punch_time)->format('h:i:s A'),
+                    'date_time' => Carbon::parse($entry->punch_time)->format('M d, Y h:i:s A'),
+                    'created_at' => $entry->created_at ? $entry->created_at->format('M d, Y h:i:s A') : null,
                     'updated_by' => $entry->updatedBy ? $entry->updatedBy->name : 'Unknown',
                     'notes' => $entry->notes,
                 ];

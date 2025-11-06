@@ -451,7 +451,7 @@
                 <!-- Time -->
                 <flux:field>
                     <flux:label>Time <span class="text-red-500">*</span></flux:label>
-                    <flux:input wire:model.live="missingEntryTime" type="time" />
+                    <flux:input wire:model.live="missingEntryTime" type="time" step="1" />
                     <flux:error name="missingEntryTime" />
                 </flux:field>
 
