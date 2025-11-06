@@ -439,14 +439,19 @@
                 <!-- Date -->
                 <flux:field>
                     <flux:label>Date <span class="text-red-500">*</span></flux:label>
-                    <flux:input wire:model="missingEntryDate" type="date" disabled />
+                    <flux:input wire:model="missingEntryDate" type="date" />
                     <flux:error name="missingEntryDate" />
+                    @if($dateAdjusted)
+                        <flux:callout color="blue" icon="information-circle" class="mt-2">
+                            Date automatically adjusted to next day because your shift starts in PM and you entered an AM time.
+                        </flux:callout>
+                    @endif
                 </flux:field>
 
                 <!-- Time -->
                 <flux:field>
                     <flux:label>Time <span class="text-red-500">*</span></flux:label>
-                    <flux:input wire:model="missingEntryTime" type="time" />
+                    <flux:input wire:model.live="missingEntryTime" type="time" />
                     <flux:error name="missingEntryTime" />
                 </flux:field>
 

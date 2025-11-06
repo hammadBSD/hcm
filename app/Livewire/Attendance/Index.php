@@ -50,6 +50,7 @@ class Index extends Component
     public $missingEntryType = ''; // 'IN' or 'OUT'
     public $missingEntryTime = '';
     public $missingEntryNotes = '';
+    public $dateAdjusted = false; // Flag to show if date was auto-adjusted
     
     // View Changes Flyout Properties
     public $showViewChangesFlyout = false;
@@ -1493,6 +1494,66 @@ class Index extends Component
         $this->missingEntryType = '';
         $this->missingEntryTime = '';
         $this->missingEntryNotes = '';
+        $this->dateAdjusted = false;
+    }
+
+    /**
+     * Check if employee has PM-start overnight shift
+     */
+    private function isPMStartOvernightShift()
+    {
+        if (!$this->employeeShift) {
+            return false;
+        }
+
+        $timeFromParts = explode(':', $this->employeeShift->time_from);
+        $timeToParts = explode(':', $this->employeeShift->time_to);
+        
+        $timeFrom = Carbon::createFromTime(
+            (int)($timeFromParts[0] ?? 0),
+            (int)($timeFromParts[1] ?? 0),
+            (int)($timeFromParts[2] ?? 0)
+        );
+        
+        $timeTo = Carbon::createFromTime(
+            (int)($timeToParts[0] ?? 0),
+            (int)($timeToParts[1] ?? 0),
+            (int)($timeToParts[2] ?? 0)
+        );
+        
+        // Check if it's overnight (time_from > time_to) and starts in PM (hour >= 12)
+        return $timeFrom->gt($timeTo) && $timeFrom->hour >= 12;
+    }
+
+    /**
+     * Watch for time changes and adjust date if needed for PM-start overnight shifts
+     */
+    public function updatedMissingEntryTime()
+    {
+        if (!$this->missingEntryTime || !$this->missingEntryDate) {
+            $this->dateAdjusted = false;
+            return;
+        }
+
+        // Check if shift is PM-start overnight
+        if (!$this->isPMStartOvernightShift()) {
+            $this->dateAdjusted = false;
+            return;
+        }
+
+        // Parse the time to check if it's AM (hour < 12)
+        $timeParts = explode(':', $this->missingEntryTime);
+        $hour = (int)($timeParts[0] ?? 0);
+
+        // If time is AM (hour < 12), adjust date forward by 1 day
+        if ($hour < 12) {
+            $originalDate = Carbon::parse($this->missingEntryDate);
+            $adjustedDate = $originalDate->copy()->addDay();
+            $this->missingEntryDate = $adjustedDate->format('Y-m-d');
+            $this->dateAdjusted = true;
+        } else {
+            $this->dateAdjusted = false;
+        }
     }
 
     /**
