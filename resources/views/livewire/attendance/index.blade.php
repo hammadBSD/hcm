@@ -282,10 +282,22 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="flex flex-col gap-1">
+                                                    <div class="flex items-center gap-2">
                                                         <div class="text-sm {{ ($record['total_hours'] ?? '-') === 'N/A' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-900 dark:text-zinc-100' }}">
                                                             {{ $record['total_hours'] ?? '-' }}
                                                         </div>
+                                                        @if(isset($record['has_manual_entries']) && $record['has_manual_entries'])
+                                                            <flux:tooltip>
+                                                                <flux:badge color="blue" size="xs" class="cursor-help">
+                                                                    M
+                                                                </flux:badge>
+                                                                <flux:tooltip.content>
+                                                                    <div class="text-sm">
+                                                                        {{ __('Manual Entry') }}
+                                                                    </div>
+                                                                </flux:tooltip.content>
+                                                            </flux:tooltip>
+                                                        @endif
                                                     </div>
                                                 </td>
                                                 
@@ -336,6 +348,12 @@
                                                                 <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
                                                                     {{ __('Add Missing Entry') }}
                                                                 </flux:menu.item>
+                                                                @if(isset($record['has_manual_entries']) && $record['has_manual_entries'])
+                                                                    <flux:menu.separator />
+                                                                    <flux:menu.item icon="eye" wire:click="openViewChangesFlyout('{{ $record['date'] }}')">
+                                                                        {{ __('View Changes') }}
+                                                                    </flux:menu.item>
+                                                                @endif
                                                                 @if($record['status'] === 'absent')
                                                                     <flux:menu.separator />
                                                                     <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
@@ -444,6 +462,93 @@
                     <flux:spacer />
                     <flux:button wire:click="closeMissingEntryFlyout" variant="ghost">Cancel</flux:button>
                     <flux:button wire:click="saveMissingEntry" variant="primary">Add Entry</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+
+        <!-- View Changes Flyout -->
+        <flux:modal wire:model.self="showViewChangesFlyout" variant="flyout" class="w-[40rem] max-w-[50vw]">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Manual Entry Changes</flux:heading>
+                    <flux:text class="text-zinc-600 dark:text-zinc-400 mt-1">
+                        Manual entries for {{ $viewChangesDate ? \Carbon\Carbon::parse($viewChangesDate)->format('F d, Y') : '' }}
+                    </flux:text>
+                </div>
+                
+                @if(empty($manualEntries))
+                    <div class="text-center py-8">
+                        <flux:icon name="information-circle" class="mx-auto h-12 w-12 text-zinc-400" />
+                        <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
+                            No manual entries found for this date.
+                        </flux:text>
+                    </div>
+                @else
+                    <div class="space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                        @foreach($manualEntries as $index => $entry)
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <flux:badge color="{{ $entry['type'] === 'IN' ? 'green' : 'red' }}" size="sm">
+                                            {{ $entry['type_label'] }}
+                                        </flux:badge>
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                            {{ $entry['time'] }}
+                                        </span>
+                                    </div>
+                                    <flux:button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        icon="trash" 
+                                        wire:click="deleteManualEntry({{ $entry['id'] }})"
+                                        wire:confirm="Are you sure you want to delete this manual entry? This action cannot be undone."
+                                        class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                    >
+                                        Delete
+                                    </flux:button>
+                                </div>
+                                
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[5rem]">Created:</span>
+                                        <span class="text-zinc-900 dark:text-zinc-100">
+                                            {{ $entry['created_at'] ?? $entry['date_time'] }}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[5rem]">By:</span>
+                                        <span class="text-zinc-900 dark:text-zinc-100">
+                                            {{ $entry['updated_by'] }}
+                                        </span>
+                                    </div>
+                                    
+                                    @if(!empty($entry['notes']))
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-zinc-500 dark:text-zinc-400 min-w-[5rem]">Notes:</span>
+                                            <span class="text-zinc-900 dark:text-zinc-100 break-words" style="word-break: break-word; max-width: 100%;">
+                                                @php
+                                                    $words = explode(' ', $entry['notes']);
+                                                    $wordCount = count($words);
+                                                    $maxWordsPerLine = 15; // Approximately 15 words per line
+                                                    $chunks = array_chunk($words, $maxWordsPerLine);
+                                                @endphp
+                                                @foreach($chunks as $chunk)
+                                                    {{ implode(' ', $chunk) }}@if(!$loop->last)<br />@endif
+                                                @endforeach
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2">
+                    <flux:spacer />
+                    <flux:button wire:click="closeViewChangesFlyout" variant="primary">Close</flux:button>
                 </div>
             </div>
         </flux:modal>

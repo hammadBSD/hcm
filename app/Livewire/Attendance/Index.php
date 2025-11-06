@@ -50,6 +50,11 @@ class Index extends Component
     public $missingEntryType = ''; // 'IN' or 'OUT'
     public $missingEntryTime = '';
     public $missingEntryNotes = '';
+    
+    // View Changes Flyout Properties
+    public $showViewChangesFlyout = false;
+    public $viewChangesDate = '';
+    public $manualEntries = [];
 
     public function mount()
     {
@@ -451,6 +456,7 @@ class Index extends Component
                 'early_minutes' => 0,
                 'actual_hours' => null,
                 'expected_hours' => null,
+                'has_manual_entries' => false,
             ];
             
             // Process attendance records for this day if they exist
@@ -720,6 +726,19 @@ class Index extends Component
                 }
                 
                 if (!empty($recordsForCalculation)) {
+                    // Check if any records are manual entries
+                    $hasManualEntries = false;
+                    foreach ($recordsForCalculation as $record) {
+                        if (is_object($record) && isset($record->is_manual_entry) && $record->is_manual_entry) {
+                            $hasManualEntries = true;
+                            break;
+                        } elseif (is_array($record) && isset($record['is_manual_entry']) && $record['is_manual_entry']) {
+                            $hasManualEntries = true;
+                            break;
+                        }
+                    }
+                    $processedData[$date]['has_manual_entries'] = $hasManualEntries;
+                    
                     // Convert DeviceAttendance models to arrays with all attributes
                     $recordsArray = collect($recordsForCalculation)->map(function($record) {
                         if (is_object($record) && method_exists($record, 'toArray')) {
@@ -1524,6 +1543,97 @@ class Index extends Component
             
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to add missing entry: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Open view changes flyout
+     */
+    public function openViewChangesFlyout($date)
+    {
+        $this->viewChangesDate = $date;
+        
+        if (!$this->punchCode) {
+            session()->flash('error', 'Punch code not found.');
+            return;
+        }
+        
+        // Get all manual entries for this date
+        $startOfDay = Carbon::parse($date)->startOfDay();
+        $endOfDay = Carbon::parse($date)->endOfDay();
+        
+        $this->manualEntries = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->where('is_manual_entry', true)
+            ->whereBetween('punch_time', [$startOfDay, $endOfDay])
+            ->with('updatedBy:id,name')
+            ->orderBy('punch_time', 'asc')
+            ->get()
+            ->map(function($entry) {
+                return [
+                    'id' => $entry->id,
+                    'type' => $entry->device_type,
+                    'type_label' => $entry->device_type === 'IN' ? 'Check-in' : 'Check-out',
+                    'time' => Carbon::parse($entry->punch_time)->format('h:i A'),
+                    'date_time' => Carbon::parse($entry->punch_time)->format('M d, Y h:i A'),
+                    'created_at' => $entry->created_at ? $entry->created_at->format('M d, Y h:i A') : null,
+                    'updated_by' => $entry->updatedBy ? $entry->updatedBy->name : 'Unknown',
+                    'notes' => $entry->notes,
+                ];
+            })
+            ->toArray();
+        
+        $this->showViewChangesFlyout = true;
+    }
+
+    /**
+     * Close view changes flyout
+     */
+    public function closeViewChangesFlyout()
+    {
+        $this->showViewChangesFlyout = false;
+        $this->viewChangesDate = '';
+        $this->manualEntries = [];
+    }
+
+    /**
+     * Delete manual entry
+     */
+    public function deleteManualEntry($entryId)
+    {
+        try {
+            $entry = DeviceAttendance::find($entryId);
+            
+            if (!$entry) {
+                session()->flash('error', 'Manual entry not found.');
+                return;
+            }
+            
+            // Verify it's a manual entry
+            if (!$entry->is_manual_entry) {
+                session()->flash('error', 'Only manual entries can be deleted.');
+                return;
+            }
+            
+            // Verify it belongs to the current user's punch code
+            if ($entry->punch_code !== $this->punchCode) {
+                session()->flash('error', 'You do not have permission to delete this entry.');
+                return;
+            }
+            
+            $entry->delete();
+            
+            session()->flash('success', 'Manual entry deleted successfully.');
+            
+            // Reload manual entries for the current date
+            if ($this->viewChangesDate) {
+                $this->openViewChangesFlyout($this->viewChangesDate);
+            }
+            
+            // Reload attendance data
+            $this->loadUserAttendance();
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to delete manual entry: ' . $e->getMessage());
         }
     }
 
