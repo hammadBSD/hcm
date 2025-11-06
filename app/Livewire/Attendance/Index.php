@@ -210,9 +210,14 @@ class Index extends Component
         // Get attendance data for the selected month
         $startOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
+        
+        // Extend the end date to include next day's records that might belong to the last day
+        // (for non-overnight shifts with grace period - up to 5 hours after shift end)
+        // Maximum grace period is 5 hours, so we need records up to 5 hours after month end
+        $extendedEndDate = $endOfMonth->copy()->addHours(5);
 
         $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
-            ->whereBetween('punch_time', [$startOfMonth, $endOfMonth])
+            ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
             ->orderBy('punch_time', 'desc')
             ->get();
 
@@ -232,11 +237,88 @@ class Index extends Component
         
         $processedData = [];
         
-        // Group records by date first
+        // Group records by date with grace period logic for non-overnight shifts
         $groupedRecords = [];
+        
+        // First, determine shift characteristics if available
+        $isOvernight = false;
+        $timeFrom = null;
+        $timeTo = null;
+        $gracePeriodHours = 5; // 5 hours grace period
+        
+        if ($this->employeeShift) {
+            $timeFromParts = explode(':', $this->employeeShift->time_from);
+            $timeToParts = explode(':', $this->employeeShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int)($timeFromParts[0] ?? 0),
+                (int)($timeFromParts[1] ?? 0),
+                (int)($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int)($timeToParts[0] ?? 0),
+                (int)($timeToParts[1] ?? 0),
+                (int)($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+        }
+        
+        // Group records with grace period logic for non-overnight shifts
         foreach ($records as $record) {
-            $date = Carbon::parse($record->punch_time)->format('Y-m-d');
-            $groupedRecords[$date][] = $record;
+            $punchTime = Carbon::parse($record->punch_time);
+            $punchDate = $punchTime->format('Y-m-d');
+            
+            // For non-overnight shifts, apply grace period logic
+            if (!$isOvernight && $this->employeeShift && $timeFrom && $timeTo) {
+                // Check if this is a check-out on the next calendar day (after midnight)
+                if ($record->device_type === 'OUT') {
+                    // Check if punch time is in the early morning (next calendar day)
+                    // For non-overnight shifts, check-outs after midnight belong to previous day if within grace period
+                    if ($punchTime->hour < 12) {
+                        // Get the previous day's date
+                        $previousDate = $punchTime->copy()->subDay()->format('Y-m-d');
+                        
+                        // Calculate the shift end time on the previous day
+                        $previousDayShiftEnd = Carbon::parse($previousDate)->setTime(
+                            $timeTo->hour,
+                            $timeTo->minute,
+                            $timeTo->second
+                        );
+                        
+                        // Calculate cutoff: shift end + 5 hours
+                        // This gives us the maximum time (on the next day) that still belongs to previous day
+                        $checkOutCutoff = $previousDayShiftEnd->copy()->addHours($gracePeriodHours);
+                        
+                        // If punch time is within grace period (before or equal to cutoff), attribute to previous day
+                        // Example: Shift ends 11:30 PM Oct 31, cutoff is 4:30 AM Nov 1
+                        // Check-out at 12:22 AM Nov 1 is before 4:30 AM, so it belongs to Oct 31
+                        if ($punchTime->lte($checkOutCutoff)) {
+                            $groupedRecords[$previousDate][] = $record;
+                            continue;
+                        }
+                    }
+                }
+                
+                // Check if this is an early check-in (before shift start but within grace period)
+                if ($record->device_type === 'IN') {
+                    $currentDayShiftStart = Carbon::parse($punchDate)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    
+                    // Calculate cutoff: shift start - 5 hours
+                    $checkInCutoff = $currentDayShiftStart->copy()->subHours($gracePeriodHours);
+                    
+                    // If punch time is before shift start but within grace period, attribute to current day
+                    if ($punchTime->lt($currentDayShiftStart) && $punchTime->gte($checkInCutoff)) {
+                        $groupedRecords[$punchDate][] = $record;
+                        continue;
+                    }
+                }
+            }
+            
+            // Default: group by punch date
+            $groupedRecords[$punchDate][] = $record;
         }
         
         // Process ALL days of the month (including weekends and absent days)
@@ -413,6 +495,10 @@ class Index extends Component
                             $validCheckOuts[] = Carbon::parse($record->punch_time);
                         }
                     }
+                    
+                    // Note: For non-overnight shifts, next day's check-outs within grace period
+                    // are already grouped into the current day's records by the grouping logic above.
+                    // So we don't need to check next day's records here - they're already in $dayRecords.
                     
                     // For AM-start overnight shifts, get next day's check-outs
                     if ($isOvernight && !$shiftStartsInPM) {
@@ -910,7 +996,7 @@ class Index extends Component
                 $timeDiff = $lastTime->diffInSeconds($recordTime);
                 
                 // If same type and within 5 seconds, keep the later one (replace)
-                if ($recordType === $lastType && $timeDiff <= 5) {
+                if ($recordType === $lastType && $timeDiff <= 10) {
                     // Replace the last record with this one (keep the latest)
                     array_pop($deduplicated);
                     $deduplicated[] = $record;
