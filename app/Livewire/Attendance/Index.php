@@ -568,23 +568,17 @@ class Index extends Component
                                 }
                             } elseif ($record->device_type === 'OUT') {
                                 $checkOutTime = Carbon::parse($record->punch_time);
-                                // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
-                                // They logically belong to the previous day's shift that started in PM
-                                if ($checkOutTime->hour < 12) {
+                                $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
+                                );
+                                $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+
+                                // Only include check-outs that fall within the grace window (shift end + 5 hours)
+                                // This prevents assigning next-shift activity (e.g., afternoon punches) to the previous day
+                                if ($checkOutTime->lte($checkOutCutoff)) {
                                     $validCheckOuts[] = $checkOutTime;
-                                }
-                                // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
-                                // But limit to next shift start time to avoid confusion
-                                elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
-                                    // This is overtime (checkout after midnight but before next shift start at 9 PM)
-                                    $nextShiftStart = Carbon::parse($nextDate)->setTime(
-                                        $timeFrom->hour,
-                                        $timeFrom->minute,
-                                        $timeFrom->second
-                                    );
-                                    if ($checkOutTime->lt($nextShiftStart)) {
-                                        $validCheckOuts[] = $checkOutTime;
-                                    }
                                 }
                             }
                         }
@@ -715,23 +709,16 @@ class Index extends Component
                             }
                         } elseif ($record->device_type === 'OUT') {
                             $checkOutTime = Carbon::parse($record->punch_time);
-                            // For PM-start overnight shifts, include ALL AM check-outs (before 12 PM) on next day
-                            // They logically belong to the previous day's shift that started in PM
-                            if ($checkOutTime->hour < 12) {
+                            $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                $timeTo->hour,
+                                $timeTo->minute,
+                                $timeTo->second
+                            );
+                            $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+
+                            // Only include check-outs within the grace window of shift end
+                            if ($checkOutTime->lte($checkOutCutoff)) {
                                 $recordsForCalculation[] = $record;
-                            }
-                            // For overtime scenarios: if shift ends 11:30 PM and checkout is 12:15 AM, include it
-                            // But limit to next shift start time to avoid confusion
-                            elseif ($checkOutTime->hour >= 12 && $checkOutTime->hour < $timeFrom->hour) {
-                                // This is overtime (checkout after midnight but before next shift start at 9 PM)
-                                $nextShiftStart = Carbon::parse($nextDate)->setTime(
-                                    $timeFrom->hour,
-                                    $timeFrom->minute,
-                                    $timeFrom->second
-                                );
-                                if ($checkOutTime->lt($nextShiftStart)) {
-                                    $recordsForCalculation[] = $record;
-                                }
                             }
                         }
                     }
