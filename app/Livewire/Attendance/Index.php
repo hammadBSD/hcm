@@ -340,6 +340,24 @@ class Index extends Component
                     }
                 }
                 
+                // Check if this is a check-in on the next calendar day that still belongs to previous day (after midnight)
+                if ($record->device_type === 'IN' && $punchTime->hour < 12) {
+                    $previousDate = $punchTime->copy()->subDay()->format('Y-m-d');
+                    
+                    $previousDayShiftEnd = Carbon::parse($previousDate)->setTime(
+                        $timeTo->hour,
+                        $timeTo->minute,
+                        $timeTo->second
+                    );
+                    
+                    $checkOutCutoff = $previousDayShiftEnd->copy()->addHours($gracePeriodHours);
+                    
+                    if ($punchTime->lte($checkOutCutoff)) {
+                        $groupedRecords[$previousDate][] = $record;
+                        continue;
+                    }
+                }
+                
                 // Check if this is an early check-in (before shift start but within grace period)
                 if ($record->device_type === 'IN') {
                     $currentDayShiftStart = Carbon::parse($punchDate)->setTime(
