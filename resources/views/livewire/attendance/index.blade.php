@@ -45,15 +45,15 @@
                         </div>
                     </div>
 
-                    <!-- Attendance Percentage -->
+                    <!-- Late Days -->
                     <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Attendance Rate</flux:text>
-                                <flux:heading size="xl" class="text-zinc-900 dark:text-zinc-100">{{ $attendanceStats['attendance_percentage'] ?? 0 }}%</flux:heading>
+                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Late Days</flux:text>
+                                <flux:heading size="xl" class="text-zinc-900 dark:text-zinc-100">{{ $attendanceStats['late_days'] ?? 0 }}</flux:heading>
                             </div>
                             <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="chart-bar" class="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                                <flux:icon name="clock" class="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
                             </div>
                         </div>
                     </div>

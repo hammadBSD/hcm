@@ -267,7 +267,7 @@ class Index extends Component
         $this->attendanceData = $this->processAttendanceData($attendanceRecords);
         
         // Calculate statistics
-        $this->attendanceStats = $this->calculateAttendanceStats($attendanceRecords);
+        $this->attendanceStats = $this->calculateAttendanceStats($attendanceRecords, $this->attendanceData);
     }
 
     private function processAttendanceData($records)
@@ -1191,7 +1191,7 @@ class Index extends Component
         return sprintf('%d:%02d', $expectedHours, $expectedMins);
     }
 
-    private function calculateAttendanceStats($records)
+    private function calculateAttendanceStats($records, $processedData = null)
     {
         // Use the same month as the records
         $targetMonth = $this->selectedMonth ?: Carbon::now()->format('Y-m');
@@ -1217,33 +1217,67 @@ class Index extends Component
             return !Carbon::parse($date)->isWeekend();
         })->count();
 
-        // Calculate total working hours by pairing check-ins with check-outs chronologically
+        // Calculate total working hours using processed attendance data when available
         $totalMinutes = 0;
-        $groupedRecords = [];
-        
-        foreach ($records as $record) {
-            $date = Carbon::parse($record->punch_time)->format('Y-m-d');
-            $groupedRecords[$date][] = $record;
-        }
-        
-        foreach ($groupedRecords as $dayRecords) {
-            // Sort records by punch_time to get chronological order
-            usort($dayRecords, function($a, $b) {
-                return Carbon::parse($a->punch_time)->timestamp - Carbon::parse($b->punch_time)->timestamp;
-            });
-            
-            $checkInTime = null;
-            
-            // Process records chronologically and pair check-ins with check-outs
-            foreach ($dayRecords as $record) {
-                if ($record->device_type === 'IN') {
-                    $checkInTime = Carbon::parse($record->punch_time);
-                } elseif ($record->device_type === 'OUT' && $checkInTime) {
-                    $checkOutTime = Carbon::parse($record->punch_time);
-                    if ($checkOutTime->gt($checkInTime)) {
-                        $totalMinutes += $checkInTime->diffInMinutes($checkOutTime);
+
+        $lateDays = 0;
+
+        if (!empty($processedData) && is_array($processedData)) {
+            foreach ($processedData as $record) {
+                $totalHoursString = $record['total_hours'] ?? null;
+
+                if (!$totalHoursString || strtoupper($totalHoursString) === 'N/A') {
+                    continue;
+                }
+
+                if (strpos($totalHoursString, ':') === false) {
+                    continue;
+                }
+
+                [$hoursPart, $minutesPart] = array_pad(explode(':', $totalHoursString), 2, '0');
+                $hours = (int) $hoursPart;
+                $minutes = (int) $minutesPart;
+
+                $totalMinutes += ($hours * 60) + $minutes;
+
+                $isLate = false;
+                if (isset($record['is_late']) && $record['is_late']) {
+                    $isLate = true;
+                } elseif (!empty($record['status']) && str_contains($record['status'], 'present_late')) {
+                    $isLate = true;
+                }
+
+                if ($isLate) {
+                    $lateDays++;
+                }
+            }
+        } else {
+            $groupedRecords = [];
+
+            foreach ($records as $record) {
+                $date = Carbon::parse($record->punch_time)->format('Y-m-d');
+                $groupedRecords[$date][] = $record;
+            }
+
+            foreach ($groupedRecords as $dayRecords) {
+                // Sort records by punch_time to get chronological order
+                usort($dayRecords, function($a, $b) {
+                    return Carbon::parse($a->punch_time)->timestamp - Carbon::parse($b->punch_time)->timestamp;
+                });
+
+                $checkInTime = null;
+
+                // Process records chronologically and pair check-ins with check-outs
+                foreach ($dayRecords as $record) {
+                    if ($record->device_type === 'IN') {
+                        $checkInTime = Carbon::parse($record->punch_time);
+                    } elseif ($record->device_type === 'OUT' && $checkInTime) {
+                        $checkOutTime = Carbon::parse($record->punch_time);
+                        if ($checkOutTime->gt($checkInTime)) {
+                            $totalMinutes += $checkInTime->diffInMinutes($checkOutTime);
+                        }
+                        $checkInTime = null; // Reset for next pair
                     }
-                    $checkInTime = null; // Reset for next pair
                 }
             }
         }
@@ -1258,6 +1292,7 @@ class Index extends Component
             'attendance_percentage' => $workingDays > 0 ? round(($attendedDays / $workingDays) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
             'expected_hours' => $this->calculateExpectedHours($workingDays), // Calculate based on shift
+            'late_days' => $lateDays,
         ];
     }
 
