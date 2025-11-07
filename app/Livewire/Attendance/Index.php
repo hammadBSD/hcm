@@ -1600,20 +1600,6 @@ class Index extends Component
             // Combine date and time
             // Carbon::parse can handle both H:i and H:i:s formats automatically
             $dateTime = Carbon::parse($this->missingEntryDate . ' ' . $this->missingEntryTime);
-            
-            // Check if entry already exists for this exact time (within 1 minute tolerance)
-            $existingEntry = DeviceAttendance::where('punch_code', $this->punchCode)
-                ->where('device_type', $this->missingEntryType)
-                ->whereBetween('punch_time', [
-                    $dateTime->copy()->subMinute(),
-                    $dateTime->copy()->addMinute()
-                ])
-                ->first();
-
-            if ($existingEntry) {
-                session()->flash('error', 'An entry already exists for this date and time.');
-                return;
-            }
 
             // Create manual entry
             // Note: punch_time has a unique constraint, so we need to handle potential conflicts
