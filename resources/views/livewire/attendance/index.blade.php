@@ -92,7 +92,20 @@
                                 <div class="flex items-center justify-between">
                                     <flux:heading size="lg">Recent Attendance Records</flux:heading>
                                     <div class="flex items-center gap-3">
-                                        <flux:select wire:model.live="selectedUserId" placeholder="Select User" class="w-64">
+                                        <div
+                                            class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
+                                            wire:loading.flex
+                                            wire:target="selectedUserId, selectedMonth"
+                                        >
+                                            <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
+                                        </div>
+                                        <flux:select
+                                            wire:model.live="selectedUserId"
+                                            placeholder="Select User"
+                                            class="w-64"
+                                            wire:loading.attr="disabled"
+                                            wire:target="selectedUserId, selectedMonth"
+                                        >
                                             @if(!$selectedUserId)
                                                 <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
                                             @endif
@@ -100,7 +113,13 @@
                                                 <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
                                             @endforeach
                                         </flux:select>
-                                        <flux:select wire:model.live="selectedMonth" placeholder="{{ $currentMonth }}" class="w-40">
+                                        <flux:select
+                                            wire:model.live="selectedMonth"
+                                            placeholder="{{ $currentMonth }}"
+                                            class="w-40"
+                                            wire:loading.attr="disabled"
+                                            wire:target="selectedUserId, selectedMonth"
+                                        >
                                             <option value="">{{ $currentMonth }} (Current)</option>
                                             @foreach($availableMonths as $month)
                                                 <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
@@ -109,7 +128,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="overflow-x-auto">
+                            <div class="overflow-x-auto" wire:loading.class="opacity-50" wire:target="selectedUserId, selectedMonth">
                                 <table class="w-full">
                                     <thead class="bg-zinc-50 dark:bg-zinc-700">
                                         <tr>
