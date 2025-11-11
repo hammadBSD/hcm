@@ -92,7 +92,10 @@
                                 <div class="flex items-center justify-between">
                                     <flux:heading size="lg">Recent Attendance Records</flux:heading>
                                     <div class="flex items-center gap-3">
-                                        @if($canViewOtherUsers)
+                                        @php
+                                            $currentUser = auth()->user();
+                                        @endphp
+                                        @if($currentUser && ($currentUser->can('attendance.switch_user') || $currentUser->hasRole('Super Admin')))
                                             <div
                                                 class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
                                                 wire:loading.flex
@@ -100,29 +103,20 @@
                                             >
                                                 <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
                                             </div>
-                                            <div class="flex items-center gap-2">
-                                                <flux:select
-                                                    wire:model.live="selectedUserId"
-                                                    placeholder="Select User"
-                                                    class="w-64"
-                                                    wire:loading.attr="disabled"
-                                                    wire:target="selectedUserId, selectedMonth"
-                                                    @disabled(!$canSwitchUsers)
-                                                >
-                                                    @if(!$selectedUserId)
-                                                        <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
-                                                    @endif
-                                                    @foreach($availableUsers as $user)
-                                                        <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
-                                                    @endforeach
-                                                </flux:select>
-                                                @unless($canSwitchUsers)
-                                                    <flux:tooltip>
-                                                        <flux:icon name="lock-closed" class="w-4 h-4 text-zinc-400" />
-                                                        <flux:tooltip.content>{{ __('View only') }}</flux:tooltip.content>
-                                                    </flux:tooltip>
-                                                @endunless
-                                            </div>
+                                            <flux:select
+                                                wire:model.live="selectedUserId"
+                                                placeholder="Select User"
+                                                class="w-64"
+                                                wire:loading.attr="disabled"
+                                                wire:target="selectedUserId, selectedMonth"
+                                            >
+                                                @if(!$selectedUserId)
+                                                    <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
+                                                @endif
+                                                @foreach($availableUsers as $user)
+                                                    <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
+                                                @endforeach
+                                            </flux:select>
                                         @endif
                                         <flux:select
                                             wire:model.live="selectedMonth"
