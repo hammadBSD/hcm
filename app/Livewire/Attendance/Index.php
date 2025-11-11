@@ -1809,6 +1809,22 @@ class Index extends Component
 
     public function render()
     {
+        $user = Auth::user();
+        $this->canSwitchUsers = $user
+            ? ($user->can('attendance.manage.switch_user') || $user->hasRole('Super Admin'))
+            : false;
+
+        $this->canViewOtherUsers = $user
+            ? ($this->canSwitchUsers || $user->can('attendance.view.team') || $user->can('attendance.view.company'))
+            : false;
+
+        if ($this->canViewOtherUsers && empty($this->availableUsers)) {
+            $this->loadAvailableUsers();
+        } elseif (!$this->canViewOtherUsers) {
+            $this->availableUsers = [];
+            $this->selectedUserId = null;
+        }
+
         return view('livewire.attendance.index', [
             'canViewOtherUsers' => $this->canViewOtherUsers,
             'canSwitchUsers' => $this->canSwitchUsers,
