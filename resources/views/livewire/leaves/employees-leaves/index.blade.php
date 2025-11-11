@@ -1,7 +1,12 @@
+@php
+    $canApproveLeaves = auth()->user()?->can('leaves.approve.requests');
+    $canManageAllLeaves = auth()->user()?->can('leaves.manage.all');
+@endphp
+
 <section class="w-full">
     @include('partials.leaves-heading')
 
-    <x-leaves.layout :heading="__('Leave Requests')" :subheading="__('Manage and approve all employee leave requests')">
+    <x-leaves.layout :heading="__('All Leave Requests')" :subheading="__('Manage and approve all submitted leave requests')">
         <div class="space-y-6">
             <!-- Leave Balance -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
@@ -259,11 +264,13 @@
                                             <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
                                                 <div class="flex items-center gap-1">
                                                     <flux:button variant="ghost" size="sm" icon="eye" wire:click="viewRequest({{ $request['id'] }})" />
-                                                    @if($request['status'] === 'pending')
+                                                    @if($request['status'] === 'pending' && $canApproveLeaves)
                                                         <flux:button variant="ghost" size="sm" icon="check" wire:click="approveRequest({{ $request['id'] }})" />
                                                         <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="rejectRequest({{ $request['id'] }})" />
                                                     @endif
-                                                    <flux:button variant="ghost" size="sm" icon="pencil" wire:click="editRequest({{ $request['id'] }})" />
+                                                    @if($canManageAllLeaves)
+                                                        <flux:button variant="ghost" size="sm" icon="pencil" wire:click="editRequest({{ $request['id'] }})" />
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

@@ -1,3 +1,7 @@
+@php
+    $canApproveLeaves = auth()->user()?->can('leaves.approve.requests');
+@endphp
+
 <section class="w-full">
     @include('partials.leaves-heading')
 
@@ -76,10 +80,12 @@
                     </flux:button>
                     
                     <!-- Request Leave Button -->
-                    <flux:button variant="primary" :href="route('leaves.leave-request')" wire:navigate>
-                        <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                        Request Leave
-                    </flux:button>
+                    @can('leaves.request.submit')
+                        <flux:button variant="primary" :href="route('leaves.leave-request')" wire:navigate>
+                            <flux:icon name="plus" class="w-4 h-4 mr-2" />
+                            Request Leave
+                        </flux:button>
+                    @endcan
                 </div>
             </div>
 
@@ -220,7 +226,7 @@
                                             <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
                                                 <div class="flex items-center gap-1">
                                                     <flux:button variant="ghost" size="sm" icon="eye" wire:click="viewRequest({{ $request['id'] }})" />
-                                                    @if($request['status'] === 'pending')
+                                                    @if($request['status'] === 'pending' && $canApproveLeaves)
                                                         <flux:button variant="ghost" size="sm" icon="check" wire:click="approveRequest({{ $request['id'] }})" />
                                                         <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="rejectRequest({{ $request['id'] }})" />
                                                     @endif

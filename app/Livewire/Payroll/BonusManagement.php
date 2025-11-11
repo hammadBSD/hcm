@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -16,6 +17,15 @@ class BonusManagement extends Component
     public $showAddBonusModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    public function mount()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.edit')) {
+            abort(403);
+        }
+    }
 
     public function updatedSearch()
     {

@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -20,6 +21,12 @@ class PayrollProcessing extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.process')) {
+            abort(403);
+        }
+
         $this->selectedMonth = now()->month;
         $this->selectedYear = now()->year;
     }

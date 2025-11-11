@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Leaves\EmployeesLeaves;
 
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -27,6 +28,12 @@ class Index extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || (!$user->can('leaves.manage.all') && !$user->can('leaves.view.all'))) {
+            abort(403);
+        }
+
         $this->loadSampleData();
     }
 
@@ -227,26 +234,52 @@ class Index extends Component
 
     public function approveRequest($id)
     {
+        $this->authorizeApproval();
+
         // Handle approval logic
         session()->flash('success', "Leave request #{$id} has been approved.");
     }
 
     public function rejectRequest($id)
     {
+        $this->authorizeApproval();
+
         // Handle rejection logic
         session()->flash('error', "Leave request #{$id} has been rejected.");
     }
 
     public function editRequest($id)
     {
+        $this->authorizeAllManagement();
+
         // Handle edit logic
         session()->flash('info', "Editing leave request #{$id}");
     }
 
     public function createLeaveRequest()
     {
+        $this->authorizeAllManagement();
+
         // Handle create logic
         session()->flash('info', "Creating new leave request");
+    }
+
+    protected function authorizeApproval(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('leaves.approve.requests')) {
+            abort(403);
+        }
+    }
+
+    protected function authorizeAllManagement(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('leaves.manage.all')) {
+            abort(403);
+        }
     }
 
     public function render()

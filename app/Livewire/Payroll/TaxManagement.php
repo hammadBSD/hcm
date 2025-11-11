@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +20,12 @@ class TaxManagement extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.export')) {
+            abort(403);
+        }
+
         $this->taxYear = now()->year;
     }
 

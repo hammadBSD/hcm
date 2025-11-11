@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class PayrollSettings extends Component
@@ -20,6 +21,12 @@ class PayrollSettings extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.sidebar.settings')) {
+            abort(403);
+        }
+
         // Load settings from database or config
         // For now, we'll use the default values
     }

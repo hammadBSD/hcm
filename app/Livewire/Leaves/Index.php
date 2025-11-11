@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Leaves;
 
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,6 +26,12 @@ class Index extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('leaves.view.self')) {
+            abort(403);
+        }
+
         $this->loadSampleData();
     }
 
@@ -182,12 +189,16 @@ class Index extends Component
 
     public function approveRequest($id)
     {
+        $this->authorizeTeamApproval();
+
         // Handle approval logic
         session()->flash('success', "Leave request #{$id} has been approved.");
     }
 
     public function rejectRequest($id)
     {
+        $this->authorizeTeamApproval();
+
         // Handle rejection logic
         session()->flash('error', "Leave request #{$id} has been rejected.");
     }
@@ -200,8 +211,28 @@ class Index extends Component
 
     public function createLeaveRequest()
     {
+        $this->authorizeRequestSubmission();
+
         // Handle create logic
         session()->flash('info', "Creating new leave request");
+    }
+
+    protected function authorizeTeamApproval(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('leaves.approve.requests')) {
+            abort(403);
+        }
+    }
+
+    protected function authorizeRequestSubmission(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('leaves.request.submit')) {
+            abort(403);
+        }
     }
 
     public function render()

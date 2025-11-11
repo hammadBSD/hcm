@@ -25,12 +25,36 @@
                     <flux:navbar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                         {{ __('Attendance') }}
                     </flux:navbar.item>
-                    <flux:navbar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
-                        {{ __('Payroll') }}
-                    </flux:navbar.item>
-                    <flux:navbar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
-                        {{ __('Leaves') }}
-                    </flux:navbar.item>
+                    @canany([
+                        'payroll.view.self',
+                        'payroll.sidebar.main',
+                        'payroll.sidebar.settings',
+                        'payroll.view',
+                        'payroll.process',
+                        'payroll.bonus.manage',
+                        'payroll.advance.manage',
+                        'payroll.advance.request',
+                        'payroll.loan.manage',
+                        'payroll.loan.request',
+                        'payroll.export',
+                    ])
+                        <flux:navbar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
+                            {{ __('Payroll') }}
+                        </flux:navbar.item>
+                    @endcanany
+                    @canany([
+                        'leaves.sidebar.my_leaves',
+                        'leaves.sidebar.all_leaves',
+                        'leaves.sidebar.request_form',
+                        'leaves.view.self',
+                        'leaves.view.all',
+                        'leaves.manage.all',
+                        'leaves.request.submit',
+                    ])
+                        <flux:navbar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
+                            {{ __('Leaves') }}
+                        </flux:navbar.item>
+                    @endcanany
                     <flux:separator vertical variant="subtle" class="my-2"/>
                     <flux:dropdown>
                         <flux:navbar.item icon:trailing="chevron-down">{{ __('More') }}</flux:navbar.item>
@@ -102,12 +126,36 @@
                 <flux:sidebar.item icon="clock" :href="route('attendance.index')" :current="request()->routeIs('attendance.*')" wire:navigate>
                     {{ __('Attendance') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
-                    {{ __('Payroll') }}
-                </flux:sidebar.item>
-                <flux:sidebar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
-                    {{ __('Leaves') }}
-                </flux:sidebar.item>
+                @canany([
+                    'payroll.view.self',
+                    'payroll.sidebar.main',
+                    'payroll.sidebar.settings',
+                    'payroll.view',
+                    'payroll.process',
+                    'payroll.bonus.manage',
+                    'payroll.advance.manage',
+                    'payroll.advance.request',
+                    'payroll.loan.manage',
+                    'payroll.loan.request',
+                    'payroll.export',
+                ])
+                    <flux:sidebar.item icon="currency-dollar" :href="route('payroll.index')" :current="request()->routeIs('payroll.*')" wire:navigate>
+                        {{ __('Payroll') }}
+                    </flux:sidebar.item>
+                @endcanany
+                @canany([
+                    'leaves.sidebar.my_leaves',
+                    'leaves.sidebar.all_leaves',
+                    'leaves.sidebar.request_form',
+                    'leaves.view.self',
+                    'leaves.view.all',
+                    'leaves.manage.all',
+                    'leaves.request.submit',
+                ])
+                    <flux:sidebar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
+                        {{ __('Leaves') }}
+                    </flux:sidebar.item>
+                @endcanany
                 <flux:sidebar.item icon="chart-bar" href="#" :current="request()->routeIs('performance.*')">
                     {{ __('Performance') }}
                 </flux:sidebar.item>

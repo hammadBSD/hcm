@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -16,6 +17,15 @@ class AdvanceSalary extends Component
     public $showAddAdvanceModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    public function mount()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('salary.edit')) {
+            abort(403);
+        }
+    }
 
     public function updatedSearch()
     {
@@ -44,6 +54,7 @@ class AdvanceSalary extends Component
 
     public function openAddAdvanceModal()
     {
+        $this->authorizeAdvanceRequest();
         $this->showAddAdvanceModal = true;
     }
 
@@ -54,6 +65,8 @@ class AdvanceSalary extends Component
 
     public function addAdvanceSalary()
     {
+        $this->authorizeAdvanceRequest();
+
         // This would handle adding advance salary request
         $this->closeAddAdvanceModal();
         session()->flash('message', 'Advance salary request submitted successfully!');
@@ -61,14 +74,36 @@ class AdvanceSalary extends Component
 
     public function approveAdvance($id)
     {
+        $this->authorizeAdvanceManagement();
+
         // This would handle approving advance salary
         session()->flash('message', 'Advance salary approved successfully!');
     }
 
     public function rejectAdvance($id)
     {
+        $this->authorizeAdvanceManagement();
+
         // This would handle rejecting advance salary
         session()->flash('message', 'Advance salary rejected successfully!');
+    }
+
+    protected function authorizeAdvanceRequest(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || (!$user->can('payroll.advance.manage') && !$user->can('payroll.advance.request'))) {
+            abort(403);
+        }
+    }
+
+    protected function authorizeAdvanceManagement(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.advance.manage')) {
+            abort(403);
+        }
     }
 
     public function render()

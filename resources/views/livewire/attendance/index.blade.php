@@ -95,7 +95,7 @@
                                         @php
                                             $currentUser = auth()->user();
                                         @endphp
-                                        @if($currentUser && ($currentUser->can('attendance.switch_user') || $currentUser->hasRole('Super Admin')))
+                                        @if($currentUser && ($currentUser->can('attendance.manage.switch_user') || $currentUser->hasRole('Super Admin')))
                                             <div
                                                 class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
                                                 wire:loading.flex
@@ -365,14 +365,14 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
-                                                    @php
-                                                        $canManageMissing = auth()->user()?->can('attendance.manage.missing_entries');
-                                                        $hasManualEntries = isset($record['has_manual_entries']) && $record['has_manual_entries'];
-                                                        $isAbsent = $record['status'] === 'absent';
-                                                        $shouldShowMenu = ($canManageMissing || $hasManualEntries || $isAbsent);
-                                                    @endphp
+                                        @php
+                                            $canManageMissing = auth()->user()?->can('attendance.manage.missing_entries');
+                                            $hasManualEntries = isset($record['has_manual_entries']) && $record['has_manual_entries'];
+                                            $isAbsent = $record['status'] === 'absent';
+                                            $shouldShowMenu = ($canManageMissing || $hasManualEntries || $isAbsent);
+                                        @endphp
 
-                                                    @if($shouldShowMenu)
+                                        @if($shouldShowMenu)
                                                         <div class="flex items-center gap-1">
                                                             <flux:dropdown>
                                                                 <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />

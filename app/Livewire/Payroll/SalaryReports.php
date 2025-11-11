@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -18,6 +19,12 @@ class SalaryReports extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.view')) {
+            abort(403);
+        }
+
         $this->selectedYear = now()->year;
     }
 

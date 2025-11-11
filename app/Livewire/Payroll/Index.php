@@ -16,9 +16,13 @@ class Index extends Component
 
     public function mount()
     {
-        // Get the current logged-in user
         $user = Auth::user();
-        
+
+        if (!$user || !$user->can('payroll.view.self')) {
+            abort(403);
+        }
+
+        // Get the current logged-in user
         // Find the employee record for the current user
         $this->employee = Employee::where('user_id', $user->id)->first();
         

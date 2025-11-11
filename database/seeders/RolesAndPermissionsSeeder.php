@@ -90,12 +90,20 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.sidebar.settings',
             'payroll.view.self',
             'payroll.view.team',
+            'payroll.bonus.manage',
+            'payroll.advance.manage',
+            'payroll.advance.request',
+            'payroll.loan.manage',
+            'payroll.loan.request',
 
             // Leaves Module
             'leaves.sidebar.my_leaves',
-            'leaves.sidebar.manage',
+            'leaves.sidebar.all_leaves',
+            'leaves.sidebar.request_form',
             'leaves.view.self',
-            'leaves.view.team',
+            'leaves.view.all',
+            'leaves.manage.all',
+            'leaves.request.submit',
             'leaves.approve.requests',
 
             // Reports Module
@@ -130,12 +138,22 @@ class RolesAndPermissionsSeeder extends Seeder
             'timesheet.approve',
             'timesheet.export',
             
-            // Leave Management
+            // Leave Management (Legacy)
             'leave.view',
             'leave.create',
             'leave.edit',
             'leave.approve',
             'leave.export',
+            
+            // Leaves Module (UI scoped)
+            'leaves.sidebar.my_leaves',
+            'leaves.sidebar.all_leaves',
+            'leaves.sidebar.request_form',
+            'leaves.view.self',
+            'leaves.view.all',
+            'leaves.manage.all',
+            'leaves.request.submit',
+            'leaves.approve.requests',
             
             // Performance Management
             'performance.view',
@@ -272,14 +290,21 @@ class RolesAndPermissionsSeeder extends Seeder
         ];
 
         $leavesManager = [
-            'leaves.sidebar.manage',
-            'leaves.view.team',
+            'leaves.sidebar.my_leaves',
+            'leaves.sidebar.all_leaves',
+            'leaves.sidebar.request_form',
+            'leaves.view.self',
+            'leaves.view.all',
+            'leaves.manage.all',
+            'leaves.request.submit',
             'leaves.approve.requests',
         ];
-
+        
         $leavesSelf = [
             'leaves.sidebar.my_leaves',
+            'leaves.sidebar.request_form',
             'leaves.view.self',
+            'leaves.request.submit',
         ];
 
         $payrollSidebar = [
@@ -303,13 +328,13 @@ class RolesAndPermissionsSeeder extends Seeder
             $systemSidebarFull,
             $systemManageFull,
             $leavesManager,
-            $leavesSelf,
             $payrollSidebar,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.delete', 'employee.export',
                 'department.view', 'department.create', 'department.edit', 'department.delete',
                 'position.view', 'position.create', 'position.edit', 'position.delete',
                 'payroll.view', 'payroll.create', 'payroll.edit', 'payroll.process', 'payroll.approve', 'payroll.export',
+                'payroll.bonus.manage', 'payroll.advance.manage', 'payroll.loan.manage',
                 'salary.view', 'salary.edit', 'salary.history',
                 'timesheet.view', 'timesheet.approve', 'timesheet.export',
                 'leave.view', 'leave.approve', 'leave.export',
@@ -342,13 +367,13 @@ class RolesAndPermissionsSeeder extends Seeder
             $systemSidebarFull,
             ['system.manage.roles', 'system.manage.users'],
             $leavesManager,
-            $leavesSelf,
             $payrollSidebar,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.export',
                 'department.view', 'department.create', 'department.edit',
                 'position.view', 'position.create', 'position.edit',
                 'payroll.view', 'payroll.create', 'payroll.edit', 'payroll.process', 'payroll.export',
+                'payroll.bonus.manage', 'payroll.advance.manage', 'payroll.loan.manage',
                 'salary.view', 'salary.edit',
                 'timesheet.view', 'timesheet.approve', 'timesheet.export',
                 'leave.view', 'leave.approve', 'leave.export',
@@ -376,13 +401,13 @@ class RolesAndPermissionsSeeder extends Seeder
             $attendanceTeam,
             $systemSidebarFull,
             $leavesManager,
-            $leavesSelf,
             $payrollSidebar,
             [
                 'employee.view', 'employee.create', 'employee.edit',
                 'department.view', 'department.create', 'department.edit',
                 'position.view', 'position.create', 'position.edit',
                 'payroll.view', 'payroll.create', 'payroll.edit',
+                'payroll.bonus.manage', 'payroll.advance.manage', 'payroll.loan.manage',
                 'salary.view',
                 'timesheet.view', 'timesheet.export',
                 'leave.view', 'leave.approve',
@@ -439,7 +464,6 @@ class RolesAndPermissionsSeeder extends Seeder
             $attendanceApprover,
             $systemSidebarFull,
             $leavesManager,
-            $leavesSelf,
             $payrollSidebar,
             [
                 'employee.view',
@@ -469,7 +493,6 @@ class RolesAndPermissionsSeeder extends Seeder
             ['employees.manage.directory', 'employees.manage.delegation', 'employees.manage.suggestions'],
             $attendanceTeam,
             $leavesManager,
-            $leavesSelf,
             [
                 'employee.view',
                 'timesheet.view', 'timesheet.approve',
@@ -495,9 +518,12 @@ class RolesAndPermissionsSeeder extends Seeder
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
             ['employees.manage.delegation', 'employees.manage.suggestions'],
             $attendanceSelf,
-            $leavesSelf,
+            $leavesManager,
             [
                 'employee.view', // Own profile only
+                'payroll.view.self',
+                'payroll.advance.request',
+                'payroll.loan.request',
                 'timesheet.view', 'timesheet.create', 'timesheet.edit',
                 'leave.view', 'leave.create', 'leave.edit',
                 'performance.view', // Own performance only
@@ -521,9 +547,12 @@ class RolesAndPermissionsSeeder extends Seeder
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
             ['employees.manage.delegation', 'employees.manage.suggestions'],
             $attendanceSelf,
-            $leavesSelf,
+            $leavesManager,
             [
                 'employee.view', // Own profile only
+                'payroll.view.self',
+                'payroll.advance.request',
+                'payroll.loan.request',
                 'timesheet.view', 'timesheet.create', 'timesheet.edit',
                 'leave.view', 'leave.create',
                 'notification.view',
@@ -546,9 +575,12 @@ class RolesAndPermissionsSeeder extends Seeder
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
             ['employees.manage.delegation', 'employees.manage.suggestions'],
             $attendanceSelf,
-            $leavesSelf,
+            $leavesManager,
             [
                 'employee.view', // Own profile only
+                'payroll.view.self',
+                'payroll.advance.request',
+                'payroll.loan.request',
                 'timesheet.view', 'timesheet.create',
                 'leave.view', 'leave.create',
                 'notification.view',

@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -16,6 +17,15 @@ class LoanManagement extends Component
     public $showAddLoanModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    public function mount()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('salary.edit')) {
+            abort(403);
+        }
+    }
 
     public function updatedSearch()
     {
@@ -44,6 +54,7 @@ class LoanManagement extends Component
 
     public function openAddLoanModal()
     {
+        $this->authorizeLoanRequest();
         $this->showAddLoanModal = true;
     }
 
@@ -54,6 +65,8 @@ class LoanManagement extends Component
 
     public function addLoan()
     {
+        $this->authorizeLoanRequest();
+
         // This would handle adding loan request
         $this->closeAddLoanModal();
         session()->flash('message', 'Loan request submitted successfully!');
@@ -61,14 +74,36 @@ class LoanManagement extends Component
 
     public function approveLoan($id)
     {
+        $this->authorizeLoanManagement();
+
         // This would handle approving loan
         session()->flash('message', 'Loan approved successfully!');
     }
 
     public function rejectLoan($id)
     {
+        $this->authorizeLoanManagement();
+
         // This would handle rejecting loan
         session()->flash('message', 'Loan rejected successfully!');
+    }
+
+    protected function authorizeLoanRequest(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || (!$user->can('payroll.loan.manage') && !$user->can('payroll.loan.request'))) {
+            abort(403);
+        }
+    }
+
+    protected function authorizeLoanManagement(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->can('payroll.loan.manage')) {
+            abort(403);
+        }
     }
 
     public function render()
