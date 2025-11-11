@@ -25,6 +25,8 @@ class Index extends Component
     public $selectedUserId = null;
     public $availableUsers = [];
     public $userSearchTerm = '';
+    public bool $canSwitchUsers = false;
+    public bool $canViewOtherUsers = false;
     
     // Global grace period settings (loaded from constants)
     public $globalGracePeriodLateIn = 30;
@@ -62,7 +64,22 @@ class Index extends Component
         $this->currentMonth = Carbon::now()->format('F Y');
         $this->selectedMonth = ''; // Default to current month
         $this->loadGlobalGracePeriods();
-        $this->loadAvailableUsers();
+        $user = Auth::user();
+        $this->canSwitchUsers = $user
+            ? ($user->can('attendance.manage.switch_user') || $user->hasRole('Super Admin'))
+            : false;
+
+        $this->canViewOtherUsers = $user
+            ? ($this->canSwitchUsers || $user->can('attendance.view.team') || $user->can('attendance.view.company'))
+            : false;
+
+        if ($this->canViewOtherUsers) {
+            $this->loadAvailableUsers();
+        } else {
+            $this->availableUsers = [];
+            $this->selectedUserId = null;
+        }
+
         $this->loadUserAttendance();
     }
     
@@ -133,6 +150,11 @@ class Index extends Component
     
     public function loadAvailableUsers()
     {
+        if (!$this->canViewOtherUsers) {
+            $this->availableUsers = [];
+            return;
+        }
+
         // Get only active employees with punch codes and their associated users
         $employees = Employee::whereNotNull('punch_code')
             ->whereNotNull('user_id')
@@ -1298,6 +1320,11 @@ class Index extends Component
 
     public function updatedSelectedUserId()
     {
+        if (!$this->canSwitchUsers) {
+            $this->selectedUserId = null;
+            return;
+        }
+
         // Reset month to current month when user changes
         $this->selectedMonth = '';
         // Reload attendance data when user filter changes
@@ -1512,6 +1539,10 @@ class Index extends Component
      */
     public function openMissingEntryFlyout($date)
     {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
         $this->missingEntryDate = $date;
         $this->showMissingEntryFlyout = true;
     }
@@ -1601,6 +1632,10 @@ class Index extends Component
      */
     public function saveMissingEntry()
     {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
         $this->validate([
             'missingEntryDate' => 'required|date',
             'missingEntryType' => 'required|in:IN,OUT',
@@ -1775,10 +1810,9 @@ class Index extends Component
     public function render()
     {
         return view('livewire.attendance.index', [
-            'filteredUsers' => $this->filteredUsers,
+            'canViewOtherUsers' => $this->canViewOtherUsers,
+            'canSwitchUsers' => $this->canSwitchUsers,
         ])
             ->layout('components.layouts.app');
     }
 }
-
-

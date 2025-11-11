@@ -73,6 +73,11 @@ class EmployeeList extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+        if (!$user || (!$user->can('employees.manage.directory') && !$user->hasRole('Super Admin'))) {
+            abort(403);
+        }
+
         $this->loadShifts();
         $this->loadDepartments();
     }

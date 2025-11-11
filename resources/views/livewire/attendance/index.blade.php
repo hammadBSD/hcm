@@ -92,27 +92,32 @@
                                 <div class="flex items-center justify-between">
                                     <flux:heading size="lg">Recent Attendance Records</flux:heading>
                                     <div class="flex items-center gap-3">
-                                        <div
-                                            class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
-                                            wire:loading.flex
-                                            wire:target="selectedUserId, selectedMonth"
-                                        >
-                                            <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
-                                        </div>
-                                        <flux:select
-                                            wire:model.live="selectedUserId"
-                                            placeholder="Select User"
-                                            class="w-64"
-                                            wire:loading.attr="disabled"
-                                            wire:target="selectedUserId, selectedMonth"
-                                        >
-                                            @if(!$selectedUserId)
-                                                <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
-                                            @endif
-                                            @foreach($availableUsers as $user)
-                                                <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
-                                            @endforeach
-                                        </flux:select>
+                                        @php
+                                            $currentUser = auth()->user();
+                                        @endphp
+                                        @if($currentUser && ($currentUser->can('attendance.switch_user') || $currentUser->hasRole('Super Admin')))
+                                            <div
+                                                class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
+                                                wire:loading.flex
+                                                wire:target="selectedUserId, selectedMonth"
+                                            >
+                                                <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
+                                            </div>
+                                            <flux:select
+                                                wire:model.live="selectedUserId"
+                                                placeholder="Select User"
+                                                class="w-64"
+                                                wire:loading.attr="disabled"
+                                                wire:target="selectedUserId, selectedMonth"
+                                            >
+                                                @if(!$selectedUserId)
+                                                    <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
+                                                @endif
+                                                @foreach($availableUsers as $user)
+                                                    <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
+                                                @endforeach
+                                            </flux:select>
+                                        @endif
                                         <flux:select
                                             wire:model.live="selectedMonth"
                                             placeholder="{{ $currentMonth }}"
@@ -360,28 +365,45 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
-                                                    <div class="flex items-center gap-1">
-                                                        <flux:dropdown>
-                                                            <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
-                                                            <flux:menu>
-                                                                <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
-                                                                    {{ __('Add Missing Entry') }}
-                                                                </flux:menu.item>
-                                                                @if(isset($record['has_manual_entries']) && $record['has_manual_entries'])
-                                                                    <flux:menu.separator />
-                                                                    <flux:menu.item icon="eye" wire:click="openViewChangesFlyout('{{ $record['date'] }}')">
-                                                                        {{ __('View Changes') }}
-                                                                    </flux:menu.item>
-                                                                @endif
-                                                                @if($record['status'] === 'absent')
-                                                                    <flux:menu.separator />
-                                                                    <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
-                                                                        {{ __('Request Leave') }}
-                                                                    </flux:menu.item>
-                                                                @endif
-                                                            </flux:menu>
-                                                        </flux:dropdown>
-                                                    </div>
+                                                    @php
+                                                        $canManageMissing = auth()->user()?->can('attendance.manage.missing_entries');
+                                                        $hasManualEntries = isset($record['has_manual_entries']) && $record['has_manual_entries'];
+                                                        $isAbsent = $record['status'] === 'absent';
+                                                        $shouldShowMenu = ($canManageMissing || $hasManualEntries || $isAbsent);
+                                                    @endphp
+
+                                                    @if($shouldShowMenu)
+                                                        <div class="flex items-center gap-1">
+                                                            <flux:dropdown>
+                                                                <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                                <flux:menu>
+                                                                    @if($canManageMissing)
+                                                                        <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
+                                                                            {{ __('Add Missing Entry') }}
+                                                                        </flux:menu.item>
+                                                                        @if($hasManualEntries || $isAbsent)
+                                                                            <flux:menu.separator />
+                                                                        @endif
+                                                                    @endif
+
+                                                                    @if($hasManualEntries)
+                                                                        <flux:menu.item icon="eye" wire:click="openViewChangesFlyout('{{ $record['date'] }}')">
+                                                                            {{ __('View Changes') }}
+                                                                        </flux:menu.item>
+                                                                        @if($isAbsent)
+                                                                            <flux:menu.separator />
+                                                                        @endif
+                                                                    @endif
+
+                                                                    @if($isAbsent)
+                                                                        <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
+                                                                            {{ __('Request Leave') }}
+                                                                        </flux:menu.item>
+                                                                    @endif
+                                                                </flux:menu>
+                                                            </flux:dropdown>
+                                                        </div>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach

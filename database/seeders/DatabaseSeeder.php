@@ -49,7 +49,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test Employee',
             'email' => 'employee@hcrm.com',
         ]);
-        
+
         $employee->assignRole('Employee');
     }
 }

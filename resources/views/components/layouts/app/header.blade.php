@@ -57,7 +57,9 @@
             <flux:navbar class="me-4">
                 <flux:navbar.item icon="magnifying-glass" href="#" label="Search" />
                 <flux:navbar.item class="max-lg:hidden" icon="bell" href="#" label="Notifications" />
-                <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" :href="route('system-management.index')" label="Settings" wire:navigate />
+                @can('system.sidebar.roles')
+                    <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" :href="route('system-management.index')" label="Settings" wire:navigate />
+                @endcan
             </flux:navbar>
 
             <!-- Desktop User Menu -->
