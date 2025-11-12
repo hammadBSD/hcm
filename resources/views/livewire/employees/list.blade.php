@@ -527,6 +527,9 @@
                                                         <flux:menu.item icon="building-office" wire:click="openAssignDepartmentFlyout({{ $employee->id }})">
                                                             {{ __('Assign Department') }}
                                                         </flux:menu.item>
+                                                        <flux:menu.item icon="shield-check" wire:click="openAssignRoleFlyout({{ $employee->id }})">
+                                                            {{ __('Assign Role') }}
+                                                        </flux:menu.item>
                                                         <!-- <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
                                                             {{ __('Reset Password') }}
                                                         </flux:menu.item> -->
@@ -695,6 +698,58 @@
                         </flux:button>
                         <flux:button type="submit">
                             {{ __('Assign Department') }}
+                        </flux:button>
+                    </div>
+                </form>
+            </flux:modal>
+
+            <!-- Assign Role Flyout -->
+            <flux:modal variant="flyout" :show="$showAssignRoleFlyout" wire:model="showAssignRoleFlyout">
+                <form wire:submit.prevent="assignRole">
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <flux:heading size="lg" level="3">{{ __('Assign Role') }}</flux:heading>
+                            <flux:subheading>
+                                {{ __('Assign or update the system role for this employee') }}
+                            </flux:subheading>
+                        </div>
+
+                        @if (session()->has('message'))
+                            <flux:callout variant="success" icon="check-circle" dismissible>
+                                {{ session('message') }}
+                            </flux:callout>
+                        @endif
+
+                        @if (session()->has('error'))
+                            <flux:callout variant="danger" icon="exclamation-circle" dismissible>
+                                {{ session('error') }}
+                            </flux:callout>
+                        @endif
+
+                        <flux:field>
+                            <flux:label>{{ __('Employee') }}</flux:label>
+                            <flux:input type="text" value="{{ $selectedEmployeeName }}" disabled />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Role') }}</flux:label>
+                            <flux:description>{{ __('Select the role to assign. Choose "No Role" to remove access.') }}</flux:description>
+                            <flux:select wire:model="selectedRoleName">
+                                <option value="">{{ __('No Role') }}</option>
+                                @foreach($availableRoles as $role)
+                                    <option value="{{ $role['value'] }}">{{ $role['label'] }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="selectedRoleName" />
+                        </flux:field>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">
+                        <flux:button variant="ghost" wire:click="closeAssignRoleFlyout">
+                            {{ __('Cancel') }}
+                        </flux:button>
+                        <flux:button type="submit">
+                            {{ __('Save Role') }}
                         </flux:button>
                     </div>
                 </form>

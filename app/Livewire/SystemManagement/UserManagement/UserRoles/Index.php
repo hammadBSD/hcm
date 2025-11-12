@@ -373,8 +373,11 @@ class Index extends Component
             ->all();
 
         $query = User::query()
-            ->select('id', 'name', 'email')
-            ->orderBy('name');
+            ->select('users.id', 'users.name', 'users.email')
+            ->join('employees', 'employees.user_id', '=', 'users.id')
+            ->where('employees.status', 'active')
+            ->orderBy('users.name')
+            ->distinct();
 
         if ($this->userSearch !== '') {
             $searchTerm = '%' . trim($this->userSearch) . '%';

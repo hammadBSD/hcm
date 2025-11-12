@@ -66,6 +66,19 @@
             </div>
         </div>
 
+        <!-- Monthly Attendance Chart -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
+            <div class="flex items-center justify-between mb-4 md:mb-6">
+                <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
+                    Monthly Attendance
+                </flux:heading>
+                <livewire:dashboard.monthly-attendance />
+            </div>
+            <div class="h-48 md:h-64 relative overflow-hidden">
+                <canvas id="monthlyAttendanceChart"></canvas>
+            </div>
+        </div>
+
         <!-- Charts Section -->
         <div class="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <!-- Attendance Trend Chart -->
@@ -97,19 +110,6 @@
                 <div class="h-48 md:h-64 relative w-full max-w-full">
                     <canvas id="departmentChart"></canvas>
                 </div>
-            </div>
-        </div>
-
-        <!-- Monthly Attendance Chart -->
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
-            <div class="flex items-center justify-between mb-4 md:mb-6">
-                <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
-                    Monthly Attendance
-                </flux:heading>
-                <livewire:dashboard.monthly-attendance />
-            </div>
-            <div class="h-48 md:h-64 relative overflow-hidden">
-                <canvas id="monthlyAttendanceChart"></canvas>
             </div>
         </div>
 
@@ -181,7 +181,7 @@
             monthlyAttendance: null
         };
         
-        let charts = window.charts;
+        var charts = window.charts;
 
         // Function to destroy existing charts
         function destroyCharts() {

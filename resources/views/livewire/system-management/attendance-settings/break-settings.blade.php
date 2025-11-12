@@ -79,11 +79,20 @@
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Advanced Settings') }}</h3>
                 </div>
                 <div class="p-6 space-y-6">
-                    <flux:switch
-                        wire:model.live="settings.mandatory_break_duration"
-                        label="{{ __('Mandatory Break Duration') }}"
-                        description="{{ __('Enforce minimum break duration requirements for employees') }}"
-                    />
+                    <div class="space-y-4">
+                        <flux:switch
+                            wire:model.live="settings.mandatory_break_duration_enabled"
+                            label="{{ __('Mandatory Break Duration') }}"
+                            description="{{ __('Enforce minimum break duration requirements for employees') }}"
+                        />
+
+                        @if($settings['mandatory_break_duration_enabled'] ?? false)
+                            <flux:field>
+                                <flux:label>{{ __('Minimum Break Duration (minutes)') }}</flux:label>
+                                <flux:input type="number" min="0" wire:model="settings.mandatory_break_duration_minutes" placeholder="e.g. 30" />
+                            </flux:field>
+                        @endif
+                    </div>
                     <flux:separator variant="subtle" />
                     
                     <!-- Add Exclusion Button -->
@@ -102,8 +111,51 @@
             <!-- Action Buttons -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <div class="p-6">
-                    <div class="flex items-center justify-end">
-                        <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-between flex-wrap gap-4">
+                        <div class="w-full lg:w-1/2 flex flex-col gap-3">
+                            <div>
+                                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                    <flux:icon name="user" class="w-4 h-4" />
+                                    {{ __('User Exclusions') }}
+                                </span>
+                                @if(!empty($existingUserExclusions))
+                                    <ul class="mt-2 space-y-2">
+                                        @foreach($existingUserExclusions as $exclusion)
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                                <span>
+                                                    {{ $exclusion['name'] }}
+                                                    @if($exclusion['email'])
+                                                        <span class="text-xs text-zinc-400">({{ $exclusion['email'] }})</span>
+                                                    @endif
+                                                </span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <flux:description class="mt-2">{{ __('No user exclusions configured.') }}</flux:description>
+                                @endif
+                            </div>
+
+                            <div>
+                                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                    <flux:icon name="shield-check" class="w-4 h-4" />
+                                    {{ __('Role Exclusions') }}
+                                </span>
+                                @if(!empty($existingRoleExclusions))
+                                    <ul class="mt-2 space-y-2">
+                                        @foreach($existingRoleExclusions as $exclusion)
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                                <span>{{ $exclusion['name'] }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <flux:description class="mt-2">{{ __('No role exclusions configured.') }}</flux:description>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 ml-auto">
                             <flux:button variant="outline" wire:click="resetToDefaults">
                                 {{ __('Reset to Defaults') }}
                             </flux:button>

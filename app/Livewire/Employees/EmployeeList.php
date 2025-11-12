@@ -12,6 +12,8 @@ use App\Models\Department;
 use App\Models\EmployeeDepartmentChange;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Spatie\Permission\Models\Role;
+use Illuminate\Validation\Rule;
 
 class EmployeeList extends Component
 {
@@ -70,6 +72,12 @@ class EmployeeList extends Component
     public $departmentNotes = '';
     public $departmentReason = null;
     public $departments = [];
+
+    // Role Assignment Flyout Properties
+    public $showAssignRoleFlyout = false;
+    public $availableRoles = [];
+    public $selectedRoleName = '';
+    public $selectedEmployeeName = '';
 
     public function mount()
     {
@@ -201,6 +209,78 @@ class EmployeeList extends Component
         $this->departmentStartDate = '';
         $this->departmentNotes = '';
         $this->departmentReason = null;
+    }
+
+    public function openAssignRoleFlyout($userId)
+    {
+        $this->selectedEmployeeId = $userId;
+
+        $user = User::with('roles')->find($userId);
+
+        if (! $user) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+
+        $this->selectedEmployeeName = $user->name ?? 'Employee';
+        $this->selectedRoleName = $user->roles->first()->name ?? '';
+
+        $this->availableRoles = Role::query()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Role $role) => [
+                'value' => $role->name,
+                'label' => $role->name,
+            ])
+            ->toArray();
+
+        $this->showAssignRoleFlyout = true;
+    }
+
+    public function closeAssignRoleFlyout()
+    {
+        $this->showAssignRoleFlyout = false;
+        $this->selectedEmployeeId = null;
+        $this->selectedRoleName = '';
+        $this->selectedEmployeeName = '';
+        $this->availableRoles = [];
+    }
+
+    public function assignRole()
+    {
+        if (! $this->selectedEmployeeId) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+
+        $validated = $this->validate([
+            'selectedRoleName' => [
+                'nullable',
+                'string',
+                Rule::exists('roles', 'name'),
+            ],
+        ], [
+            'selectedRoleName.exists' => 'Selected role does not exist.',
+        ]);
+
+        $user = User::find($this->selectedEmployeeId);
+
+        if (! $user) {
+            session()->flash('error', 'Employee not found!');
+            return;
+        }
+
+        $roleName = $validated['selectedRoleName'] ?? null;
+
+        if ($roleName) {
+            $user->syncRoles([$roleName]);
+            session()->flash('message', 'Role assigned successfully.');
+        } else {
+            $user->syncRoles([]);
+            session()->flash('message', 'Role removed successfully.');
+        }
+
+        $this->closeAssignRoleFlyout();
     }
 
     public function assignDepartment()

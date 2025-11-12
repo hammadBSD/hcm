@@ -17,6 +17,11 @@
     <script>
         // Function to update monthly attendance chart
         function updateMonthlyAttendanceChart() {
+            if (typeof Chart === 'undefined') {
+                setTimeout(updateMonthlyAttendanceChart, 200);
+                return;
+            }
+
             const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
             if (!monthlyAttendanceCanvas) {
                 return;
@@ -187,6 +192,11 @@
         
         // Function to initialize chart when ready
         function initMonthlyAttendanceChart() {
+            if (typeof Chart === 'undefined') {
+                setTimeout(initMonthlyAttendanceChart, 200);
+                return false;
+            }
+
             const canvas = document.getElementById('monthlyAttendanceChart');
             const dataElement = document.getElementById('monthly-attendance-data');
             
@@ -208,51 +218,68 @@
         // Expose init function globally for dashboard script
         window.initMonthlyAttendanceChart = initMonthlyAttendanceChart;
         
-        // Initialize when this script loads (component rendered)
-        (function() {
-            function tryInit() {
-                if (!initMonthlyAttendanceChart()) {
-                    // Retry after delay
-                    setTimeout(tryInit, 100);
-                }
-            }
-            // Start trying after a small delay to ensure DOM is ready
-            setTimeout(tryInit, 100);
-        })();
+        // Schedule initial rendering
+        function scheduleMonthlyAttendanceInit(delay = 120) {
+            setTimeout(() => {
+                initMonthlyAttendanceChart();
+            }, delay);
+        }
+
+        scheduleMonthlyAttendanceInit(150);
         
-        // Listen for Livewire initialization
-        if (typeof Livewire !== 'undefined') {
-            document.addEventListener('livewire:init', () => {
-                setTimeout(() => {
-                    initMonthlyAttendanceChart();
-                }, 400);
-            });
-            
-            // Listen for Livewire component loaded (when data is ready)
-            Livewire.hook('morph.updated', ({ el, component }) => {
-                // Check if this is our component
-                const ourComponent = el.querySelector('#monthly-attendance-data');
-                if (ourComponent) {
+        if (!window.__monthlyAttendanceListenersBound) {
+            window.__monthlyAttendanceListenersBound = true;
+
+            if (typeof Livewire !== 'undefined') {
+                document.addEventListener('livewire:init', () => {
                     setTimeout(() => {
                         initMonthlyAttendanceChart();
-                    }, 100);
+                    }, 400);
+                });
+                
+                // Listen for Livewire component updates (when data is ready)
+                Livewire.hook('morph.updated', ({ el }) => {
+                    const ourComponent = el.querySelector && el.querySelector('#monthly-attendance-data');
+                    if (ourComponent) {
+                        setTimeout(() => {
+                            initMonthlyAttendanceChart();
+                        }, 100);
+                    }
+                });
+            }
+            
+            // Listen for Livewire updates (when month changes)
+            document.addEventListener('livewire:init', () => {
+                if (typeof Livewire !== 'undefined') {
+                    Livewire.on('monthly-attendance-updated', () => {
+                        setTimeout(() => {
+                            updateMonthlyAttendanceChart();
+                        }, 100);
+                    });
                 }
             });
-        }
-        
-        // Listen for Livewire updates (when month changes)
-        document.addEventListener('livewire:init', () => {
-            Livewire.on('monthly-attendance-updated', () => {
+            
+            // Fallback for Livewire DOM updates
+            document.addEventListener('livewire:update', () => {
                 setTimeout(() => {
                     updateMonthlyAttendanceChart();
                 }, 100);
             });
-        });
+        } else {
+            // If listeners already bound, ensure chart refreshes with new data
+            setTimeout(() => {
+                updateMonthlyAttendanceChart();
+            }, 150);
+        }
         
         // Watch for data attribute changes
-        const dataElement = document.getElementById('monthly-attendance-data');
+        var dataElement = document.getElementById('monthly-attendance-data');
         if (dataElement) {
-            const observer = new MutationObserver((mutations) => {
+            if (dataElement.__monthlyAttendanceObserver) {
+                dataElement.__monthlyAttendanceObserver.disconnect();
+            }
+
+            var observer = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'data-stats') {
                         setTimeout(() => {
@@ -266,13 +293,8 @@
                 attributes: true,
                 attributeFilter: ['data-stats']
             });
+
+            dataElement.__monthlyAttendanceObserver = observer;
         }
-        
-        // Also listen for Livewire DOM updates as fallback
-        document.addEventListener('livewire:update', () => {
-            setTimeout(() => {
-                updateMonthlyAttendanceChart();
-            }, 100);
-        });
     </script>
 </div>
