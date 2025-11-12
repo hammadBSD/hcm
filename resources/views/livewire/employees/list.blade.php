@@ -372,14 +372,6 @@
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('email')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Email') }}
-                                            @if($sortBy === 'email')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         <button wire:click="sort('shift')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Shift') }}
                                             @if($sortBy === 'shift')
@@ -419,20 +411,17 @@
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                 @foreach ($employees as $employee)
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-6">
                                             <div class="flex items-center gap-3">
                                                 <flux:avatar size="sm" :initials="$employee->initials()" />
-                                                <div>
+                                                <div class="space-y-1">
                                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">
                                                         {{ $employee->name }}
                                                     </div>
+                                                    <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                                                        {{ $employee->email }}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $employee->email }}
                                             </div>
                                         </td>
                                         

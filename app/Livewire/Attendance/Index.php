@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\Shift;
 use App\Models\Constant;
+use App\Models\AttendanceBreakSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -62,6 +63,7 @@ class Index extends Component
     public $manualEntries = [];
 
     public bool $isBreakTrackingExcluded = false;
+    public bool $showBreaksInGrid = true;
 
     public function mount()
     {
@@ -285,6 +287,7 @@ class Index extends Component
 
         // Determine if break tracking is excluded for this employee or their roles
         $this->isBreakTrackingExcluded = $this->determineBreakExclusionStatus();
+        $this->showBreaksInGrid = AttendanceBreakSetting::current()->show_in_attendance_grid;
 
         // Get the punch code
         $this->punchCode = $this->employee->punch_code;

@@ -145,16 +145,8 @@
                                         <tr>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 <button wire:click="sort('date')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                                    {{ __('Date') }}
-                                                    @if($sortBy === 'date')
-                                                        <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                                    @endif
-                                                </button>
-                                            </th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                                <button wire:click="sort('day_name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                                    {{ __('Day') }}
-                                                    @if($sortBy === 'day_name')
+                                                    {{ __('Date / Day') }}
+                                                    @if(in_array($sortBy, ['date', 'day_name']))
                                                         <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                                     @endif
                                                 </button>
@@ -175,14 +167,16 @@
                                                     @endif
                                                 </button>
                                             </th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                                <button wire:click="sort('breaks')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                                    {{ __('Breaks') }}
-                                                    @if($sortBy === 'breaks')
-                                                        <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                                    @endif
-                                                </button>
-                                            </th>
+                                            @if($showBreaksInGrid)
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                    <button wire:click="sort('breaks')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                                        {{ __('Breaks') }}
+                                                        @if($sortBy === 'breaks')
+                                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                                        @endif
+                                                    </button>
+                                                </th>
+                                            @endif
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 <button wire:click="sort('total_hours')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                                     {{ __('Total Hours') }}
@@ -208,14 +202,13 @@
                                         @foreach($attendanceData as $record)
                                             <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                                 <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['formatted_date'] }}
-                                                    </div>
-                                                </td>
-                                                
-                                                <td class="px-6 py-6 whitespace-nowrap">
-                                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['day_name'] }}
+                                                    <div class="flex flex-col leading-tight">
+                                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                            {{ $record['formatted_date'] }}
+                                                        </span>
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {{ $record['day_name'] }}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 
@@ -247,69 +240,71 @@
                                                     </div>
                                                 </td>
                                                 
-                                                <td class="px-6 py-6 whitespace-nowrap">
-                                                    @if(isset($record['break_details']) && count($record['break_details']) > 0)
-                                                        <flux:tooltip>
-                                                            <div class="text-sm text-zinc-900 dark:text-zinc-100 cursor-help">
+                                                @if($showBreaksInGrid)
+                                                    <td class="px-6 py-6 whitespace-nowrap">
+                                                        @if(isset($record['break_details']) && count($record['break_details']) > 0)
+                                                            <flux:tooltip>
+                                                                <div class="text-sm text-zinc-900 dark:text-zinc-100 cursor-help">
+                                                                    {{ $record['breaks'] ?? '-' }}
+                                                                </div>
+                                                                <flux:tooltip.content class="max-w-[20rem]">
+                                                                    <div class="space-y-2">
+                                                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                                            {{ __('Break Details') }}
+                                                                        </div>
+                                                                        @foreach($record['break_details'] as $index => $break)
+                                                                            <div class="text-sm py-1">
+                                                                                <div class="flex items-center gap-2">
+                                                                                    @if($break['start'] === '--')
+                                                                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                            <flux:icon name="exclamation-circle" class="w-3 h-3" />
+                                                                                            Missing Check-out
+                                                                                        </span>
+                                                                                    @else
+                                                                                        <span class="font-medium {{ isset($break['start_manual']) && $break['start_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400' }}">
+                                                                                            {{ $break['start'] }}
+                                                                                            @if(isset($break['start_manual']) && $break['start_manual'])
+                                                                                                <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
+                                                                                            @endif
+                                                                                        </span>
+                                                                                    @endif
+                                                                                    
+                                                                                    <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+                                                                                    
+                                                                                    @if($break['end'] === '--')
+                                                                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                            <flux:icon name="exclamation-circle" class="w-3 h-3" />
+                                                                                            Missing Check-in
+                                                                                        </span>
+                                                                                    @else
+                                                                                        <span class="font-medium {{ isset($break['end_manual']) && $break['end_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}">
+                                                                                            {{ $break['end'] }}
+                                                                                            @if(isset($break['end_manual']) && $break['end_manual'])
+                                                                                                <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
+                                                                                            @endif
+                                                                                        </span>
+                                                                                    @endif
+                                                                                    
+                                                                                    @if($break['duration'] === '--')
+                                                                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                                                                            N/A
+                                                                                        </span>
+                                                                                    @else
+                                                                                        <span class="text-zinc-500 dark:text-zinc-400">({{ $break['duration'] }})</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </flux:tooltip.content>
+                                                            </flux:tooltip>
+                                                        @else
+                                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
                                                                 {{ $record['breaks'] ?? '-' }}
                                                             </div>
-                                                            <flux:tooltip.content class="max-w-[20rem]">
-                                                                <div class="space-y-2">
-                                                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                                        {{ __('Break Details') }}
-                                                                    </div>
-                                                                    @foreach($record['break_details'] as $index => $break)
-                                                                        <div class="text-sm py-1">
-                                                                            <div class="flex items-center gap-2">
-                                                                                @if($break['start'] === '--')
-                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                                                                                        <flux:icon name="exclamation-circle" class="w-3 h-3" />
-                                                                                        Missing Check-out
-                                                                                    </span>
-                                                                                @else
-                                                                                    <span class="font-medium {{ isset($break['start_manual']) && $break['start_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400' }}">
-                                                                                        {{ $break['start'] }}
-                                                                                        @if(isset($break['start_manual']) && $break['start_manual'])
-                                                                                            <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
-                                                                                        @endif
-                                                                                    </span>
-                                                                                @endif
-                                                                                
-                                                                                <flux:icon name="arrow-right" class="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
-                                                                                
-                                                                                @if($break['end'] === '--')
-                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                                                                                        <flux:icon name="exclamation-circle" class="w-3 h-3" />
-                                                                                        Missing Check-in
-                                                                                    </span>
-                                                                                @else
-                                                                                    <span class="font-medium {{ isset($break['end_manual']) && $break['end_manual'] ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}">
-                                                                                        {{ $break['end'] }}
-                                                                                        @if(isset($break['end_manual']) && $break['end_manual'])
-                                                                                            <flux:icon name="pencil" class="w-3 h-3 inline ml-1" />
-                                                                                        @endif
-                                                                                    </span>
-                                                                                @endif
-                                                                                
-                                                                                @if($break['duration'] === '--')
-                                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                                                                                        N/A
-                                                                                    </span>
-                                                                                @else
-                                                                                    <span class="text-zinc-500 dark:text-zinc-400">({{ $break['duration'] }})</span>
-                                                                                @endif
-                                                                            </div>
-                                                                        </div>
-                                                                    @endforeach
-                                                                </div>
-                                                            </flux:tooltip.content>
-                                                        </flux:tooltip>
-                                                    @else
-                                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                            {{ $record['breaks'] ?? '-' }}
-                                                        </div>
-                                                    @endif
-                                                </td>
+                                                        @endif
+                                                    </td>
+                                                @endif
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
                                                     <div class="flex items-center gap-2">

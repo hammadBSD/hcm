@@ -31,4 +31,9 @@ class AttendanceBreakSetting extends Model
         'mandatory_break_duration_minutes' => 'integer',
         'metadata' => 'array',
     ];
+
+    public static function current(): self
+    {
+        return static::query()->firstOrCreate([]);
+    }
 }
