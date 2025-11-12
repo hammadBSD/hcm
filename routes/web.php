@@ -142,6 +142,7 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     Route::get('system-management/leaves-management/leave-types', \App\Livewire\SystemManagement\LeavesManagement\LeaveTypes\Index::class)->name('system-management.leaves-management.leave-types');
     Route::get('system-management/leaves-management/leave-policies', \App\Livewire\SystemManagement\LeavesManagement\LeavePolicies\Index::class)->name('system-management.leaves-management.leave-policies');
     Route::get('system-management/leaves-management/leave-balances', \App\Livewire\SystemManagement\LeavesManagement\LeaveBalances\Index::class)->name('system-management.leaves-management.leave-balances');
+    Route::get('system-management/leaves-management/settings', \App\Livewire\SystemManagement\LeavesManagement\Settings\Index::class)->name('system-management.leaves-management.settings');
     
     // Payroll Settings
     Route::get('system-management/payroll-settings/salary-components', \App\Livewire\SystemManagement\PayrollSettings\SalaryComponents\Index::class)->name('system-management.payroll-settings.salary-components');

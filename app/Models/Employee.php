@@ -141,6 +141,21 @@ class Employee extends Model
         return $this->hasMany(EmployeeDepartmentChange::class);
     }
 
+    public function leaveSettings(): HasMany
+    {
+        return $this->hasMany(EmployeeLeaveSetting::class);
+    }
+
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(EmployeeLeaveBalance::class);
+    }
+
+    public function leaveTransactions(): HasMany
+    {
+        return $this->hasMany(LeaveBalanceTransaction::class);
+    }
+
     /**
      * Get the effective shift for this employee
      * Priority:
