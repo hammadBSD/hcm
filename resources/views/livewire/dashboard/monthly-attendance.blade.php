@@ -1,17 +1,47 @@
 <div>
-    <!-- Month Selector Dropdown -->
-    <flux:select wire:model.live="selectedMonth" class="w-48">
-        @foreach($availableMonths as $month)
-            <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
-        @endforeach
-    </flux:select>
-    
+    <!-- Filters -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end mb-3">
+        @if($canViewOtherUsers)
+            <div
+                class="text-zinc-400 dark:text-zinc-500 hidden sm:flex items-center justify-center"
+                wire:loading.flex
+                wire:target="selectedUserId, selectedMonth"
+            >
+                <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
+            </div>
+            <flux:select
+                wire:model.live="selectedUserId"
+                placeholder="{{ __('Select User') }}"
+                class="w-64"
+                wire:loading.attr="disabled"
+                wire:target="selectedUserId, selectedMonth"
+            >
+                @if(!$selectedUserId)
+                    <option value="">{{ auth()->user()->name ?? __('Current User') }}</option>
+                @endif
+                @foreach($availableUsers as $user)
+                    <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
+                @endforeach
+            </flux:select>
+        @endif
+        <flux:select
+            wire:model.live="selectedMonth"
+            class="w-48"
+            wire:loading.attr="disabled"
+            wire:target="selectedUserId, selectedMonth"
+        >
+            @foreach($availableMonths as $month)
+                <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
+            @endforeach
+        </flux:select>
+    </div>
+
     <!-- Hidden data container for JavaScript -->
     <div 
         id="monthly-attendance-data" 
         data-stats='@json($dailyStats)'
         style="display: none;"
-        wire:key="monthly-attendance-data-{{ $selectedMonth }}"
+        wire:key="monthly-attendance-data-{{ $selectedMonth }}-{{ $selectedUserId ?? 'self' }}"
     ></div>
     
     <script>

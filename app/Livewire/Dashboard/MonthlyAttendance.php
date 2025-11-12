@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Shift;
 use App\Models\Constant;
 use Carbon\Carbon;
+use App\Models\User;
 
 class MonthlyAttendance extends Component
 {
@@ -16,6 +17,10 @@ class MonthlyAttendance extends Component
     public $currentMonth = '';
     public $selectedMonth = '';
     public $availableMonths = [];
+    public $selectedUserId = null;
+    public $availableUsers = [];
+    public bool $canSwitchUsers = false;
+    public bool $canViewOtherUsers = false;
     
     // Global grace period settings
     public $globalGracePeriodLateIn = 30;
@@ -25,6 +30,19 @@ class MonthlyAttendance extends Component
     {
         $this->currentMonth = Carbon::now()->format('F Y');
         $this->selectedMonth = Carbon::now()->format('Y-m'); // Default to current month
+        $user = Auth::user();
+        $this->canSwitchUsers = $user
+            ? ($user->can('attendance.manage.switch_user') || $user->hasRole('Super Admin'))
+            : false;
+
+        $this->canViewOtherUsers = $user
+            ? ($this->canSwitchUsers || $user->can('attendance.view.team') || $user->can('attendance.view.company'))
+            : false;
+
+        if ($this->canViewOtherUsers) {
+            $this->loadAvailableUsers();
+        }
+
         $this->loadGlobalGracePeriods();
         $this->loadAvailableMonths();
         $this->calculateDailyAttendance();
@@ -79,10 +97,43 @@ class MonthlyAttendance extends Component
             : $this->globalGracePeriodEarlyOut;
     }
 
+    public function loadAvailableUsers()
+    {
+        if (!$this->canViewOtherUsers) {
+            $this->availableUsers = [];
+            return;
+        }
+
+        $employees = Employee::whereNotNull('punch_code')
+            ->whereNotNull('user_id')
+            ->where('status', 'active')
+            ->with('user:id,name,email')
+            ->get();
+
+        $this->availableUsers = $employees->map(function ($employee) {
+            return [
+                'id' => $employee->user_id,
+                'name' => trim($employee->first_name . ' ' . $employee->last_name),
+                'punch_code' => $employee->punch_code,
+            ];
+        })
+        ->sortBy('name')
+        ->values()
+        ->toArray();
+    }
+
+    public function updatedSelectedUserId()
+    {
+        $this->loadAvailableMonths();
+        $this->calculateDailyAttendance();
+        $this->dispatch('monthly-attendance-updated');
+    }
+
     public function loadAvailableMonths()
     {
         // Get current logged-in user
-        $user = Auth::user();
+        $userId = $this->selectedUserId ?: Auth::id();
+        $user = $userId ? User::find($userId) : null;
         
         if (!$user) {
             $this->availableMonths = [];
@@ -125,6 +176,13 @@ class MonthlyAttendance extends Component
                 ];
             }
         }
+
+        $this->availableMonths = array_values($this->availableMonths);
+
+        $availableValues = collect($this->availableMonths)->pluck('value');
+        if (!$availableValues->contains($this->selectedMonth)) {
+            $this->selectedMonth = $this->availableMonths[0]['value'] ?? Carbon::now()->format('Y-m');
+        }
     }
 
     public function updatedSelectedMonth()
@@ -136,7 +194,8 @@ class MonthlyAttendance extends Component
     private function calculateDailyAttendance()
     {
         // Get current logged-in user
-        $user = Auth::user();
+        $userId = $this->selectedUserId ?: Auth::id();
+        $user = $userId ? User::find($userId) : null;
         
         if (!$user) {
             $this->dailyStats = [];
