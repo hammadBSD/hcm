@@ -132,6 +132,12 @@
                                         </flux:select>
                                     </div>
                                 </div>
+                                @if($isBreakTrackingExcluded)
+                                    <div class="inline-flex items-center gap-2 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 py-1 text-sm font-medium">
+                                        <flux:icon name="shield-exclamation" class="w-4 h-4" />
+                                        <span>{{ __('This user excluded from break tracking. Total hours reflect the first check-in to last check-out span.') }}</span>
+                                    </div>
+                                @endif
                             </div>
                             <div class="overflow-x-auto" wire:loading.class="opacity-50" wire:target="selectedUserId, selectedMonth">
                                 <table class="w-full">

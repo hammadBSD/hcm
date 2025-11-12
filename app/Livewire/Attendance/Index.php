@@ -5,12 +5,14 @@ namespace App\Livewire\Attendance;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\QueryException;
+use App\Models\AttendanceBreakExclusion;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\Shift;
 use App\Models\Constant;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class Index extends Component
 {
@@ -58,6 +60,8 @@ class Index extends Component
     public $showViewChangesFlyout = false;
     public $viewChangesDate = '';
     public $manualEntries = [];
+
+    public bool $isBreakTrackingExcluded = false;
 
     public function mount()
     {
@@ -200,6 +204,65 @@ class Index extends Component
         }
     }
 
+    private function determineBreakExclusionStatus(): bool
+    {
+        if (!$this->employee || !$this->employee->user_id) {
+            return false;
+        }
+
+        $userId = $this->employee->user_id;
+
+        $userExcluded = AttendanceBreakExclusion::query()
+            ->where('type', 'user')
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($userExcluded) {
+            return true;
+        }
+
+        $roleIds = $this->employee->user
+            ? $this->employee->user->roles->pluck('id')->filter()->all()
+            : [];
+
+        if (empty($roleIds)) {
+            return false;
+        }
+
+        return AttendanceBreakExclusion::query()
+            ->where('type', 'role')
+            ->whereIn('role_id', $roleIds)
+            ->exists();
+    }
+
+    private function calculateMinutesFromFirstInToLastOut(Collection $records): ?int
+    {
+        if ($records->isEmpty()) {
+            return null;
+        }
+
+        $firstInRecord = $records->first(function ($record) {
+            return ($record['device_type'] ?? null) === 'IN';
+        });
+
+        $lastOutRecord = $records->reverse()->first(function ($record) {
+            return ($record['device_type'] ?? null) === 'OUT';
+        });
+
+        if (!$firstInRecord || !$lastOutRecord) {
+            return null;
+        }
+
+        $firstInTime = Carbon::parse($firstInRecord['punch_time']);
+        $lastOutTime = Carbon::parse($lastOutRecord['punch_time']);
+
+        if ($lastOutTime->lessThanOrEqualTo($firstInTime)) {
+            return null;
+        }
+
+        return $firstInTime->diffInMinutes($lastOutTime);
+    }
+
     public function loadUserAttendance()
     {
         // Determine which user to load attendance for
@@ -213,12 +276,15 @@ class Index extends Component
         // Find the employee record for this user
         // Eager load shift and department (with its shift) for fallback logic
         $this->employee = Employee::where('user_id', $userId)
-            ->with(['shift', 'department.shift'])
+            ->with(['shift', 'department.shift', 'user.roles'])
             ->first();
         
         if (!$this->employee) {
             return;
         }
+
+        // Determine if break tracking is excluded for this employee or their roles
+        $this->isBreakTrackingExcluded = $this->determineBreakExclusionStatus();
 
         // Get the punch code
         $this->punchCode = $this->employee->punch_code;
@@ -867,8 +933,21 @@ class Index extends Component
                     
                     // Format total hours - show N/A if missing pairs detected
                     if ($hasMissingPair) {
-                        $processedData[$date]['total_hours'] = 'N/A';
-                        $processedData[$date]['actual_hours'] = null;
+                        $calculatedMinutes = null;
+
+                        if ($this->isBreakTrackingExcluded) {
+                            $calculatedMinutes = $this->calculateMinutesFromFirstInToLastOut($deduplicatedCollection);
+                        }
+
+                        if ($calculatedMinutes !== null) {
+                            $hours = floor($calculatedMinutes / 60);
+                            $minutes = $calculatedMinutes % 60;
+                            $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                            $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                        } else {
+                            $processedData[$date]['total_hours'] = 'N/A';
+                            $processedData[$date]['actual_hours'] = null;
+                        }
                     } elseif ($dayTotalMinutes > 0) {
                         $hours = floor($dayTotalMinutes / 60);
                         $minutes = $dayTotalMinutes % 60;
