@@ -12,6 +12,7 @@ class LeaveSetting extends Model
     protected $fillable = [
         'auto_assign_enabled',
         'allow_manual_overrides',
+        'auto_approve_requests',
         'default_accrual_frequency',
         'default_probation_wait_days',
         'default_prorate_on_joining',
@@ -27,6 +28,7 @@ class LeaveSetting extends Model
     protected $casts = [
         'auto_assign_enabled' => 'boolean',
         'allow_manual_overrides' => 'boolean',
+        'auto_approve_requests' => 'boolean',
         'default_probation_wait_days' => 'integer',
         'default_prorate_on_joining' => 'boolean',
         'carry_forward_enabled' => 'boolean',

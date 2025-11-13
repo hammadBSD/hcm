@@ -9,7 +9,7 @@
     <x-leaves.layout :heading="__('All Leave Requests')" :subheading="__('Manage and approve all submitted leave requests')">
         <div class="space-y-6">
             <!-- Leave Balance -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+            <!-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <flux:icon name="calendar-days" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -34,35 +34,34 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Filters -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    <!-- Search - Left Side -->
-                    <div class="w-64">
-                        <flux:input 
-                            wire:model.live="search" 
-                            placeholder="Search by employee name or ID..." 
-                            icon="magnifying-glass"
-                        />
-                    </div>
-                    
-                    <!-- Filters and Buttons - Right Side -->
-                    <div class="flex flex-wrap items-center gap-4">
-                        <!-- Employee Filter -->
-                        <div class="w-40">
-                            <flux:select wire:model.live="employeeFilter" placeholder="All Employees">
-                                <option value="">All Employees</option>
-                                <option value="john">John Smith</option>
-                                <option value="sarah">Sarah Johnson</option>
-                                <option value="mike">Mike Wilson</option>
-                                <option value="emma">Emma Davis</option>
-                                <option value="alex">Alex Brown</option>
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Left Group: Search + Employee -->
+                    <div class="flex items-center gap-4 flex-shrink-0">
+                        <div class="w-60">
+                            <flux:input 
+                                wire:model.live="search" 
+                                placeholder="Search by employee name or ID..." 
+                                icon="magnifying-glass"
+                            />
+                        </div>
+                        <div class="w-48">
+                            <flux:select wire:model.live="employeeFilter" placeholder="{{ __('All Employees') }}">
+                                <option value="">{{ __('All Employees') }}</option>
+                                @foreach($employeeOptions as $option)
+                                    <option value="{{ $option['id'] }}">
+                                        {{ $option['label'] }}@if(!empty($option['code'])) ({{ $option['code'] }}) @endif
+                                    </option>
+                                @endforeach
                             </flux:select>
                         </div>
-                        
-                        <!-- Date Filter -->
+                    </div>
+
+                    <!-- Right Group: Remaining Filters -->
+                    <div class="flex items-center gap-4 ml-auto">
                         <div class="w-32">
                             <flux:select wire:model.live="dateFilter" placeholder="All Dates">
                                 <option value="">All Dates</option>
@@ -73,8 +72,7 @@
                                 <option value="last_year">Last Year</option>
                             </flux:select>
                         </div>
-                        
-                        <!-- Status Filter -->
+
                         <div class="w-32">
                             <flux:select wire:model.live="statusFilter" placeholder="All Status">
                                 <option value="">All Status</option>
@@ -84,25 +82,24 @@
                                 <option value="cancelled">Cancelled</option>
                             </flux:select>
                         </div>
-                        
-                        <!-- Leave Type Filter -->
+
                         <div class="w-32">
-                            <flux:select wire:model.live="leaveTypeFilter" placeholder="All Types">
-                                <option value="">All Types</option>
-                                <option value="sick">Sick Leave</option>
-                                <option value="personal">Personal Leave</option>
-                                <option value="vacation">Vacation Leave</option>
-                                <option value="emergency">Emergency Leave</option>
-                                <option value="maternity">Maternity Leave</option>
-                                <option value="paternity">Paternity Leave</option>
+                            <flux:select wire:model.live="leaveTypeFilter" placeholder="{{ __('All Types') }}">
+                                <option value="">{{ __('All Types') }}</option>
+                                @foreach($leaveTypeOptions as $option)
+                                    <option value="{{ $option['id'] }}">
+                                        {{ $option['name'] }}@if(!empty($option['code'])) ({{ $option['code'] }}) @endif
+                                    </option>
+                                @endforeach
                             </flux:select>
                         </div>
-                        
-                        <!-- Clear Filters Button -->
-                        <flux:button variant="outline" wire:click="resetFilters">
-                            Clear Filters
-                        </flux:button>
                     </div>
+                </div>
+
+                <div class="mt-4 flex justify-start">
+                    <flux:button variant="outline" wire:click="resetFilters">
+                        {{ __('Clear Filters') }}
+                    </flux:button>
                 </div>
             </div>
 
@@ -198,16 +195,24 @@
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                     @foreach($leaveRequests as $index => $request)
+                                        @php
+                                            $statusClass = match($request['status']) {
+                                                'approved' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-700/60',
+                                                'rejected' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200 border border-rose-200 dark:border-rose-700/60',
+                                                'cancelled' => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700',
+                                                default => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200 border border-amber-200 dark:border-amber-700/60',
+                                            };
+                                        @endphp
                                         <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                             <td class="px-6 py-6 whitespace-nowrap">
                                                 <div class="flex items-center gap-3">
-                                                    <flux:avatar size="sm" :initials="strtoupper(substr($request['employee_name'], 0, 2))" />
+                                                    <flux:avatar size="sm" initials="{{ $request['employee_initials'] }}" />
                                                     <div>
                                                         <div class="font-medium text-zinc-900 dark:text-zinc-100">
                                                             {{ $request['employee_name'] }}
                                                         </div>
                                                         <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                            {{ $request['employee_id'] }}
+                                                            {{ $request['employee_code'] }}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -215,10 +220,10 @@
                                             
                                             <td class="px-6 py-6 whitespace-nowrap">
                                                 <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                    {{ $request['department'] ?? 'Not assigned' }}
+                                                    {{ $request['department'] ?? __('Not assigned') }}
                                                 </div>
                                                 <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                    {{ $request['position'] ?? 'No position' }}
+                                                    {{ $request['position'] ?? __('No designation') }}
                                                 </div>
                                             </td>
                                             
@@ -227,51 +232,58 @@
                                                     {{ $request['leave_type'] }}
                                                 </flux:badge>
                                                 <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                                                    {{ $request['total_days'] }} days
+                                                    {{ number_format($request['total_days'], 1) }} {{ __('days') }}
                                                 </div>
                                             </td>
                                             
                                             <td class="px-6 py-6 whitespace-nowrap">
                                                 <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                    {{ $request['start_date'] }} - {{ $request['end_date'] }}
+                                                    @if($request['start_date'] && $request['end_date'])
+                                                        {{ $request['start_date'] }} – {{ $request['end_date'] }}
+                                                    @else
+                                                        {{ __('N/A') }}
+                                                    @endif
                                                 </div>
                                             </td>
                                             
                                             <td class="px-6 py-6 whitespace-nowrap">
-                                                @php
-                                                    $statusColor = match($request['status']) {
-                                                        'pending' => 'yellow',
-                                                        'approved' => 'green',
-                                                        'rejected' => 'red',
-                                                        'cancelled' => 'zinc',
-                                                        default => 'yellow'
-                                                    };
-                                                @endphp
-                                                <flux:badge color="{{ $statusColor }}" size="sm">
+                                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClass }}">
                                                     {{ ucfirst($request['status']) }}
-                                                </flux:badge>
+                                                </span>
                                             </td>
                                             
                                             <td class="px-6 py-6 whitespace-nowrap">
                                                 <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                    {{ date('M d, Y', strtotime($request['created_at'])) }}
+                                                    {{ $request['created_date'] ?? __('N/A') }}
                                                 </div>
                                                 <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                    {{ date('h:i A', strtotime($request['created_at'])) }}
+                                                    {{ $request['created_time'] ?? '' }}
                                                 </div>
                                             </td>
                                             
                                             <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
-                                                <div class="flex items-center gap-1">
-                                                    <flux:button variant="ghost" size="sm" icon="eye" wire:click="viewRequest({{ $request['id'] }})" />
-                                                    @if($request['status'] === 'pending' && $canApproveLeaves)
-                                                        <flux:button variant="ghost" size="sm" icon="check" wire:click="approveRequest({{ $request['id'] }})" />
-                                                        <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="rejectRequest({{ $request['id'] }})" />
-                                                    @endif
-                                                    @if($canManageAllLeaves)
-                                                        <flux:button variant="ghost" size="sm" icon="pencil" wire:click="editRequest({{ $request['id'] }})" />
-                                                    @endif
-                                                </div>
+                                                <flux:dropdown>
+                                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                    <flux:menu>
+                                                        <flux:menu.item icon="eye" wire:click="viewRequest({{ $request['id'] }})">
+                                                            {{ __('View Request') }}
+                                                        </flux:menu.item>
+                                                        @if($request['status'] === 'pending' && $canApproveLeaves)
+                                                            <flux:menu.item icon="check" wire:click="approveRequest({{ $request['id'] }})">
+                                                                {{ __('Approve') }}
+                                                            </flux:menu.item>
+                                                            <flux:menu.item icon="x-mark" wire:click="rejectRequest({{ $request['id'] }})">
+                                                                {{ __('Reject') }}
+                                                            </flux:menu.item>
+                                                        @endif
+                                                        @if($canManageAllLeaves)
+                                                            <flux:menu.separator />
+                                                            <flux:menu.item icon="pencil" wire:click="editRequest({{ $request['id'] }})">
+                                                                {{ __('Edit Request') }}
+                                                            </flux:menu.item>
+                                                        @endif
+                                                    </flux:menu>
+                                                </flux:dropdown>
                                             </td>
                                         </tr>
                                     @endforeach

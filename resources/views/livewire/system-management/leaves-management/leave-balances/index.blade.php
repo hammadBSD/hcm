@@ -26,8 +26,50 @@
                     <flux:button variant="outline" icon="arrow-down-tray">
                         {{ __('Export Balances') }}
                     </flux:button>
+                    <flux:button
+                        variant="primary"
+                        icon="sparkles"
+                        wire:click="generateBalances"
+                        wire:loading.attr="disabled"
+                    >
+                        <span wire:loading.remove>{{ __('Generate Balances') }}</span>
+                        <span wire:loading>{{ __('Generating...') }}</span>
+                    </flux:button>
                 </div>
             </div>
+
+            @if($generationSummary)
+                <div class="rounded-lg bg-blue-50 dark:bg-zinc-800/70 border border-blue-100 dark:border-zinc-700 px-5 py-4">
+                    <p class="text-sm text-blue-700 dark:text-blue-200">
+                        {{ __('Generation complete.') }}
+                        <span class="font-medium">{{ __('Created: :created, Updated: :updated, Skipped: :skipped', [
+                            'created' => $generationSummary['created'] ?? 0,
+                            'updated' => $generationSummary['updated'] ?? 0,
+                            'skipped' => $generationSummary['skipped'] ?? 0,
+                        ]) }}</span>
+                    </p>
+                    @if(!empty($skipReasons))
+                        <ul class="mt-2 space-y-1 text-sm text-blue-700 dark:text-blue-200 list-disc list-outside pl-5">
+                            @foreach($skipReasons as $item)
+                                <li>
+                                    {{ $item['employee_name'] ?? __('Employee #:id', ['id' => $item['employee_id']]) }}
+                                    @switch($item['reason'])
+                                        @case('still_in_probation')
+                                            — {{ __('still in probation (eligible after :date)', ['date' => $item['eligible_after'] ?? '—']) }}
+                                            @break
+                                        @case('outside_policy_window')
+                                            — {{ __('outside the policy date window') }}
+                                            @break
+                                        @case('missing_joining_date')
+                                        @default
+                                            — {{ __('missing joining details') }}
+                                    @endswitch
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            @endif
 
             <!-- Balances Table -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
@@ -134,14 +176,60 @@
         </div>
     </x-system-management.layout>
 
-    <!-- Adjustment Modal -->
-    <flux:modal wire:model="showAdjustmentModal" icon="adjustments-horizontal" :title="__('Manual Balance Adjustment')" size="xl">
-        <div class="space-y-6">
-            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 px-4 py-3">
-                <p class="text-sm text-zinc-600 dark:text-zinc-300">
+    <!-- Adjustment Flyout -->
+    <flux:modal
+        wire:model="showAdjustmentModal"
+        variant="flyout"
+        class="w-[28rem] lg:w-[32rem]"
+        :title="__('Manual Balance Adjustment')"
+    >
+        <div class="space-y-6 pb-6">
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                <p class="text-sm text-zinc-600 dark:text-zinc-200">
                     {{ __('Add or deduct leave days from the selected employee. A transaction entry will be added to the leave ledger for auditing.') }}
                 </p>
             </div>
+
+            @if($selectedBalanceSummary)
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-4 space-y-4">
+                    <div>
+                        <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {{ $selectedBalanceSummary['employee_name'] ?? __('Unknown Employee') }}
+                        </p>
+                        @if(!empty($selectedBalanceSummary['employee_email']))
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                {{ $selectedBalanceSummary['employee_email'] }}
+                            </p>
+                        @endif
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-sm text-zinc-600 dark:text-zinc-300">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Leave Type') }}</p>
+                            <p class="font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ $selectedBalanceSummary['leave_type_name'] ?? __('N/A') }}
+                            </p>
+                            @if(!empty($selectedBalanceSummary['leave_type_code']))
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $selectedBalanceSummary['leave_type_code'] }}
+                                </p>
+                            @endif
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Current Balance') }}</p>
+                            <p class="font-semibold text-green-600 dark:text-emerald-300">
+                                {{ number_format($selectedBalanceSummary['balance'] ?? 0, 1) }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</p>
+                            <p class="font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($selectedBalanceSummary['entitled'] ?? 0, 1) }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             <flux:input
                 type="number"
@@ -160,15 +248,13 @@
             />
         </div>
 
-        <x-slot name="footer">
-            <div class="flex items-center justify-between w-full">
-                <flux:button variant="ghost" wire:click="$set('showAdjustmentModal', false)">
-                    {{ __('Cancel') }}
-                </flux:button>
-                <flux:button variant="primary" wire:click="applyAdjustment">
-                    {{ __('Apply Adjustment') }}
-                </flux:button>
-            </div>
-        </x-slot>
+        <div class="flex items-center justify-between gap-3 sticky bottom-0 pt-4 pb-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-t border-zinc-200 dark:border-zinc-700">
+            <flux:button variant="ghost" wire:click="closeAdjustmentFlyout">
+                {{ __('Cancel') }}
+            </flux:button>
+            <flux:button variant="primary" wire:click="applyAdjustment">
+                {{ __('Apply Adjustment') }}
+            </flux:button>
+        </div>
     </flux:modal>
 </section>

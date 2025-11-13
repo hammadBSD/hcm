@@ -12,20 +12,37 @@
                     </div>
                     <div class="flex items-center gap-6 text-sm">
                         <div class="text-center">
-                            <div class="text-zinc-500 dark:text-zinc-400">Entitled</div>
-                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">3.2</div>
+                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</div>
+                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($summary['entitled'] ?? 0, 1) }}
+                            </div>
                         </div>
                         <div class="text-center">
-                            <div class="text-zinc-500 dark:text-zinc-400">Taken</div>
-                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">1</div>
+                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Taken') }}</div>
+                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($summary['used'] ?? 0, 1) }}
+                            </div>
                         </div>
+                        @php
+                            $pendingValue = $summary['pending'] ?? 0;
+                            $pendingTextClasses = $pendingValue > 0
+                                ? 'text-amber-600 dark:text-amber-300'
+                                : 'text-zinc-900 dark:text-zinc-100';
+                        @endphp
                         <div class="text-center">
-                            <div class="text-zinc-500 dark:text-zinc-400">Pending</div>
-                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">0</div>
+                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</div>
+                            <div class="font-semibold {{ $pendingTextClasses }}">
+                                {{ number_format($pendingValue, 1) }}
+                            </div>
                         </div>
+                        @php
+                            $balanceValue = $summary['balance'] ?? 0;
+                        @endphp
                         <div class="text-center">
-                            <div class="text-zinc-500 dark:text-zinc-400">Balance</div>
-                            <div class="font-bold text-green-600 dark:text-green-400">2.2</div>
+                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</div>
+                            <div class="font-bold {{ $balanceValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                {{ number_format($balanceValue, 1) }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -33,6 +50,12 @@
 
             <!-- Leave Request Form -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-8">
+                @if (session()->has('success'))
+                    <flux:callout variant="success" class="mb-6">
+                        {{ session('success') }}
+                    </flux:callout>
+                @endif
+
                 <div class="mb-8">
                     <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
                         Add Leave Request
@@ -44,17 +67,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- Leave Type -->
                         <flux:field>
-                            <flux:label>Leave Type <span class="text-red-500">*</span></flux:label>
-                            <flux:select wire:model="leaveType" placeholder="Select One">
-                                <option value="">Select One</option>
-                                <option value="sick">Sick Leave</option>
-                                <option value="personal">Personal Leave</option>
-                                <option value="vacation">Vacation Leave</option>
-                                <option value="emergency">Emergency Leave</option>
-                                <option value="maternity">Maternity Leave</option>
-                                <option value="paternity">Paternity Leave</option>
-                                <option value="bereavement">Bereavement Leave</option>
-                            </flux:select>
+                    <flux:label>Leave Type <span class="text-red-500">*</span></flux:label>
+                    <flux:select wire:model="leaveType" placeholder="Select One">
+                        <option value="">{{ __('Select One') }}</option>
+                        @foreach($leaveTypeOptions as $option)
+                            <option value="{{ $option['id'] }}">
+                                {{ $option['name'] }}@if(!empty($option['code'])) ({{ $option['code'] }}) @endif
+                            </option>
+                        @endforeach
+                    </flux:select>
                             <flux:error name="leaveType" />
                         </flux:field>
 
@@ -103,18 +124,30 @@
                     <!-- Upload Attachment -->
                     <div class="space-y-2">
                         <flux:label>Upload Attachment</flux:label>
-                        <div class="flex items-center gap-4">
-                            <flux:button variant="outline" type="button">
-                                Upload File
-                            </flux:button>
-                            <span class="text-sm text-zinc-500 dark:text-zinc-400">No File Selected</span>
-                        </div>
+                        <input
+                            type="file"
+                            wire:model="attachment"
+                            class="block w-full text-sm text-zinc-600 dark:text-zinc-300"
+                        />
+                        <flux:error name="attachment" />
                     </div>
 
                     <!-- Submit Button -->
+                    @if($balanceWarning)
+                        <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/60 dark:bg-amber-900/30 dark:text-amber-200">
+                            {{ $balanceWarning }}
+                        </div>
+                    @endif
+
                     <div class="flex justify-end pt-4">
-                        <flux:button type="submit" variant="primary" class="px-8">
-                            Submit
+                        <flux:button
+                            type="submit"
+                            variant="primary"
+                            class="px-8"
+                            wire:loading.attr="disabled"
+                            :disabled="$submitDisabled"
+                        >
+                            {{ __('Submit') }}
                         </flux:button>
                     </div>
                 </form>

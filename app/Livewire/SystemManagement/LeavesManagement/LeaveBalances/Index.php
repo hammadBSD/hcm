@@ -2,9 +2,12 @@
 
 namespace App\Livewire\SystemManagement\LeavesManagement\LeaveBalances;
 
+use App\Models\Employee;
 use App\Models\EmployeeLeaveBalance;
 use App\Models\LeaveBalanceTransaction;
+use App\Models\LeavePolicy;
 use App\Models\LeaveType;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -25,7 +28,12 @@ class Index extends Component
         'notes' => '',
     ];
 
+    public $isGenerating = false;
+    public $generationSummary = null;
+
     public $leaveTypes = [];
+    public $selectedBalanceSummary = null;
+    public $skipReasons = [];
 
     protected $listeners = [
         'refreshLeaveBalances' => '$refresh',
@@ -53,10 +61,23 @@ class Index extends Component
 
     public function openAdjustmentModal(int $balanceId): void
     {
-        $this->selectedBalanceId = $balanceId;
+        $balance = EmployeeLeaveBalance::with([
+            'employee.user:id,name,email',
+            'leaveType:id,name,code',
+        ])->findOrFail($balanceId);
+
+        $this->selectedBalanceId = $balance->id;
         $this->adjustmentForm = [
             'amount' => null,
             'notes' => '',
+        ];
+        $this->selectedBalanceSummary = [
+            'employee_name' => optional($balance->employee->user)->name ?? __('Unknown Employee'),
+            'employee_email' => optional($balance->employee->user)->email,
+            'leave_type_name' => optional($balance->leaveType)->name ?? __('N/A'),
+            'leave_type_code' => optional($balance->leaveType)->code,
+            'entitled' => $balance->entitled,
+            'balance' => $balance->balance,
         ];
         $this->showAdjustmentModal = true;
     }
@@ -95,9 +116,197 @@ class Index extends Component
             ]);
         });
 
-        $this->showAdjustmentModal = false;
+        $balance->refresh();
+        if ($this->selectedBalanceSummary) {
+            $this->selectedBalanceSummary['entitled'] = $balance->entitled;
+            $this->selectedBalanceSummary['balance'] = $balance->balance;
+        }
 
         $this->dispatch('notify', type: 'success', message: __('Balance adjustment recorded successfully.'));
+        $this->closeAdjustmentFlyout();
+    }
+
+    public function generateBalances(): void
+    {
+        if ($this->isGenerating) {
+            return;
+        }
+
+        $this->skipReasons = [];
+        $this->isGenerating = true;
+        $this->generationSummary = null;
+
+        try {
+            $policies = LeavePolicy::query()
+                ->where('auto_assign', true)
+                ->with('leaveType')
+                ->get();
+
+            if ($policies->isEmpty()) {
+                $this->dispatch('notify', type: 'warning', message: __('No auto-assigned leave policies found. Create a policy first.'));
+                return;
+            }
+
+            $created = 0;
+            $updated = 0;
+            $skipped = 0;
+
+            DB::transaction(function () use ($policies, &$created, &$updated, &$skipped) {
+                $now = Carbon::now();
+
+                $employees = Employee::query()
+                    ->where('status', 'active')
+                    ->with([
+                        'organizationalInfo',
+                        'leaveBalances',
+                        'user:id,name,email',
+                    ])
+                    ->whereHas('user') // ensure linked user exists
+                    ->get();
+
+                foreach ($policies as $policy) {
+                    $leaveType = $policy->leaveType;
+
+                    if (! $leaveType) {
+                        continue;
+                    }
+
+                    $cycleStart = Carbon::parse($policy->effective_from);
+                    $cycleEnd = $policy->effective_to
+                        ? Carbon::parse($policy->effective_to)
+                        : $cycleStart->copy()->addYear()->subDay();
+
+                    foreach ($employees as $employee) {
+                        $orgInfo = $employee->organizationalInfo;
+
+                        if (! $orgInfo || ! $orgInfo->joining_date) {
+                            $skipped++;
+                            $this->skipReasons[] = [
+                                'employee_id' => $employee->id,
+                                'employee_name' => optional($employee->user)->name,
+                                'reason' => 'missing_joining_date',
+                            ];
+                            continue;
+                        }
+
+                        $joiningDate = Carbon::parse($orgInfo->joining_date);
+
+                        $eligibleDate = $orgInfo->confirmation_date
+                            ? Carbon::parse($orgInfo->confirmation_date)
+                            : $joiningDate->copy()->addDays((int) $policy->probation_wait_days);
+
+                        if ($eligibleDate->greaterThan($now)) {
+                            $skipped++;
+                            $this->skipReasons[] = [
+                                'employee_id' => $employee->id,
+                                'employee_name' => optional($employee->user)->name,
+                                'reason' => 'still_in_probation',
+                                'eligible_after' => $eligibleDate->toDateString(),
+                            ];
+                            continue;
+                        }
+
+                        $allocationStart = $eligibleDate->greaterThan($cycleStart)
+                            ? $eligibleDate->copy()
+                            : $cycleStart->copy();
+
+                        if ($allocationStart->greaterThan($cycleEnd)) {
+                            $skipped++;
+                            $this->skipReasons[] = [
+                                'employee_id' => $employee->id,
+                                'employee_name' => optional($employee->user)->name,
+                                'reason' => 'outside_policy_window',
+                            ];
+                            continue;
+                        }
+
+                        $entitled = (float) $policy->base_quota;
+
+                        if ($policy->prorate_on_joining) {
+                            $totalDays = max($cycleStart->diffInDays($cycleEnd) + 1, 1);
+                            $eligibleDays = $allocationStart->diffInDays($cycleEnd) + 1;
+                            $ratio = $eligibleDays / $totalDays;
+                            $entitled = round($policy->base_quota * $ratio, 2);
+                        }
+
+                        if ($entitled < 0) {
+                            $entitled = 0;
+                        }
+
+                        /** @var \App\Models\EmployeeLeaveBalance|null $existing */
+                        $existing = $employee->leaveBalances
+                            ->firstWhere('leave_type_id', $leaveType->id);
+
+                        $payload = [
+                            'leave_policy_id' => $policy->id,
+                            'entitled' => $entitled,
+                        ];
+
+                        if ($existing) {
+                            $existing->fill($payload);
+                            $existing->balance = round(
+                                ($existing->entitled + $existing->carried_forward + $existing->manual_adjustment)
+                                - ($existing->used + $existing->pending),
+                                2
+                            );
+                            $existing->save();
+                            $updated++;
+                        } else {
+                            $payload = array_merge($payload, [
+                                'carried_forward' => 0,
+                                'manual_adjustment' => 0,
+                                'used' => 0,
+                                'pending' => 0,
+                                'balance' => $entitled,
+                                'metadata' => [
+                                    'generated_at' => Carbon::now()->toDateTimeString(),
+                                    'generated_by' => Auth::id(),
+                                ],
+                            ]);
+
+                            EmployeeLeaveBalance::create([
+                                'employee_id' => $employee->id,
+                                'leave_type_id' => $leaveType->id,
+                                ...$payload,
+                            ]);
+
+                            $created++;
+                        }
+                    }
+                }
+            });
+
+            $this->generationSummary = [
+                'created' => $created,
+                'updated' => $updated,
+                'skipped' => $skipped,
+            ];
+
+            $this->dispatch('notify', type: 'success', message: __('Leave balances generated successfully.'));
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatch('notify', type: 'error', message: __('Failed to generate leave balances. Please check the logs.'));
+        } finally {
+            $this->isGenerating = false;
+            $this->dispatch('refreshLeaveBalances');
+        }
+    }
+
+    public function closeAdjustmentFlyout(): void
+    {
+        $this->showAdjustmentModal = false;
+    }
+
+    public function updatedShowAdjustmentModal($value): void
+    {
+        if (! $value) {
+            $this->selectedBalanceId = null;
+            $this->selectedBalanceSummary = null;
+            $this->adjustmentForm = [
+                'amount' => null,
+                'notes' => '',
+            ];
+        }
     }
 
     public function getBalancesProperty()
@@ -107,6 +316,10 @@ class Index extends Component
                 'employee.user:id,name,email',
                 'leaveType:id,name,code',
             ]);
+
+        $query->whereHas('employee', function ($builder) {
+            $builder->where('status', 'active');
+        });
 
         if ($this->leaveTypeFilter !== 'all') {
             $query->where('leave_type_id', $this->leaveTypeFilter);

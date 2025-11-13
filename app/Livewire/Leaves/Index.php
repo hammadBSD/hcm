@@ -2,6 +2,11 @@
 
 namespace App\Livewire\Leaves;
 
+use App\Models\EmployeeLeaveBalance;
+use App\Models\LeaveRequest as LeaveRequestModel;
+use App\Models\LeaveType;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -21,8 +26,13 @@ class Index extends Component
     public $sortBy = 'created_at';
     public $sortDirection = 'desc';
 
-    // Sample Data (Replace with actual database queries later)
-    public $leaveRequests = [];
+    public array $summary = [
+        'entitled' => 0.0,
+        'used' => 0.0,
+        'pending' => 0.0,
+        'balance' => 0.0,
+    ];
+    public $leaveTypeOptions = [];
 
     public function mount()
     {
@@ -32,46 +42,7 @@ class Index extends Component
             abort(403);
         }
 
-        $this->loadSampleData();
-    }
-
-    public function loadSampleData()
-    {
-        // Sample data for current logged-in user (Sarah Johnson) - replace with actual database queries
-        $this->leaveRequests = collect([
-            [
-                'id' => 2,
-                'employee_name' => 'Sarah Johnson',
-                'employee_id' => 'EMP002',
-                'department' => 'HR',
-                'position' => 'HR Manager',
-                'manager' => 'Mike Wilson',
-                'leave_type' => 'Vacation Leave',
-                'start_date' => '2025-10-20',
-                'end_date' => '2025-10-25',
-                'total_days' => 6,
-                'status' => 'approved',
-                'created_at' => '2025-09-28 14:15:00',
-                'approved_by' => 'Mike Wilson',
-                'approved_at' => '2025-09-29 10:00:00'
-            ],
-            [
-                'id' => 4,
-                'employee_name' => 'Sarah Johnson',
-                'employee_id' => 'EMP002',
-                'department' => 'HR',
-                'position' => 'HR Manager',
-                'manager' => 'Mike Wilson',
-                'leave_type' => 'Sick Leave',
-                'start_date' => '2025-11-01',
-                'end_date' => '2025-11-01',
-                'total_days' => 1,
-                'status' => 'pending',
-                'created_at' => '2025-10-03 10:00:00',
-                'approved_by' => '',
-                'approved_at' => ''
-            ]
-        ]);
+        $this->loadLeaveTypeOptions();
     }
 
     public function updatedDateFilter()
@@ -118,67 +89,77 @@ class Index extends Component
         }
     }
 
-    public function getFilteredRequests()
+    public function getFilteredRequests(): Collection
     {
-        $requests = $this->leaveRequests;
+        $user = Auth::user();
 
-        if ($this->dateFilter) {
-            $requests = $requests->filter(function ($request) {
-                $createdAt = strtotime($request['created_at']);
-                $now = time();
-                
-                switch ($this->dateFilter) {
-                    case 'this_month':
-                        return date('Y-m', $createdAt) === date('Y-m', $now);
-                    case 'last_month':
-                        return date('Y-m', $createdAt) === date('Y-m', strtotime('-1 month', $now));
-                    case 'this_quarter':
-                        $quarter = ceil(date('n', $createdAt) / 3);
-                        $currentQuarter = ceil(date('n', $now) / 3);
-                        return date('Y', $createdAt) === date('Y', $now) && $quarter === $currentQuarter;
-                    case 'this_year':
-                        return date('Y', $createdAt) === date('Y', $now);
-                    case 'last_year':
-                        return date('Y', $createdAt) === date('Y', strtotime('-1 year', $now));
-                    default:
-                        return true;
-                }
-            });
+        if (! $user) {
+            return collect();
         }
 
+        $user->loadMissing('employee.department', 'employee.designation');
+        $employee = $user->employee;
+
+        if (! $employee) {
+            return collect();
+        }
+
+        $query = LeaveRequestModel::query()
+            ->with([
+                'leaveType:id,name,code',
+                'employee.department',
+                'employee.designation',
+            ])
+            ->where('employee_id', $employee->id);
+
         if ($this->statusFilter) {
-            $requests = $requests->filter(function ($request) {
-                return $request['status'] === $this->statusFilter;
-            });
+            $query->where('status', $this->statusFilter);
         }
 
         if ($this->leaveTypeFilter) {
-            $requests = $requests->filter(function ($request) {
-                return stripos($request['leave_type'], $this->leaveTypeFilter) !== false;
-            });
+            $query->where('leave_type_id', $this->leaveTypeFilter);
         }
 
-        // Apply sorting
-        $requests = $requests->sortBy(function ($request) {
-            switch ($this->sortBy) {
-                case 'employee_name':
-                    return $request['employee_name'];
-                case 'department':
-                    return $request['department'];
-                case 'leave_type':
-                    return $request['leave_type'];
-                case 'start_date':
-                    return $request['start_date'];
-                case 'status':
-                    return $request['status'];
-                case 'created_at':
-                    return $request['created_at'];
-                default:
-                    return $request['created_at'];
-            }
-        }, SORT_REGULAR, $this->sortDirection === 'desc');
+        if ($this->dateFilter) {
+            [$start, $end] = $this->resolveDateRange($this->dateFilter);
+            $query->whereBetween('created_at', [$start, $end]);
+        }
 
-        return $requests;
+        $requests = $query->get()->map(function (LeaveRequestModel $request) {
+            $departmentName = optional($request->employee->department)->title
+                ?? $request->employee->department
+                ?? __('Not assigned');
+
+            $designationName = optional($request->employee->designation)->name
+                ?? $request->employee->designation
+                ?? __('No designation');
+
+            return [
+                'id' => $request->id,
+                'department' => $departmentName,
+                'position' => $designationName,
+                'leave_type' => $request->leaveType?->name ?? __('Unknown'),
+                'leave_type_code' => $request->leaveType?->code,
+                'start_date' => optional($request->start_date)->format('Y-m-d'),
+                'end_date' => optional($request->end_date)->format('Y-m-d'),
+                'total_days' => (float) $request->total_days,
+                'status' => $request->status,
+                'created_at' => optional($request->created_at)->toDateTimeString(),
+            ];
+        });
+
+        $requests = $requests->sortBy(function ($request) {
+            return match ($this->sortBy) {
+                'department' => $request['department'],
+                'leave_type' => $request['leave_type'],
+                'start_date' => $request['start_date'],
+                'status' => $request['status'],
+                'created_at' => $request['created_at'],
+                default => $request['created_at'],
+            };
+        }, SORT_NATURAL | SORT_FLAG_CASE, $this->sortDirection === 'desc');
+
+        return $requests->values();
     }
 
     public function viewRequest($id)
@@ -217,6 +198,77 @@ class Index extends Component
         session()->flash('info', "Creating new leave request");
     }
 
+    protected function loadSummary(): void
+    {
+        $user = Auth::user();
+
+        if (!$user || ! $user->relationLoaded('employee')) {
+            $user?->loadMissing('employee');
+        }
+
+        $employee = $user?->employee;
+
+        if (! $employee) {
+            $this->summary = [
+                'entitled' => 0.0,
+                'used' => 0.0,
+                'pending' => 0.0,
+                'balance' => 0.0,
+            ];
+            return;
+        }
+
+        $balances = EmployeeLeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->get();
+
+        if ($balances->isEmpty()) {
+            $this->summary = [
+                'entitled' => 0.0,
+                'used' => 0.0,
+                'pending' => 0.0,
+                'balance' => 0.0,
+            ];
+            return;
+        }
+
+        $this->summary = [
+            'entitled' => (float) $balances->sum('entitled'),
+            'used' => (float) $balances->sum('used'),
+            'pending' => (float) $balances->sum('pending'),
+            'balance' => (float) $balances->sum('balance'),
+        ];
+    }
+
+    protected function loadLeaveTypeOptions(): void
+    {
+        $this->leaveTypeOptions = LeaveType::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->toArray();
+    }
+
+    protected function resolveDateRange(string $filter): array
+    {
+        $now = Carbon::now();
+
+        return match ($filter) {
+            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'last_month' => [
+                $now->copy()->subMonth()->startOfMonth(),
+                $now->copy()->subMonth()->endOfMonth(),
+            ],
+            'this_quarter' => [$now->copy()->startOfQuarter(), $now->copy()->endOfQuarter()],
+            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'last_year' => [
+                $now->copy()->subYear()->startOfYear(),
+                $now->copy()->subYear()->endOfYear(),
+            ],
+            default => [$now->copy()->startOfCentury(), $now->copy()->endOfCentury()],
+        };
+    }
+
     protected function authorizeTeamApproval(): void
     {
         $user = Auth::user();
@@ -237,6 +289,8 @@ class Index extends Component
 
     public function render()
     {
+        $this->loadSummary();
+
         $filteredRequests = $this->getFilteredRequests();
         
         return view('livewire.leaves.index', [

@@ -2,7 +2,13 @@
 
 namespace App\Livewire\Leaves\EmployeesLeaves;
 
+use App\Models\Employee;
+use App\Models\LeaveRequest as LeaveRequestModel;
+use App\Models\LeaveType;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -23,8 +29,8 @@ class Index extends Component
     public $sortBy = 'created_at';
     public $sortDirection = 'desc';
 
-    // Sample Data (Replace with actual database queries later)
-    public $leaveRequests = [];
+    public array $leaveTypeOptions = [];
+    public array $employeeOptions = [];
 
     public function mount()
     {
@@ -34,62 +40,8 @@ class Index extends Component
             abort(403);
         }
 
-        $this->loadSampleData();
-    }
-
-    public function loadSampleData()
-    {
-        // Sample data - replace with actual database queries
-        $this->leaveRequests = collect([
-            [
-                'id' => 1,
-                'employee_name' => 'John Doe',
-                'employee_id' => 'EMP001',
-                'department' => 'IT',
-                'position' => 'Software Developer',
-                'manager' => 'Jane Smith',
-                'leave_type' => 'Sick Leave',
-                'start_date' => '2025-10-15',
-                'end_date' => '2025-10-17',
-                'total_days' => 3,
-                'status' => 'pending',
-                'created_at' => '2025-10-01 09:30:00',
-                'approved_by' => '',
-                'approved_at' => ''
-            ],
-            [
-                'id' => 2,
-                'employee_name' => 'Sarah Johnson',
-                'employee_id' => 'EMP002',
-                'department' => 'HR',
-                'position' => 'HR Manager',
-                'manager' => 'Mike Wilson',
-                'leave_type' => 'Vacation Leave',
-                'start_date' => '2025-10-20',
-                'end_date' => '2025-10-25',
-                'total_days' => 6,
-                'status' => 'approved',
-                'created_at' => '2025-09-28 14:15:00',
-                'approved_by' => 'Mike Wilson',
-                'approved_at' => '2025-09-29 10:00:00'
-            ],
-            [
-                'id' => 3,
-                'employee_name' => 'Michael Brown',
-                'employee_id' => 'EMP003',
-                'department' => 'Finance',
-                'position' => 'Accountant',
-                'manager' => 'Lisa Davis',
-                'leave_type' => 'Personal Leave',
-                'start_date' => '2025-10-10',
-                'end_date' => '2025-10-10',
-                'total_days' => 1,
-                'status' => 'rejected',
-                'created_at' => '2025-09-30 11:45:00',
-                'approved_by' => 'Lisa Davis',
-                'approved_at' => '2025-10-01 08:30:00'
-            ]
-        ]);
+        $this->loadEmployeeOptions();
+        $this->loadLeaveTypeOptions();
     }
 
     public function updatedSearch()
@@ -148,82 +100,106 @@ class Index extends Component
         }
     }
 
-    public function getFilteredRequests()
+    public function getFilteredRequests(): Collection
     {
-        $requests = $this->leaveRequests;
+        $query = LeaveRequestModel::query()
+            ->with([
+                'employee.user',
+                'employee.department',
+                'employee.designation',
+                'leaveType',
+            ]);
 
         if ($this->search) {
-            $requests = $requests->filter(function ($request) {
-                return stripos($request['employee_name'], $this->search) !== false ||
-                       stripos($request['employee_id'], $this->search) !== false;
+            $searchTerm = trim($this->search);
+            $query->where(function ($builder) use ($searchTerm) {
+                $builder->whereHas('employee.user', function ($sub) use ($searchTerm) {
+                    $sub->where('name', 'like', '%' . $searchTerm . '%');
+                })->orWhereHas('employee', function ($sub) use ($searchTerm) {
+                    $sub->where('employee_code', 'like', '%' . $searchTerm . '%')
+                        ->orWhereRaw("concat_ws(' ', first_name, last_name) like ?", ['%' . $searchTerm . '%']);
+                });
             });
         }
 
         if ($this->employeeFilter) {
-            $requests = $requests->filter(function ($request) {
-                $employeeName = strtolower($request['employee_name']);
-                $filterValue = strtolower($this->employeeFilter);
-                return stripos($employeeName, $filterValue) !== false;
-            });
-        }
-
-        if ($this->dateFilter) {
-            $requests = $requests->filter(function ($request) {
-                $createdAt = strtotime($request['created_at']);
-                $now = time();
-                
-                switch ($this->dateFilter) {
-                    case 'this_month':
-                        return date('Y-m', $createdAt) === date('Y-m', $now);
-                    case 'last_month':
-                        return date('Y-m', $createdAt) === date('Y-m', strtotime('-1 month', $now));
-                    case 'this_quarter':
-                        $quarter = ceil(date('n', $createdAt) / 3);
-                        $currentQuarter = ceil(date('n', $now) / 3);
-                        return date('Y', $createdAt) === date('Y', $now) && $quarter === $currentQuarter;
-                    case 'this_year':
-                        return date('Y', $createdAt) === date('Y', $now);
-                    case 'last_year':
-                        return date('Y', $createdAt) === date('Y', strtotime('-1 year', $now));
-                    default:
-                        return true;
-                }
-            });
+            $query->where('employee_id', $this->employeeFilter);
         }
 
         if ($this->statusFilter) {
-            $requests = $requests->filter(function ($request) {
-                return $request['status'] === $this->statusFilter;
-            });
+            $query->where('status', $this->statusFilter);
         }
 
         if ($this->leaveTypeFilter) {
-            $requests = $requests->filter(function ($request) {
-                return stripos($request['leave_type'], $this->leaveTypeFilter) !== false;
-            });
+            $query->where('leave_type_id', $this->leaveTypeFilter);
         }
 
-        // Apply sorting
-        $requests = $requests->sortBy(function ($request) {
-            switch ($this->sortBy) {
-                case 'employee_name':
-                    return $request['employee_name'];
-                case 'department':
-                    return $request['department'];
-                case 'leave_type':
-                    return $request['leave_type'];
-                case 'start_date':
-                    return $request['start_date'];
-                case 'status':
-                    return $request['status'];
-                case 'created_at':
-                    return $request['created_at'];
-                default:
-                    return $request['created_at'];
-            }
-        }, SORT_REGULAR, $this->sortDirection === 'desc');
+        if ($this->dateFilter) {
+            [$start, $end] = $this->resolveDateRange($this->dateFilter);
+            $query->whereBetween('created_at', [$start, $end]);
+        }
 
-        return $requests;
+        $requests = $query->get()->map(function (LeaveRequestModel $request) {
+            $employee = $request->employee;
+            $user = $employee?->user;
+
+            $name = $user?->name
+                ?? trim($employee?->first_name . ' ' . $employee?->last_name)
+                ?: __('Unknown Employee');
+
+            $initials = collect(explode(' ', $name))
+                ->filter()
+                ->map(fn ($segment) => Str::upper(mb_substr($segment, 0, 1)))
+                ->join('');
+
+            if ($initials === '') {
+                $initials = Str::upper(mb_substr($name, 0, 2));
+            }
+
+            $departmentName = optional($employee?->department)->title
+                ?? $employee?->department
+                ?? __('Not assigned');
+
+            $designationName = optional($employee?->designation)->name
+                ?? $employee?->designation
+                ?? __('No designation');
+
+            $startDate = $request->start_date?->format('Y-m-d');
+            $endDate = $request->end_date?->format('Y-m-d');
+            $createdAt = $request->created_at;
+
+            return [
+                'id' => $request->id,
+                'employee_name' => $name,
+                'employee_initials' => Str::upper(Str::limit($initials, 2, '')),
+                'employee_code' => $employee?->employee_code ?? __('N/A'),
+                'department' => $departmentName,
+                'position' => $designationName,
+                'leave_type' => $request->leaveType?->name ?? __('Unknown'),
+                'leave_type_code' => $request->leaveType?->code,
+                'total_days' => (float) $request->total_days,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'status' => $request->status,
+                'created_at' => $createdAt?->toDateTimeString(),
+                'created_date' => $createdAt?->format('M d, Y'),
+                'created_time' => $createdAt?->format('h:i A'),
+            ];
+        });
+
+        $requests = $requests->sortBy(function ($request) {
+            return match ($this->sortBy) {
+                'employee_name' => $request['employee_name'],
+                'department' => $request['department'],
+                'leave_type' => $request['leave_type'],
+                'start_date' => $request['start_date'],
+                'status' => $request['status'],
+                'created_at' => $request['created_at'],
+                default => $request['created_at'],
+            };
+        }, SORT_NATURAL | SORT_FLAG_CASE, $this->sortDirection === 'desc');
+
+        return $requests->values();
     }
 
     public function viewRequest($id)
@@ -287,7 +263,59 @@ class Index extends Component
         $filteredRequests = $this->getFilteredRequests();
         
         return view('livewire.leaves.employees-leaves.index', [
-            'leaveRequests' => $filteredRequests
+            'leaveRequests' => $filteredRequests,
+            'employeeOptions' => $this->employeeOptions,
+            'leaveTypeOptions' => $this->leaveTypeOptions,
         ])->layout('components.layouts.app');
+    }
+
+    protected function loadEmployeeOptions(): void
+    {
+        $this->employeeOptions = Employee::query()
+            ->with('user')
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->get(['id', 'user_id', 'employee_code', 'first_name', 'last_name'])
+            ->map(function (Employee $employee) {
+                $name = $employee->user?->name
+                    ?? trim($employee->first_name . ' ' . $employee->last_name)
+                    ?: __('Employee #:id', ['id' => $employee->id]);
+
+                return [
+                    'id' => $employee->id,
+                    'label' => $name,
+                    'code' => $employee->employee_code,
+                ];
+            })
+            ->toArray();
+    }
+
+    protected function loadLeaveTypeOptions(): void
+    {
+        $this->leaveTypeOptions = LeaveType::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->toArray();
+    }
+
+    protected function resolveDateRange(string $filter): array
+    {
+        $now = Carbon::now();
+
+        return match ($filter) {
+            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'last_month' => [
+                $now->copy()->subMonth()->startOfMonth(),
+                $now->copy()->subMonth()->endOfMonth(),
+            ],
+            'this_quarter' => [$now->copy()->startOfQuarter(), $now->copy()->endOfQuarter()],
+            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'last_year' => [
+                $now->copy()->subYear()->startOfYear(),
+                $now->copy()->subYear()->endOfYear(),
+            ],
+            default => [$now->copy()->startOfCentury(), $now->copy()->endOfCentury()],
+        };
     }
 }

@@ -27,6 +27,12 @@
                         label="{{ __('Allow Manual Adjustments') }}"
                         description="{{ __('HR can allocate additional leave or make deductions on top of automated quotas.') }}"
                     />
+
+                    <flux:switch
+                        wire:model.live="form.auto_approve_requests"
+                        label="{{ __('Auto-approve Leave Requests') }}"
+                        description="{{ __('If disabled, new requests enter the approval queue as pending.') }}"
+                    />
                 </div>
             </div>
 

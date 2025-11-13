@@ -11,6 +11,7 @@ class Index extends Component
     public array $form = [
         'auto_assign_enabled' => true,
         'allow_manual_overrides' => true,
+        'auto_approve_requests' => false,
         'default_accrual_frequency' => 'annual',
         'default_probation_wait_days' => 0,
         'default_prorate_on_joining' => true,
@@ -86,6 +87,7 @@ class Index extends Component
         $payload['encashment_enabled'] = (bool) $payload['encashment_enabled'];
         $payload['auto_assign_enabled'] = (bool) $payload['auto_assign_enabled'];
         $payload['allow_manual_overrides'] = (bool) $payload['allow_manual_overrides'];
+        $payload['auto_approve_requests'] = (bool) $payload['auto_approve_requests'];
         $payload['default_prorate_on_joining'] = (bool) $payload['default_prorate_on_joining'];
 
         if (! $payload['carry_forward_enabled']) {
@@ -124,6 +126,7 @@ class Index extends Component
         return [
             'form.auto_assign_enabled' => ['boolean'],
             'form.allow_manual_overrides' => ['boolean'],
+            'form.auto_approve_requests' => ['boolean'],
             'form.default_accrual_frequency' => ['required', Rule::in(array_keys($this->frequencies))],
             'form.default_probation_wait_days' => ['nullable', 'integer', 'min:0'],
             'form.default_prorate_on_joining' => ['boolean'],
@@ -178,6 +181,7 @@ class Index extends Component
             $this->setting = LeaveSetting::create([
                 'auto_assign_enabled' => true,
                 'allow_manual_overrides' => true,
+                'auto_approve_requests' => false,
                 'default_accrual_frequency' => 'annual',
                 'default_probation_wait_days' => 0,
                 'default_prorate_on_joining' => true,
