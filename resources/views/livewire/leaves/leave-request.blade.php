@@ -50,12 +50,6 @@
 
             <!-- Leave Request Form -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-8">
-                @if (session()->has('success'))
-                    <flux:callout variant="success" class="mb-6">
-                        {{ session('success') }}
-                    </flux:callout>
-                @endif
-
                 <div class="mb-8">
                     <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
                         Add Leave Request
@@ -82,7 +76,7 @@
                         <!-- Leave Duration -->
                         <flux:field>
                             <flux:label>Leave Duration <span class="text-red-500">*</span></flux:label>
-                            <flux:select wire:model="leaveDuration" placeholder="Full Day">
+                            <flux:select wire:model.live="leaveDuration" placeholder="Full Day">
                                 <option value="full_day">Full Day</option>
                                 <option value="half_day_morning">Half Day (Morning)</option>
                                 <option value="half_day_afternoon">Half Day (Afternoon)</option>
@@ -93,7 +87,19 @@
                         <!-- Leave Days -->
                         <flux:field>
                             <flux:label>Leave Days</flux:label>
-                            <flux:input wire:model="leaveDays" type="text" placeholder="1.0" pattern="[0-9.]+" inputmode="decimal" />
+                            <flux:input 
+                                wire:model="leaveDays" 
+                                type="text" 
+                                placeholder="0.0" 
+                                pattern="[0-9.]+" 
+                                inputmode="decimal"
+                                readonly
+                                disabled
+                                class="bg-zinc-50 dark:bg-zinc-700/50 cursor-not-allowed"
+                            />
+                            <!-- <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                {{ __('Auto-calculated from dates and duration') }}
+                            </div> -->
                         </flux:field>
                     </div>
 
@@ -101,23 +107,23 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Leave From -->
                         <flux:field>
-                            <flux:label>Leave From</flux:label>
-                            <flux:input wire:model="leaveFrom" type="date" />
+                            <flux:label>Leave From <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model.live="leaveFrom" type="date" />
                             <flux:error name="leaveFrom" />
                         </flux:field>
 
                         <!-- Leave To -->
                         <flux:field>
-                            <flux:label>Leave To</flux:label>
-                            <flux:input wire:model="leaveTo" type="date" />
+                            <flux:label>Leave To <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model.live="leaveTo" type="date" />
                             <flux:error name="leaveTo" />
                         </flux:field>
                     </div>
 
                     <!-- Reason -->
                     <flux:field>
-                        <flux:label>Reason <span class="text-red-500">*</span></flux:label>
-                        <flux:textarea wire:model="reason" rows="4" placeholder="Please provide a detailed reason for your leave request..."></flux:textarea>
+                        <flux:label>Reason</flux:label>
+                        <flux:textarea wire:model="reason" rows="4" placeholder="Please provide a detailed reason for your leave request... (Optional)"></flux:textarea>
                         <flux:error name="reason" />
                     </flux:field>
 

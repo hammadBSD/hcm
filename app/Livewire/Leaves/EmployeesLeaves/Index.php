@@ -3,18 +3,23 @@
 namespace App\Livewire\Leaves\EmployeesLeaves;
 
 use App\Models\Employee;
+use App\Models\EmployeeLeaveBalance;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\LeaveType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class Index extends Component
 {
     use WithPagination;
+    use WithFileUploads;
 
     // Search and Filter Properties
     public $search = '';
@@ -31,6 +36,31 @@ class Index extends Component
 
     public array $leaveTypeOptions = [];
     public array $employeeOptions = [];
+    public bool $showViewFlyout = false;
+    public bool $showApproveFlyout = false;
+    public bool $showRejectFlyout = false;
+    public bool $showEditFlyout = false;
+    public ?int $activeRequestId = null;
+    public array $activeRequest = [];
+    public array $activeEvents = [];
+    public array $approveForm = [
+        'decision' => 'approve',
+        'notes' => '',
+    ];
+    public array $rejectForm = [
+        'decision' => 'reject',
+        'notes' => '',
+    ];
+    public array $editForm = [
+        'leave_type_id' => null,
+        'start_date' => '',
+        'end_date' => '',
+        'total_days' => '',
+        'duration' => 'full_day',
+        'reason' => '',
+    ];
+    public $approveAttachment;
+    public $rejectAttachment;
 
     public function mount()
     {
@@ -202,42 +232,360 @@ class Index extends Component
         return $requests->values();
     }
 
-    public function viewRequest($id)
+    public function openViewFlyout(int $requestId): void
     {
-        // Handle view logic
-        session()->flash('info', "Viewing leave request #{$id}");
+        $this->loadActiveRequest($requestId);
+        $this->showViewFlyout = true;
     }
 
-    public function approveRequest($id)
+    public function openApproveFlyout(int $requestId): void
+    {
+        $this->authorizeApproval();
+        $this->loadActiveRequest($requestId);
+        $this->showApproveFlyout = true;
+    }
+
+    public function openRejectFlyout(int $requestId): void
+    {
+        $this->authorizeApproval();
+        $this->loadActiveRequest($requestId);
+        $this->showRejectFlyout = true;
+    }
+
+    public function closeFlyouts(): void
+    {
+        $this->showViewFlyout = false;
+        $this->showApproveFlyout = false;
+        $this->showRejectFlyout = false;
+        $this->showEditFlyout = false;
+        $this->activeRequestId = null;
+        $this->activeRequest = [];
+        $this->activeEvents = [];
+        $this->resetApproveForm();
+        $this->resetRejectForm();
+        $this->resetEditForm();
+    }
+
+    public function submitApproval(): void
     {
         $this->authorizeApproval();
 
-        // Handle approval logic
-        session()->flash('success', "Leave request #{$id} has been approved.");
+        if (! $this->activeRequestId) {
+            throw ValidationException::withMessages([
+                'approveForm.notes' => __('Select a leave request to approve.'),
+            ]);
+        }
+
+        $this->validate([
+            'approveForm.notes' => ['nullable', 'string', 'max:2000'],
+            'approveAttachment' => ['nullable', 'file', 'max:5120'],
+        ]);
+
+        // Always approve when using this flyout
+        $this->approveForm['decision'] = 'approve';
+
+        $attachmentPath = null;
+
+        if ($this->approveAttachment) {
+            $attachmentPath = $this->approveAttachment->store('leave-approvals', 'public');
+        }
+
+        DB::transaction(function () use ($attachmentPath) {
+            /** @var LeaveRequestModel $request */
+            $request = LeaveRequestModel::query()
+                ->lockForUpdate()
+                ->with(['employee'])
+                ->findOrFail($this->activeRequestId);
+
+            if ($request->status === LeaveRequestModel::STATUS_APPROVED) {
+                throw ValidationException::withMessages([
+                    'approveForm.notes' => __('This request is already approved.'),
+                ]);
+            }
+
+            $days = (float) $request->total_days;
+
+            $balance = EmployeeLeaveBalance::firstOrCreate(
+                [
+                    'employee_id' => $request->employee_id,
+                    'leave_type_id' => $request->leave_type_id,
+                ],
+                [
+                    'entitled' => 0,
+                    'carried_forward' => 0,
+                    'manual_adjustment' => 0,
+                    'used' => 0,
+                    'pending' => 0,
+                    'balance' => 0,
+                ]
+            );
+
+            $balance->pending = max(0, (float) $balance->pending - $days);
+            $balance->used += $days;
+            $balance->save();
+
+            $request->status = LeaveRequestModel::STATUS_APPROVED;
+            $request->save();
+
+            $request->events()->create([
+                'performed_by' => Auth::id(),
+                'event_type' => 'approved',
+                'notes' => $this->approveForm['notes'],
+                'attachment_path' => $attachmentPath,
+                'meta' => [
+                    'decision' => $this->approveForm['decision'],
+                ],
+            ]);
+        });
+
+        session()->flash('success', __('Leave request approved successfully.'));
+
+        $this->approveAttachment = null;
+        $this->closeFlyouts();
+        $this->resetPage();
     }
 
-    public function rejectRequest($id)
+    public function submitRejection(): void
     {
         $this->authorizeApproval();
 
-        // Handle rejection logic
-        session()->flash('error', "Leave request #{$id} has been rejected.");
+        if (! $this->activeRequestId) {
+            throw ValidationException::withMessages([
+                'rejectForm.notes' => __('Select a leave request to reject.'),
+            ]);
+        }
+
+        $this->validate([
+            'rejectForm.notes' => ['required', 'string', 'min:5', 'max:2000'],
+            'rejectAttachment' => ['nullable', 'file', 'max:5120'],
+        ]);
+
+        // Always reject when using this flyout
+        $this->rejectForm['decision'] = 'reject';
+
+        $attachmentPath = null;
+
+        if ($this->rejectAttachment) {
+            $attachmentPath = $this->rejectAttachment->store('leave-rejections', 'public');
+        }
+
+        DB::transaction(function () use ($attachmentPath) {
+            /** @var LeaveRequestModel $request */
+            $request = LeaveRequestModel::query()
+                ->lockForUpdate()
+                ->with(['employee'])
+                ->findOrFail($this->activeRequestId);
+
+            if ($request->status === LeaveRequestModel::STATUS_REJECTED) {
+                throw ValidationException::withMessages([
+                    'rejectForm.notes' => __('This request is already rejected.'),
+                ]);
+            }
+
+            $days = (float) $request->total_days;
+
+            $balance = EmployeeLeaveBalance::firstOrCreate(
+                [
+                    'employee_id' => $request->employee_id,
+                    'leave_type_id' => $request->leave_type_id,
+                ],
+                [
+                    'entitled' => 0,
+                    'carried_forward' => 0,
+                    'manual_adjustment' => 0,
+                    'used' => 0,
+                    'pending' => 0,
+                    'balance' => 0,
+                ]
+            );
+
+            $balance->pending = max(0, (float) $balance->pending - $days);
+            $balance->balance += $days;
+            $balance->save();
+
+            $request->status = LeaveRequestModel::STATUS_REJECTED;
+            $request->save();
+
+            $request->events()->create([
+                'performed_by' => Auth::id(),
+                'event_type' => 'rejected',
+                'notes' => $this->rejectForm['notes'],
+                'attachment_path' => $attachmentPath,
+                'meta' => [
+                    'decision' => $this->rejectForm['decision'],
+                ],
+            ]);
+        });
+
+        session()->flash('success', __('Leave request rejected successfully.'));
+
+        $this->rejectAttachment = null;
+        $this->closeFlyouts();
+        $this->resetPage();
     }
 
-    public function editRequest($id)
+    public function editRequest(int $id): void
     {
         $this->authorizeAllManagement();
 
-        // Handle edit logic
-        session()->flash('info', "Editing leave request #{$id}");
+        /** @var LeaveRequestModel $request */
+        $request = LeaveRequestModel::query()
+            ->with(['leaveType', 'employee'])
+            ->findOrFail($id);
+
+        // Only allow editing pending requests
+        if ($request->status !== LeaveRequestModel::STATUS_PENDING) {
+            session()->flash('error', __('Only pending leave requests can be edited.'));
+            return;
+        }
+
+        $this->activeRequestId = $id;
+        $this->editForm = [
+            'leave_type_id' => $request->leave_type_id,
+            'start_date' => $request->start_date?->format('Y-m-d') ?? '',
+            'end_date' => $request->end_date?->format('Y-m-d') ?? '',
+            'total_days' => (string) $request->total_days,
+            'duration' => $request->duration ?? 'full_day',
+            'reason' => $request->reason ?? '',
+        ];
+
+        $this->showEditFlyout = true;
     }
 
-    public function createLeaveRequest()
+    public function submitEdit(): void
     {
         $this->authorizeAllManagement();
 
-        // Handle create logic
-        session()->flash('info', "Creating new leave request");
+        if (! $this->activeRequestId) {
+            throw ValidationException::withMessages([
+                'editForm.leave_type_id' => __('Select a leave request to edit.'),
+            ]);
+        }
+
+        $this->validate([
+            'editForm.leave_type_id' => ['required', 'exists:leave_types,id'],
+            'editForm.start_date' => ['required', 'date'],
+            'editForm.end_date' => ['required', 'date', 'after_or_equal:editForm.start_date'],
+            'editForm.total_days' => ['required', 'numeric', 'min:0.1', 'max:365'],
+            'editForm.duration' => ['required', 'string', 'in:full_day,half_day_morning,half_day_afternoon'],
+            'editForm.reason' => ['required', 'string', 'min:10', 'max:2000'],
+        ], [], [
+            'editForm.leave_type_id' => __('leave type'),
+            'editForm.start_date' => __('start date'),
+            'editForm.end_date' => __('end date'),
+            'editForm.total_days' => __('total days'),
+            'editForm.duration' => __('duration'),
+            'editForm.reason' => __('reason'),
+        ]);
+
+        DB::transaction(function () {
+            /** @var LeaveRequestModel $request */
+            $request = LeaveRequestModel::query()
+                ->lockForUpdate()
+                ->findOrFail($this->activeRequestId);
+
+            // Only allow editing pending requests
+            if ($request->status !== LeaveRequestModel::STATUS_PENDING) {
+                throw ValidationException::withMessages([
+                    'editForm.reason' => __('Only pending leave requests can be edited.'),
+                ]);
+            }
+
+            $oldDays = (float) $request->total_days;
+            $oldLeaveTypeId = $request->leave_type_id;
+            $newDays = (float) $this->editForm['total_days'];
+            $newLeaveTypeId = $this->editForm['leave_type_id'];
+
+            // Update balance before changing the request
+            $leaveTypeChanged = $oldLeaveTypeId !== $newLeaveTypeId;
+            $daysChanged = $oldDays !== $newDays;
+
+            if ($leaveTypeChanged || $daysChanged) {
+                // Adjust old leave type balance if it changed
+                if ($leaveTypeChanged) {
+                    $oldBalance = EmployeeLeaveBalance::firstOrCreate(
+                        [
+                            'employee_id' => $request->employee_id,
+                            'leave_type_id' => $oldLeaveTypeId,
+                        ],
+                        [
+                            'entitled' => 0,
+                            'carried_forward' => 0,
+                            'manual_adjustment' => 0,
+                            'used' => 0,
+                            'pending' => 0,
+                            'balance' => 0,
+                        ]
+                    );
+
+                    // Remove pending days from old leave type
+                    $oldBalance->pending = max(0, (float) $oldBalance->pending - $oldDays);
+                    $oldBalance->save();
+                }
+
+                // Adjust new leave type balance
+                $newBalance = EmployeeLeaveBalance::firstOrCreate(
+                    [
+                        'employee_id' => $request->employee_id,
+                        'leave_type_id' => $newLeaveTypeId,
+                    ],
+                    [
+                        'entitled' => 0,
+                        'carried_forward' => 0,
+                        'manual_adjustment' => 0,
+                        'used' => 0,
+                        'pending' => 0,
+                        'balance' => 0,
+                    ]
+                );
+
+                if ($leaveTypeChanged) {
+                    // Add new days to new leave type
+                    $newBalance->pending = (float) $newBalance->pending + $newDays;
+                } else {
+                    // Just adjust the difference in days
+                    $difference = $newDays - $oldDays;
+                    $newBalance->pending = max(0, (float) $newBalance->pending + $difference);
+                }
+
+                $newBalance->save();
+            }
+
+            // Update the request
+            $request->leave_type_id = $newLeaveTypeId;
+            $request->start_date = $this->editForm['start_date'];
+            $request->end_date = $this->editForm['end_date'];
+            $request->total_days = $newDays;
+            $request->duration = $this->editForm['duration'];
+            $request->reason = $this->editForm['reason'];
+            $request->save();
+
+            // Create edit event
+            $request->events()->create([
+                'performed_by' => Auth::id(),
+                'event_type' => 'edited',
+                'notes' => __('Leave request details updated.'),
+                'attachment_path' => null,
+                'meta' => [
+                    'old_days' => $oldDays,
+                    'new_days' => $newDays,
+                    'old_leave_type_id' => $oldLeaveTypeId,
+                    'new_leave_type_id' => $newLeaveTypeId,
+                ],
+            ]);
+        });
+
+        session()->flash('success', __('Leave request updated successfully.'));
+
+        $this->closeFlyouts();
+        $this->resetPage();
+    }
+
+    public function createLeaveRequest(): void
+    {
+        $this->authorizeAllManagement();
+
+        $this->dispatch('notify', type: 'info', message: __('Manual creation is not yet available from this screen.'));
     }
 
     protected function authorizeApproval(): void
@@ -267,6 +615,71 @@ class Index extends Component
             'employeeOptions' => $this->employeeOptions,
             'leaveTypeOptions' => $this->leaveTypeOptions,
         ])->layout('components.layouts.app');
+    }
+
+    protected function loadActiveRequest(int $requestId): void
+    {
+        /** @var LeaveRequestModel $request */
+        $request = LeaveRequestModel::query()
+            ->with([
+                'employee.user',
+                'employee.department',
+                'employee.designation',
+                'leaveType',
+                'requester',
+                'events.performer',
+            ])
+            ->findOrFail($requestId);
+
+        $employee = $request->employee;
+        $user = $employee?->user;
+
+        $name = $user?->name
+            ?? trim($employee?->first_name . ' ' . $employee?->last_name)
+            ?: __('Unknown Employee');
+
+        $departmentName = optional($employee?->department)->title
+            ?? $employee?->department
+            ?? __('Not assigned');
+
+        $designationName = optional($employee?->designation)->name
+            ?? $employee?->designation
+            ?? __('No designation');
+
+        $this->activeRequestId = $request->id;
+        $this->activeRequest = [
+            'id' => $request->id,
+            'employee_name' => $name,
+            'employee_code' => $employee?->employee_code ?? __('N/A'),
+            'department' => $departmentName,
+            'designation' => $designationName,
+            'leave_type' => $request->leaveType?->name ?? __('Unknown'),
+            'leave_type_code' => $request->leaveType?->code,
+            'total_days' => (float) $request->total_days,
+            'duration' => [
+                'start' => $request->start_date?->format('M d, Y'),
+                'end' => $request->end_date?->format('M d, Y'),
+            ],
+            'status' => $request->status,
+            'reason' => $request->reason,
+            'requested_by' => $request->requester?->name,
+            'requested_at' => $request->created_at?->format('M d, Y h:i A'),
+        ];
+
+        $this->activeEvents = $request->events()
+            ->latest()
+            ->get()
+            ->map(function ($event) {
+                return [
+                    'id' => $event->id,
+                    'type' => $event->event_type,
+                    'notes' => $event->notes,
+                    'performed_by' => $event->performer?->name ?? __('System'),
+                    'created_at' => $event->created_at?->format('M d, Y h:i A'),
+                    'attachment_path' => $event->attachment_path,
+                ];
+            })
+            ->toArray();
     }
 
     protected function loadEmployeeOptions(): void
@@ -317,5 +730,35 @@ class Index extends Component
             ],
             default => [$now->copy()->startOfCentury(), $now->copy()->endOfCentury()],
         };
+    }
+
+    protected function resetApproveForm(): void
+    {
+        $this->approveForm = [
+            'decision' => 'approve',
+            'notes' => '',
+        ];
+        $this->approveAttachment = null;
+    }
+
+    protected function resetRejectForm(): void
+    {
+        $this->rejectForm = [
+            'decision' => 'reject',
+            'notes' => '',
+        ];
+        $this->rejectAttachment = null;
+    }
+
+    protected function resetEditForm(): void
+    {
+        $this->editForm = [
+            'leave_type_id' => null,
+            'start_date' => '',
+            'end_date' => '',
+            'total_days' => '',
+            'duration' => 'full_day',
+            'reason' => '',
+        ];
     }
 }

@@ -41,10 +41,11 @@ class LeaveRequest extends Component
     protected $rules = [
         'leaveType' => ['required', 'integer', 'exists:leave_types,id'],
         'leaveDuration' => ['required', 'string'],
-        'leaveDays' => ['nullable', 'numeric', 'min:0.1', 'max:365'],
-        'leaveFrom' => 'required|date',
-        'leaveTo' => 'required|date|after_or_equal:leaveFrom',
-        'reason' => 'required|string|min:10',
+        // leaveDays is auto-calculated, so no validation needed
+        // 'leaveDays' => ['nullable', 'numeric', 'min:0.1', 'max:365'],
+        'leaveFrom' => ['required', 'date'],
+        'leaveTo' => ['required', 'date', 'after_or_equal:leaveFrom'],
+        'reason' => 'nullable|string|min:10',
         'attachment' => 'nullable|file|max:5120',
     ];
 
@@ -59,8 +60,7 @@ class LeaveRequest extends Component
         'leaveTo.required' => 'Please select leave end date.',
         'leaveTo.date' => 'Please enter a valid end date.',
         'leaveTo.after_or_equal' => 'Leave end date must be on or after start date.',
-        'reason.required' => 'Please provide a reason for the leave request.',
-        'reason.min' => 'Reason must be at least 10 characters long.',
+        'reason.min' => 'If provided, reason must be at least 10 characters long.',
     ];
 
     public function mount()
@@ -77,6 +77,10 @@ class LeaveRequest extends Component
         $this->leaveFrom = now()->format('Y-m-d');
         $this->leaveTo = now()->format('Y-m-d');
 
+        // Calculate initial leave days
+        $calculatedDays = $this->calculateTotalDays();
+        $this->leaveDays = number_format($calculatedDays, 1);
+
         $this->loadSummary($user);
         $this->loadLeaveTypeOptions();
         $this->updateSubmitState();
@@ -86,6 +90,29 @@ class LeaveRequest extends Component
     public function submit()
     {
         $this->authorizeRequestSubmission();
+
+        // Trim reason if provided
+        if ($this->reason) {
+            $this->reason = trim($this->reason);
+        }
+
+        // Explicitly check date range before validation
+        if ($this->leaveFrom && $this->leaveTo) {
+            try {
+                $fromDate = Carbon::parse($this->leaveFrom);
+                $toDate = Carbon::parse($this->leaveTo);
+                
+                if ($toDate->lt($fromDate)) {
+                    throw ValidationException::withMessages([
+                        'leaveTo' => __('Leave end date must be on or after start date.'),
+                    ]);
+                }
+            } catch (ValidationException $e) {
+                throw $e;
+            } catch (\Exception $e) {
+                // Invalid date format, let validation handle it
+            }
+        }
 
         $validated = $this->validate();
 
@@ -119,6 +146,35 @@ class LeaveRequest extends Component
 
         $availableBalance = (float) $balance->balance;
         $requestedDays = $this->calculateTotalDays();
+
+        // Validate calculated days
+        if ($requestedDays <= 0) {
+            // Check if the issue is invalid date range
+            if ($this->leaveFrom && $this->leaveTo) {
+                try {
+                    $fromDate = Carbon::parse($this->leaveFrom);
+                    $toDate = Carbon::parse($this->leaveTo);
+                    
+                    if ($toDate->lt($fromDate)) {
+                        throw ValidationException::withMessages([
+                            'leaveTo' => __('Leave end date must be on or after start date.'),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // Date parsing failed, but validation should have caught this
+                }
+            }
+            
+            throw ValidationException::withMessages([
+                'leaveFrom' => __('Please select valid leave dates.'),
+            ]);
+        }
+
+        if ($requestedDays > 365) {
+            throw ValidationException::withMessages([
+                'leaveTo' => __('Leave duration cannot exceed 365 days.'),
+            ]);
+        }
 
         if (! $this->canOverrideBalance && $availableBalance <= 0) {
             throw ValidationException::withMessages([
@@ -172,7 +228,7 @@ class LeaveRequest extends Component
                 'leave_request_id' => $request->id,
                 'performed_by' => $user->id,
                 'event_type' => 'created',
-                'notes' => $this->reason,
+                'notes' => $this->reason ?: __('No reason provided.'),
                 'attachment_path' => $attachmentPath,
             ]);
 
@@ -193,11 +249,10 @@ class LeaveRequest extends Component
             $balance->save();
         });
 
+        // Redirect to My Leaves page with success message
         session()->flash('success', __('Leave request submitted successfully.'));
-
-        $this->resetForm();
-        $this->loadSummary($user);
-        $this->updateSubmitState();
+        
+        return $this->redirect(route('leaves.index'), navigate: true);
     }
 
     private function resetForm()
@@ -272,33 +327,60 @@ class LeaveRequest extends Component
         $this->updateSubmitState();
     }
 
-    public function updated($propertyName): void
+    public function updatedLeaveFrom(): void
     {
-        if (in_array($propertyName, ['leaveFrom', 'leaveTo'], true) && blank($this->leaveDays)) {
-            $this->leaveDays = $this->calculateTotalDays();
-        }
+        // Recalculate leave days when from date changes
+        $this->recalculateLeaveDays();
+    }
+
+    public function updatedLeaveTo(): void
+    {
+        // Recalculate leave days when to date changes
+        $this->recalculateLeaveDays();
+    }
+
+    public function updatedLeaveDuration(): void
+    {
+        // Recalculate leave days when duration changes
+        $this->recalculateLeaveDays();
+    }
+
+    protected function recalculateLeaveDays(): void
+    {
+        // Always recalculate - validation will handle errors on submit
+        $calculatedDays = $this->calculateTotalDays();
+        $this->leaveDays = number_format($calculatedDays, 1);
+        $this->updateSubmitState();
     }
 
     protected function calculateTotalDays(): float
     {
-        if ($this->leaveDays !== null && $this->leaveDays !== '') {
-            return (float) $this->leaveDays;
-        }
-
+        // For half-day leaves, always return 0.5
         if (in_array($this->leaveDuration, ['half_day_morning', 'half_day_afternoon'], true)) {
             return 0.5;
         }
 
+        // If dates are not set, return 0
         if (! $this->leaveFrom || ! $this->leaveTo) {
             return 0.0;
         }
 
-        $start = Carbon::parse($this->leaveFrom);
-        $end = Carbon::parse($this->leaveTo);
+        try {
+            $start = Carbon::parse($this->leaveFrom);
+            $end = Carbon::parse($this->leaveTo);
 
-        $days = $start->diffInDays($end) + 1;
+            // Ensure end date is not before start date
+            if ($end->lt($start)) {
+                return 0.0;
+            }
 
-        return max(1, (float) $days);
+            // Calculate difference in days (inclusive of both start and end dates)
+            $days = $start->diffInDays($end) + 1;
+
+            return max(1.0, (float) $days);
+        } catch (\Exception $e) {
+            return 0.0;
+        }
     }
 
     protected function updateSubmitState(): void
