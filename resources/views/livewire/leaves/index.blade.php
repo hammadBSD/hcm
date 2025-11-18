@@ -308,11 +308,11 @@
         <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
     @if($activeRequest)
         <div class="grid grid-cols-1 gap-4">
-            <div class="bg-zinc-50 dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                <flux:heading size="sm" class="mb-3">{{ __('Request Summary') }}</flux:heading>
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 space-y-3">
+                <flux:heading size="sm" class="text-zinc-900 dark:text-zinc-100">{{ __('Request Summary') }}</flux:heading>
                 <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Leave Type') }}</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[8rem]">{{ __('Leave Type') }}</span>
                         <span class="font-medium text-zinc-900 dark:text-zinc-100">
                             {{ $activeRequest['leave_type'] }}
                             @if(!empty($activeRequest['leave_type_code']))
@@ -320,53 +320,57 @@
                             @endif
                         </span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Duration') }}</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[8rem]">{{ __('Duration') }}</span>
                         <span class="text-zinc-900 dark:text-zinc-100">
                             {{ $activeRequest['duration']['start'] }} – {{ $activeRequest['duration']['end'] }}
                         </span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Total Days') }}</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[8rem]">{{ __('Total Days') }}</span>
                         <span class="text-zinc-900 dark:text-zinc-100">{{ number_format($activeRequest['total_days'], 1) }}</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Status') }}</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[8rem]">{{ __('Status') }}</span>
                         <span class="text-zinc-900 dark:text-zinc-100 capitalize">{{ $activeRequest['status'] }}</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Requested At') }}</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-zinc-500 dark:text-zinc-400 min-w-[8rem]">{{ __('Requested At') }}</span>
                         <span class="text-zinc-900 dark:text-zinc-100">{{ $activeRequest['requested_at'] }}</span>
                     </div>
                 </div>
                 @if(!empty($activeRequest['reason']))
-                    <div class="mt-4">
+                    <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                         <flux:heading size="xs" class="text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wide">
                             {{ __('Reason') }}
                         </flux:heading>
-                        <div class="text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-line">
+                        <div class="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-line">
                             {{ $activeRequest['reason'] }}
                         </div>
                     </div>
                 @endif
             </div>
 
-            <div class="bg-zinc-50 dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                <flux:heading size="sm" class="mb-3">{{ __('History & Timeline') }}</flux:heading>
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 space-y-3">
+                <flux:heading size="sm" class="text-zinc-900 dark:text-zinc-100">{{ __('History & Timeline') }}</flux:heading>
                 <div class="space-y-3">
                     @forelse($activeEvents as $event)
                         <div class="flex items-start gap-3">
-                            <flux:icon name="clock" class="w-5 h-5 text-zinc-400 dark:text-zinc-500 mt-1" />
-                            <div>
+                            <flux:icon name="clock" class="w-5 h-5 text-zinc-400 dark:text-zinc-500 mt-1 flex-shrink-0" />
+                            <div class="flex-1">
                                 <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 capitalize">
                                     {{ str_replace('_', ' ', $event['type']) }}
                                 </div>
-                                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                                     {{ $event['performed_by'] }} · {{ $event['created_at'] }}
                                 </div>
                                 @if(!empty($event['notes']))
-                                    <div class="mt-2 text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-line">
+                                    <div class="mt-2 text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-line">
                                         {{ $event['notes'] }}
+                                    </div>
+                                @else
+                                    <div class="mt-2 text-sm text-zinc-500 dark:text-zinc-400 italic">
+                                        {{ __('No reason provided.') }}
                                     </div>
                                 @endif
                                 @if(!empty($event['attachment_path']))
@@ -392,7 +396,7 @@
             </div>
         </div>
     @else
-        <div class="text-sm text-zinc-500 dark:text-zinc-300">
+        <div class="text-sm text-zinc-500 dark:text-zinc-400">
             {{ __('Select a leave request to view its details.') }}
         </div>
     @endif
