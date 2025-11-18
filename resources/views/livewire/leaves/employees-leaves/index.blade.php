@@ -8,6 +8,12 @@
 
     <x-leaves.layout :heading="__('All Leave Requests')" :subheading="__('Manage and approve all submitted leave requests')">
         <div class="space-y-6">
+            @if(session('success'))
+                <flux:callout variant="success" icon="check-circle">
+                    {{ session('success') }}
+                </flux:callout>
+            @endif
+
             <!-- Leave Balance -->
             <!-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center justify-between">
@@ -96,10 +102,17 @@
                     </div>
                 </div>
 
-                <div class="mt-4 flex justify-start">
+                <div class="mt-4 flex justify-between items-center">
                     <flux:button variant="outline" wire:click="resetFilters">
                         {{ __('Clear Filters') }}
                     </flux:button>
+                    
+                    <!-- Request Leave Button (for HR to create for employees) -->
+                    @can('leaves.manage.all')
+                        <flux:button variant="primary" wire:click="openCreateRequestFlyout" icon="plus">
+                            {{ __('Request Leave') }}
+                        </flux:button>
+                    @endcan
                 </div>
             </div>
 
@@ -628,4 +641,111 @@
         </div>
     </form>
         </flux:modal>
+
+        <!-- Create Leave Request Flyout (for HR) -->
+        @can('leaves.manage.all')
+            <flux:modal variant="flyout" wire:model="showCreateRequestFlyout">
+                <form class="flex flex-col h-full" wire:submit.prevent="submitCreateRequest">
+                    <div class="px-6 pt-6 pb-4 border-b border-zinc-200 dark:border-zinc-700">
+                        <flux:heading size="lg">{{ __('Create Leave Request') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Create a leave request on behalf of an employee.') }}
+                        </flux:text>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                        <div class="space-y-4">
+                            <!-- Employee Selection -->
+                            <flux:field>
+                                <flux:label>{{ __('Employee') }} <span class="text-red-500">*</span></flux:label>
+                                <flux:select wire:model.live="createRequestForm.employee_id" placeholder="{{ __('Select Employee') }}">
+                                    <option value="">{{ __('Select Employee') }}</option>
+                                    @foreach($employeeOptions as $option)
+                                        <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
+                                    @endforeach
+                                </flux:select>
+                                <flux:error name="createRequestForm.employee_id" />
+                            </flux:field>
+
+                            <!-- Leave Type -->
+                            <flux:field>
+                                <flux:label>{{ __('Leave Type') }} <span class="text-red-500">*</span></flux:label>
+                                <flux:select wire:model.live="createRequestForm.leave_type_id" placeholder="{{ __('Select Leave Type') }}">
+                                    <option value="">{{ __('Select Leave Type') }}</option>
+                                    @foreach($leaveTypeOptions as $option)
+                                        <option value="{{ $option['id'] }}">
+                                            {{ $option['name'] }}@if(!empty($option['code'])) ({{ $option['code'] }}) @endif
+                                        </option>
+                                    @endforeach
+                                </flux:select>
+                                <flux:error name="createRequestForm.leave_type_id" />
+                            </flux:field>
+
+                            <!-- Leave Duration -->
+                            <flux:field>
+                                <flux:label>{{ __('Leave Duration') }} <span class="text-red-500">*</span></flux:label>
+                                <flux:select wire:model.live="createRequestForm.duration" placeholder="{{ __('Full Day') }}">
+                                    <option value="full_day">{{ __('Full Day') }}</option>
+                                    <option value="half_day_morning">{{ __('Half Day (Morning)') }}</option>
+                                    <option value="half_day_afternoon">{{ __('Half Day (Afternoon)') }}</option>
+                                </flux:select>
+                                <flux:error name="createRequestForm.duration" />
+                            </flux:field>
+
+                            <!-- Leave Days -->
+                            <flux:field>
+                                <flux:label>{{ __('Leave Days') }}</flux:label>
+                                <flux:input 
+                                    wire:model="createRequestForm.total_days" 
+                                    type="text" 
+                                    placeholder="0.0" 
+                                    pattern="[0-9.]+" 
+                                    inputmode="decimal"
+                                    readonly
+                                    disabled
+                                    class="bg-zinc-50 dark:bg-zinc-700/50 cursor-not-allowed"
+                                />
+                                <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                    {{ __('Auto-calculated from dates and duration') }}
+                                </div>
+                            </flux:field>
+
+                            <!-- Leave From and To -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <flux:field>
+                                    <flux:label>{{ __('Leave From') }} <span class="text-red-500">*</span></flux:label>
+                                    <flux:input wire:model.live="createRequestForm.start_date" type="date" />
+                                    <flux:error name="createRequestForm.start_date" />
+                                </flux:field>
+
+                                <flux:field>
+                                    <flux:label>{{ __('Leave To') }} <span class="text-red-500">*</span></flux:label>
+                                    <flux:input wire:model.live="createRequestForm.end_date" type="date" />
+                                    <flux:error name="createRequestForm.end_date" />
+                                </flux:field>
+                            </div>
+
+                            <!-- Reason -->
+                            <flux:field>
+                                <flux:label>{{ __('Reason') }}</flux:label>
+                                <flux:textarea
+                                    wire:model="createRequestForm.reason"
+                                    rows="4"
+                                    class="dark:bg-transparent!"
+                                    placeholder="{{ __('Please provide a detailed reason for the leave request... (Optional)') }}"
+                                ></flux:textarea>
+                                <flux:error name="createRequestForm.reason" />
+                            </flux:field>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex justify-end gap-3">
+                        <flux:button type="button" variant="outline" wire:click="closeCreateRequestFlyout" kbd="esc">{{ __('Cancel') }}</flux:button>
+                        <flux:button type="submit" wire:loading.attr="disabled" icon="plus">
+                            {{ __('Create Request') }}
+                        </flux:button>
+                    </div>
+                </form>
+            </flux:modal>
+        @endcan
 </section>

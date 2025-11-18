@@ -8,12 +8,19 @@ use Illuminate\Database\QueryException;
 use App\Models\AttendanceBreakExclusion;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
+use App\Models\EmployeeLeaveBalance;
+use App\Models\LeaveRequest as LeaveRequestModel;
+use App\Models\LeaveRequestEvent;
+use App\Models\LeaveSetting;
 use App\Models\User;
 use App\Models\Shift;
 use App\Models\Constant;
 use App\Models\AttendanceBreakSetting;
+use App\Models\LeaveType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class Index extends Component
 {
@@ -48,6 +55,14 @@ class Index extends Component
     public $leaveFrom = '';
     public $leaveTo = '';
     public $reason = '';
+    public array $leaveSummary = [
+        'entitled' => 0.0,
+        'used' => 0.0,
+        'pending' => 0.0,
+        'balance' => 0.0,
+    ];
+    public $leaveTypeOptions = [];
+    public bool $leaveBalanceDepleted = false;
     
     // Missing Entry Flyout Properties
     public $showMissingEntryFlyout = false;
@@ -357,8 +372,66 @@ class Index extends Component
         // Process attendance data
         $this->attendanceData = $this->processAttendanceData($attendanceRecords);
         
+        // Enrich attendance data with leave requests
+        $this->enrichAttendanceDataWithLeaveRequests();
+        
         // Calculate statistics
         $this->attendanceStats = $this->calculateAttendanceStats($attendanceRecords, $this->attendanceData);
+    }
+
+    private function enrichAttendanceDataWithLeaveRequests(): void
+    {
+        if (!$this->employee) {
+            return;
+        }
+
+        // Determine which month to process
+        $targetMonth = $this->selectedMonth ?: Carbon::now()->format('Y-m');
+        $startOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->startOfMonth();
+        $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
+
+        // Load leave requests for this employee in the target month
+        $leaveRequests = LeaveRequestModel::where('employee_id', $this->employee->id)
+            ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('start_date', [$startOfMonth, $endOfMonth])
+                    ->orWhereBetween('end_date', [$startOfMonth, $endOfMonth])
+                    ->orWhere(function ($q) use ($startOfMonth, $endOfMonth) {
+                        $q->where('start_date', '<=', $startOfMonth)
+                          ->where('end_date', '>=', $endOfMonth);
+                    });
+            })
+            ->with('leaveType')
+            ->get();
+
+        // Create a map of date => leave request
+        $leaveRequestMap = [];
+        foreach ($leaveRequests as $request) {
+            $start = Carbon::parse($request->start_date);
+            $end = Carbon::parse($request->end_date);
+            $current = $start->copy();
+            
+            while ($current->lte($end)) {
+                $dateKey = $current->format('Y-m-d');
+                if (!isset($leaveRequestMap[$dateKey])) {
+                    $leaveRequestMap[$dateKey] = $request;
+                }
+                $current->addDay();
+            }
+        }
+
+        // Add leave request info to attendance data
+        foreach ($this->attendanceData as $key => $record) {
+            $dateKey = $record['date'] ?? null;
+            if ($dateKey && isset($leaveRequestMap[$dateKey])) {
+                $leaveRequest = $leaveRequestMap[$dateKey];
+                $this->attendanceData[$key]['leave_request'] = [
+                    'id' => $leaveRequest->id,
+                    'status' => $leaveRequest->status,
+                    'leave_type' => $leaveRequest->leaveType->name ?? __('Unknown'),
+                    'total_days' => $leaveRequest->total_days,
+                ];
+            }
+        }
     }
 
     private function processAttendanceData($records)
@@ -1295,6 +1368,53 @@ class Index extends Component
         return sprintf('%d:%02d', $expectedHours, $expectedMins);
     }
 
+    private function calculateExpectedHoursTillToday($targetMonth)
+    {
+        // Only calculate for current month
+        $currentMonth = Carbon::now()->format('Y-m');
+        if ($targetMonth !== $currentMonth) {
+            // If viewing a past month, return the full expected hours for that month
+            // If viewing a future month, return 0:00
+            $targetDate = Carbon::createFromFormat('Y-m', $targetMonth);
+            $now = Carbon::now();
+            
+            if ($targetDate->isFuture()) {
+                return '0:00';
+            }
+            
+            // For past months, return the full expected hours
+            $startOfMonth = $targetDate->copy()->startOfMonth();
+            $endOfMonth = $targetDate->copy()->endOfMonth();
+            $workingDays = 0;
+            $current = $startOfMonth->copy();
+            
+            while ($current->lte($endOfMonth)) {
+                if ($current->isWeekday()) {
+                    $workingDays++;
+                }
+                $current->addDay();
+            }
+            
+            return $this->calculateExpectedHours($workingDays);
+        }
+
+        // For current month, calculate working days from start of month till today (including today)
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $today = Carbon::now();
+        
+        $workingDaysTillToday = 0;
+        $current = $startOfMonth->copy();
+        
+        while ($current->lte($today)) {
+            if ($current->isWeekday()) {
+                $workingDaysTillToday++;
+            }
+            $current->addDay();
+        }
+
+        return $this->calculateExpectedHours($workingDaysTillToday);
+    }
+
     private function calculateAttendanceStats($records, $processedData = null)
     {
         // Use the same month as the records
@@ -1313,12 +1433,44 @@ class Index extends Component
             $current->addDay();
         }
 
+        // For current month, calculate working days up to today (including today) for absent calculation
+        $currentMonth = Carbon::now()->format('Y-m');
+        $workingDaysTillToday = $workingDays; // Default to full month
+        
+        if ($targetMonth === $currentMonth) {
+            // Only count working days from start of month till today (including today)
+            $workingDaysTillToday = 0;
+            $current = $startOfMonth->copy();
+            $today = Carbon::now();
+            
+            while ($current->lte($today)) {
+                if ($current->isWeekday()) {
+                    $workingDaysTillToday++;
+                }
+                $current->addDay();
+            }
+        }
+
         // Count unique working days with attendance (excluding weekends)
+        $today = Carbon::now();
         $attendedDays = $records->groupBy(function ($record) {
             return Carbon::parse($record->punch_time)->format('Y-m-d');
-        })->filter(function ($dayRecords, $date) {
+        })->filter(function ($dayRecords, $date) use ($targetMonth, $currentMonth) {
             // Only count working days (exclude weekends)
-            return !Carbon::parse($date)->isWeekend();
+            $dateCarbon = Carbon::parse($date);
+            
+            // For current month, only count days up to today (don't count future days)
+            if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
+                return false; // Don't count future days
+            }
+            
+            // Only count if the date is within the target month
+            $recordMonth = $dateCarbon->format('Y-m');
+            if ($recordMonth !== $targetMonth) {
+                return false;
+            }
+            
+            return !$dateCarbon->isWeekend();
         })->count();
 
         // Calculate total working hours using processed attendance data when available
@@ -1389,13 +1541,23 @@ class Index extends Component
         $totalHours = floor($totalMinutes / 60);
         $remainingMinutes = $totalMinutes % 60;
 
+        // Calculate expected hours till today (including today) for current month
+        $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
+
+        // Calculate absent days based on working days till today (for current month) or full month (for past months)
+        $absentDays = $workingDaysTillToday - $attendedDays;
+        
+        // For attendance percentage, use working days till today for current month, full month for past months
+        $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
+
         return [
             'working_days' => $workingDays,
             'attended_days' => $attendedDays,
-            'absent_days' => $workingDays - $attendedDays,
-            'attendance_percentage' => $workingDays > 0 ? round(($attendedDays / $workingDays) * 100, 1) : 0,
+            'absent_days' => max(0, $absentDays), // Ensure non-negative
+            'attendance_percentage' => $workingDaysForPercentage > 0 ? round(($attendedDays / $workingDaysForPercentage) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
             'expected_hours' => $this->calculateExpectedHours($workingDays), // Calculate based on shift
+            'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including today)
             'late_days' => $lateDays,
         ];
     }
@@ -1512,9 +1674,15 @@ class Index extends Component
         
         // Reset form fields
         $this->leaveType = '';
-        $this->leaveDuration = '';
+        $this->leaveDuration = 'full_day';
         $this->reason = '';
-        $this->leaveDays = '1.00 Working Day';
+        
+        // Load leave balance and options
+        $this->loadLeaveSummary();
+        $this->loadLeaveTypeOptions();
+        
+        // Calculate initial leave days
+        $this->recalculateLeaveDays();
         
         // Show the modal
         $this->showLeaveRequestModal = true;
@@ -1550,47 +1718,206 @@ class Index extends Component
 
     public function submitLeaveRequest()
     {
+        // Check if balance is depleted
+        if ($this->leaveBalanceDepleted) {
+            session()->flash('error', __('You do not have sufficient leave balance to apply for leave.'));
+            return;
+        }
+
         // Validate the form
         $this->validate([
-            'leaveType' => 'required|string',
-            'leaveDuration' => 'required|string',
-            'reason' => 'required|string|min:10',
+            'leaveType' => 'required|exists:leave_types,id',
+            'leaveDuration' => 'required|string|in:full_day,half_day_morning,half_day_afternoon',
+            'leaveFrom' => 'required|date',
+            'leaveTo' => 'required|date|after_or_equal:leaveFrom',
+            'reason' => 'nullable|string',
         ], [
-            'leaveType.required' => 'Please select a leave type.',
-            'leaveDuration.required' => 'Please select leave duration.',
-            'reason.required' => 'Please provide a reason for the leave request.',
-            'reason.min' => 'Reason must be at least 10 characters long.',
+            'leaveType.required' => __('Please select a leave type.'),
+            'leaveType.exists' => __('Selected leave type is invalid.'),
+            'leaveDuration.required' => __('Please select leave duration.'),
+            'leaveDuration.in' => __('Invalid leave duration selected.'),
+            'leaveFrom.required' => __('Leave from date is required.'),
+            'leaveTo.required' => __('Leave to date is required.'),
+            'leaveTo.after_or_equal' => __('Leave end date must be on or after start date.'),
         ]);
 
-        // Here you would typically save the leave request to database
-        // For now, we'll just show a success message
-        
-        session()->flash('success', "Leave request submitted successfully for {$this->selectedDate}");
+        $user = Auth::user();
+        $employee = optional($user)->loadMissing('employee')->employee;
+
+        if (! $employee) {
+            throw ValidationException::withMessages([
+                'leaveType' => __('No employee record found for this user.'),
+            ]);
+        }
+
+        $leaveTypeId = (int) $this->leaveType;
+        $leaveSetting = LeaveSetting::first();
+        $autoApprove = (bool) optional($leaveSetting)->auto_approve_requests;
+
+        $balance = EmployeeLeaveBalance::firstOrCreate(
+            [
+                'employee_id' => $employee->id,
+                'leave_type_id' => $leaveTypeId,
+            ],
+            [
+                'entitled' => 0,
+                'carried_forward' => 0,
+                'manual_adjustment' => 0,
+                'used' => 0,
+                'pending' => 0,
+                'balance' => 0,
+            ]
+        );
+
+        $availableBalance = (float) $balance->balance;
+        $requestedDays = $this->calculateLeaveDays();
+
+        // Validate calculated days
+        if ($requestedDays <= 0) {
+            throw ValidationException::withMessages([
+                'leaveFrom' => __('Please select valid leave dates.'),
+            ]);
+        }
+
+        if ($requestedDays > 365) {
+            throw ValidationException::withMessages([
+                'leaveTo' => __('Leave duration cannot exceed 365 days.'),
+            ]);
+        }
+
+        if ($availableBalance <= 0 && $requestedDays > $availableBalance) {
+            throw ValidationException::withMessages([
+                'leaveType' => __('You have no leave balance remaining for this request.'),
+            ]);
+        }
+
+        if ($requestedDays > $availableBalance) {
+            throw ValidationException::withMessages([
+                'leaveDays' => __('Requested leave exceeds your available balance (:balance days).', [
+                    'balance' => number_format($availableBalance, 1),
+                ]),
+            ]);
+        }
+
+        $status = $autoApprove
+            ? LeaveRequestModel::STATUS_APPROVED
+            : LeaveRequestModel::STATUS_PENDING;
+
+        DB::transaction(function () use (
+            $employee,
+            $user,
+            $leaveTypeId,
+            $requestedDays,
+            $status,
+            $autoApprove,
+            $balance,
+            $availableBalance
+        ) {
+            $request = LeaveRequestModel::create([
+                'employee_id' => $employee->id,
+                'requested_by' => $user->id,
+                'leave_type_id' => $leaveTypeId,
+                'start_date' => $this->leaveFrom,
+                'end_date' => $this->leaveTo,
+                'total_days' => $requestedDays,
+                'duration' => $this->leaveDuration,
+                'reason' => $this->reason,
+                'status' => $status,
+                'auto_approved' => $autoApprove,
+                'balance_snapshot' => $availableBalance,
+            ]);
+
+            LeaveRequestEvent::create([
+                'leave_request_id' => $request->id,
+                'performed_by' => $user->id,
+                'event_type' => 'created',
+                'notes' => $this->reason ?: __('No reason provided.'),
+                'attachment_path' => null,
+            ]);
+
+            if ($status === LeaveRequestModel::STATUS_APPROVED) {
+                LeaveRequestEvent::create([
+                    'leave_request_id' => $request->id,
+                    'performed_by' => $user->id,
+                    'event_type' => 'approved',
+                    'notes' => __('Automatically approved based on leave settings.'),
+                ]);
+
+                $balance->used += $requestedDays;
+            } else {
+                $balance->pending += $requestedDays;
+            }
+
+            $balance->balance -= $requestedDays;
+            $balance->save();
+        });
+
+        session()->flash('success', __('Leave request submitted successfully for :date', ['date' => $this->selectedDate]));
         
         // Close the modal and reset the form
         $this->closeLeaveRequestModal();
         
-        // You could also dispatch an event or redirect here
+        // Reload attendance data and leave summary
+        $this->loadUserAttendance();
+        $this->loadLeaveSummary();
+        
+        // Dispatch toast notification
         $this->dispatch('show-toast', [
             'type' => 'success',
-            'message' => "Leave request submitted for {$this->selectedDate}"
+            'message' => __('Leave request submitted for :date', ['date' => $this->selectedDate])
         ]);
+    }
+
+    protected function calculateLeaveDays(): float
+    {
+        // For half-day leaves, always return 0.5
+        if (in_array($this->leaveDuration, ['half_day_morning', 'half_day_afternoon'], true)) {
+            return 0.5;
+        }
+
+        // If dates are not set, return 0
+        if (! $this->leaveFrom || ! $this->leaveTo) {
+            return 0.0;
+        }
+
+        try {
+            $start = Carbon::parse($this->leaveFrom);
+            $end = Carbon::parse($this->leaveTo);
+
+            // Ensure end date is not before start date
+            if ($end->lt($start)) {
+                return 0.0;
+            }
+
+            // Calculate difference in days (inclusive of both start and end dates)
+            $days = $start->diffInDays($end) + 1;
+
+            return max(1.0, (float) $days);
+        } catch (\Exception $e) {
+            return 0.0;
+        }
     }
 
     public function updatedLeaveDuration()
     {
-        // Auto-calculate leave days based on duration
-        switch ($this->leaveDuration) {
-            case 'full_day':
-                $this->leaveDays = '1.00 Working Day';
-                break;
-            case 'half_day_morning':
-            case 'half_day_afternoon':
-                $this->leaveDays = '0.50 Working Day';
-                break;
-            default:
-                $this->leaveDays = '1.00 Working Day';
-        }
+        // Recalculate leave days based on duration and dates
+        $this->recalculateLeaveDays();
+    }
+
+    public function updatedLeaveFrom()
+    {
+        $this->recalculateLeaveDays();
+    }
+
+    public function updatedLeaveTo()
+    {
+        $this->recalculateLeaveDays();
+    }
+
+    protected function recalculateLeaveDays(): void
+    {
+        $calculatedDays = $this->calculateLeaveDays();
+        $this->leaveDays = number_format($calculatedDays, 1) . ' Working Day' . ($calculatedDays != 1 ? 's' : '');
     }
 
     private function resetLeaveRequestForm()
@@ -1602,6 +1929,50 @@ class Index extends Component
         $this->leaveTo = '';
         $this->reason = '';
         $this->leaveDays = '1.00 Working Day';
+    }
+
+    protected function loadLeaveSummary(): void
+    {
+        $user = Auth::user();
+
+        if (! $user || ! $user->relationLoaded('employee')) {
+            $user->loadMissing('employee');
+        }
+
+        $employee = $user->employee;
+
+        if (! $employee) {
+            $this->leaveSummary = [
+                'entitled' => 0.0,
+                'used' => 0.0,
+                'pending' => 0.0,
+                'balance' => 0.0,
+            ];
+            $this->leaveBalanceDepleted = true;
+            return;
+        }
+
+        $balances = EmployeeLeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->get();
+
+        $this->leaveSummary = [
+            'entitled' => (float) $balances->sum('entitled'),
+            'used' => (float) $balances->sum('used'),
+            'pending' => (float) $balances->sum('pending'),
+            'balance' => (float) $balances->sum('balance'),
+        ];
+
+        $this->leaveBalanceDepleted = ($this->leaveSummary['balance'] ?? 0) <= 0;
+    }
+
+    protected function loadLeaveTypeOptions(): void
+    {
+        $this->leaveTypeOptions = LeaveType::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->toArray();
     }
 
     public function getFilteredUsersProperty()

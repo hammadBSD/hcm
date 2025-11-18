@@ -3,6 +3,18 @@
 
     <x-attendance.layout :heading="__('My Attendance')" :subheading="__('Your attendance records for ' . ($selectedMonth ? \Carbon\Carbon::createFromFormat('Y-m', $selectedMonth)->format('F Y') : $currentMonth))">
         <div class="space-y-6 w-full max-w-none">
+            @if(session('success'))
+                <flux:callout variant="success" icon="check-circle">
+                    {{ session('success') }}
+                </flux:callout>
+            @endif
+
+            @if(session('error'))
+                <flux:callout variant="danger" icon="exclamation-circle">
+                    {{ session('error') }}
+                </flux:callout>
+            @endif
+
             @if($employee && $punchCode)
                 <!-- Attendance Statistics Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -65,7 +77,7 @@
                         <flux:heading size="lg">Working Hours Summary</flux:heading>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Hours Worked</flux:text>
@@ -73,9 +85,16 @@
                                 </div>
                                 <flux:icon name="clock" class="w-8 h-8 text-blue-600 dark:text-blue-400" />
                             </div>
+                            <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Hours Completed So Far</flux:text>
+                                    <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_till_today'] ?? '0:00' }}</flux:heading>
+                                </div>
+                                <flux:icon name="calendar-days" class="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                            </div>
                             <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                 <div>
-                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Expected Hours</flux:text>
+                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Expected Hours</flux:text>
                                     <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours'] ?? '0:00' }}</flux:heading>
                                 </div>
                                 <flux:icon name="check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
@@ -370,41 +389,70 @@
                                             $canManageMissing = auth()->user()?->can('attendance.manage.missing_entries');
                                             $hasManualEntries = isset($record['has_manual_entries']) && $record['has_manual_entries'];
                                             $isAbsent = $record['status'] === 'absent';
-                                            $shouldShowMenu = ($canManageMissing || $hasManualEntries || $isAbsent);
+                                            $hasLeaveRequest = isset($record['leave_request']);
+                                            $leaveRequest = $hasLeaveRequest ? $record['leave_request'] : null;
+                                            $shouldShowMenu = ($canManageMissing || $hasManualEntries || ($isAbsent && !$hasLeaveRequest));
                                         @endphp
 
-                                        @if($shouldShowMenu)
-                                                        <div class="flex items-center gap-1">
-                                                            <flux:dropdown>
-                                                                <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
-                                                                <flux:menu>
-                                                                    @if($canManageMissing)
-                                                                        <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
-                                                                            {{ __('Add Missing Entry') }}
-                                                                        </flux:menu.item>
-                                                                        @if($hasManualEntries || $isAbsent)
-                                                                            <flux:menu.separator />
-                                                                        @endif
-                                                                    @endif
+                                        @if($hasLeaveRequest)
+                                            @php
+                                                $statusColor = match($leaveRequest['status']) {
+                                                    'pending' => 'yellow',
+                                                    'approved' => 'green',
+                                                    'rejected' => 'red',
+                                                    'cancelled' => 'zinc',
+                                                    default => 'zinc'
+                                                };
+                                                
+                                                $statusLabel = match($leaveRequest['status']) {
+                                                    'pending' => __('Pending'),
+                                                    'approved' => __('Approved'),
+                                                    'rejected' => __('Rejected'),
+                                                    'cancelled' => __('Cancelled'),
+                                                    default => ucfirst($leaveRequest['status'])
+                                                };
+                                            @endphp
+                                            <div class="flex flex-col gap-1">
+                                                <flux:badge color="{{ $statusColor }}" size="sm">
+                                                    {{ $statusLabel }}
+                                                </flux:badge>
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('Leave Requested') }} <br>
+                                                    {{ $leaveRequest['leave_type'] }} ({{ number_format($leaveRequest['total_days'], 1) }} {{ __('days') }})
+                                                </div>
+                                            </div>
+                                        @elseif($shouldShowMenu)
+                                            <div class="flex items-center gap-1">
+                                                <flux:dropdown>
+                                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                    <flux:menu>
+                                                        @if($canManageMissing)
+                                                            <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
+                                                                {{ __('Add Missing Entry') }}
+                                                            </flux:menu.item>
+                                                            @if($hasManualEntries || $isAbsent)
+                                                                <flux:menu.separator />
+                                                            @endif
+                                                        @endif
 
-                                                                    @if($hasManualEntries)
-                                                                        <flux:menu.item icon="eye" wire:click="openViewChangesFlyout('{{ $record['date'] }}')">
-                                                                            {{ __('View Changes') }}
-                                                                        </flux:menu.item>
-                                                                        @if($isAbsent)
-                                                                            <flux:menu.separator />
-                                                                        @endif
-                                                                    @endif
+                                                        @if($hasManualEntries)
+                                                            <flux:menu.item icon="eye" wire:click="openViewChangesFlyout('{{ $record['date'] }}')">
+                                                                {{ __('View Changes') }}
+                                                            </flux:menu.item>
+                                                            @if($isAbsent)
+                                                                <flux:menu.separator />
+                                                            @endif
+                                                        @endif
 
-                                                                    @if($isAbsent)
-                                                                        <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
-                                                                            {{ __('Request Leave') }}
-                                                                        </flux:menu.item>
-                                                                    @endif
-                                                                </flux:menu>
-                                                            </flux:dropdown>
-                                                        </div>
-                                                    @endif
+                                                        @if($isAbsent)
+                                                            <flux:menu.item icon="calendar-days" wire:click="requestLeave('{{ $record['date'] }}')">
+                                                                {{ __('Request Leave') }}
+                                                            </flux:menu.item>
+                                                        @endif
+                                                    </flux:menu>
+                                                </flux:dropdown>
+                                            </div>
+                                        @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -602,71 +650,148 @@
 
         <!-- Leave Request Modal -->
         <flux:modal wire:model.self="showLeaveRequestModal" variant="flyout" class="w-[48rem]">
-            <div class="space-y-6">
-                <div>
+            <form class="flex flex-col h-full" wire:submit.prevent="submitLeaveRequest">
+                <div class="px-6 pt-6 pb-4 border-b border-zinc-200 dark:border-zinc-700">
                     <flux:heading size="lg">Add Leave Request</flux:heading>
-                </div>
-                
-                <!-- First Row: Leave Type, Leave Duration, Leave Days -->
-                <div class="grid grid-cols-3 gap-4">
-                    <!-- Leave Type -->
-                    <flux:field>
-                        <flux:label>Leave Type <span class="text-red-500">*</span></flux:label>
-                        <flux:select wire:model="leaveType" placeholder="Select One">
-                            <option value="">Select One</option>
-                            <option value="sick">Sick Leave</option>
-                            <option value="personal">Personal Leave</option>
-                            <option value="vacation">Vacation Leave</option>
-                            <option value="emergency">Emergency Leave</option>
-                            <option value="maternity">Maternity Leave</option>
-                            <option value="paternity">Paternity Leave</option>
-                            <option value="bereavement">Bereavement Leave</option>
-                        </flux:select>
-                        <flux:error name="leaveType" />
-                    </flux:field>
-
-                    <!-- Leave Duration -->
-                    <flux:field>
-                        <flux:label>Leave Duration <span class="text-red-500">*</span></flux:label>
-                        <flux:select wire:model="leaveDuration" placeholder="Select Duration">
-                            <option value="">Select Duration</option>
-                            <option value="full_day">Full Day</option>
-                            <option value="half_day_morning">Half Day (Morning)</option>
-                            <option value="half_day_afternoon">Half Day (Afternoon)</option>
-                        </flux:select>
-                        <flux:error name="leaveDuration" />
-                    </flux:field>
+                    <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                        {{ __('Request leave for the selected date.') }}
+                    </flux:text>
                 </div>
 
-                <!-- Second Row: Leave From, Leave To -->
-                <div class="grid grid-cols-2 gap-4">
-                    <!-- Leave From (Disabled) -->
-                    <flux:field>
-                        <flux:label>Leave From</flux:label>
-                        <flux:input wire:model="leaveFrom" type="date" disabled />
-                    </flux:field>
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                    <!-- Leave Balance Card -->
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="space-y-4">
+                            <!-- First Row: Title -->
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="calendar-days" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Leave Balance <span class="text-zinc-500 dark:text-zinc-400 font-normal">(Current Leave Quota Year)</span></span>
+                            </div>
+                            
+                            <!-- Second Row: Metrics -->
+                            <div class="flex items-center gap-6 text-sm">
+                                <div class="text-center">
+                                    <div class="text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</div>
+                                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                        {{ number_format($leaveSummary['entitled'] ?? 0, 1) }}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-zinc-500 dark:text-zinc-400">{{ __('Taken') }}</div>
+                                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                        {{ number_format($leaveSummary['used'] ?? 0, 1) }}
+                                    </div>
+                                </div>
+                                @php
+                                    $pendingValue = $leaveSummary['pending'] ?? 0;
+                                    $pendingTextClasses = $pendingValue > 0
+                                        ? 'text-amber-600 dark:text-amber-300'
+                                        : 'text-zinc-900 dark:text-zinc-100';
+                                @endphp
+                                <div class="text-center">
+                                    <div class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</div>
+                                    <div class="font-semibold {{ $pendingTextClasses }}">
+                                        {{ number_format($pendingValue, 1) }}
+                                    </div>
+                                </div>
+                                @php
+                                    $balanceValue = $leaveSummary['balance'] ?? 0;
+                                @endphp
+                                <div class="text-center">
+                                    <div class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</div>
+                                    <div class="font-bold {{ $balanceValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                        {{ number_format($balanceValue, 1) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <!-- Leave To (Disabled) -->
-                    <flux:field>
-                        <flux:label>Leave To</flux:label>
-                        <flux:input wire:model="leaveTo" type="date" disabled />
-                    </flux:field>
+                    @if($leaveBalanceDepleted)
+                        <flux:callout variant="warning" icon="exclamation-triangle">
+                            {{ __('You do not have sufficient leave balance to apply for leave. Please contact HR for assistance.') }}
+                        </flux:callout>
+                    @endif
+
+                    <div class="space-y-4">
+                        <!-- Leave Type -->
+                        <flux:field>
+                            <flux:label>{{ __('Leave Type') }} <span class="text-red-500">*</span></flux:label>
+                            <flux:select wire:model="leaveType" placeholder="{{ __('Select Leave Type') }}" :disabled="$leaveBalanceDepleted">
+                                <option value="">{{ __('Select Leave Type') }}</option>
+                                @foreach($leaveTypeOptions as $option)
+                                    <option value="{{ $option['id'] }}">
+                                        {{ $option['name'] }}@if(!empty($option['code'])) ({{ $option['code'] }}) @endif
+                                    </option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="leaveType" />
+                        </flux:field>
+
+                        <!-- Leave Duration and Leave Days -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <flux:field>
+                                <flux:label>{{ __('Leave Duration') }} <span class="text-red-500">*</span></flux:label>
+                                <flux:select wire:model.live="leaveDuration" placeholder="{{ __('Select Duration') }}" :disabled="$leaveBalanceDepleted">
+                                    <option value="">{{ __('Select Duration') }}</option>
+                                    <option value="full_day">{{ __('Full Day') }}</option>
+                                    <option value="half_day_morning">{{ __('Half Day (Morning)') }}</option>
+                                    <option value="half_day_afternoon">{{ __('Half Day (Afternoon)') }}</option>
+                                </flux:select>
+                                <flux:error name="leaveDuration" />
+                            </flux:field>
+
+                            <flux:field>
+                                <flux:label>{{ __('Leave Days') }}</flux:label>
+                                <flux:input 
+                                    wire:model="leaveDays" 
+                                    type="text" 
+                                    placeholder="1.00" 
+                                    readonly
+                                    disabled
+                                    class="bg-zinc-50 dark:bg-zinc-700/50 cursor-not-allowed"
+                                />
+                            </flux:field>
+                        </div>
+
+                        <!-- Leave From and To -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <flux:field>
+                                <flux:label>{{ __('Leave From') }}</flux:label>
+                                <flux:input wire:model="leaveFrom" type="date" readonly disabled class="bg-zinc-50 dark:bg-zinc-700/50 cursor-not-allowed" />
+                            </flux:field>
+
+                            <flux:field>
+                                <flux:label>{{ __('Leave To') }}</flux:label>
+                                <flux:input wire:model="leaveTo" type="date" readonly disabled class="bg-zinc-50 dark:bg-zinc-700/50 cursor-not-allowed" />
+                            </flux:field>
+                        </div>
+
+                        <!-- Reason -->
+                        <flux:field>
+                            <flux:label>{{ __('Reason') }}</flux:label>
+                            <flux:textarea
+                                wire:model="reason"
+                                rows="4"
+                                class="dark:bg-transparent!"
+                                placeholder="{{ __('Please provide a detailed reason for the leave request... (Optional)') }}"
+                                :disabled="$leaveBalanceDepleted"
+                            ></flux:textarea>
+                            <flux:error name="reason" />
+                        </flux:field>
+                    </div>
                 </div>
 
-                <!-- Third Row: Reason -->
-                <flux:field>
-                    <flux:label>Reason <span class="text-red-500">*</span></flux:label>
-                    <flux:textarea wire:model="reason" rows="4" placeholder="Enter reason for leave request..."></flux:textarea>
-                    <flux:error name="reason" />
-                </flux:field>
-
-                <!-- Action Buttons -->
-                <div class="flex gap-2">
-                    <flux:spacer />
-                    <flux:button wire:click="closeLeaveRequestModal" variant="ghost">Cancel</flux:button>
-                    <flux:button wire:click="submitLeaveRequest" variant="primary">Submit Request</flux:button>
+                <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex justify-end gap-3">
+                    <flux:button type="button" variant="outline" wire:click="closeLeaveRequestModal" wire:loading.attr="disabled" kbd="esc">
+                        {{ __('Cancel') }}
+                    </flux:button>
+                    <flux:button type="submit" wire:loading.attr="disabled" :disabled="$leaveBalanceDepleted" icon="plus">
+                        <span wire:loading.remove wire:target="submitLeaveRequest">{{ __('Submit Request') }}</span>
+                        <span wire:loading wire:target="submitLeaveRequest">{{ __('Submitting...') }}</span>
+                    </flux:button>
                 </div>
-            </div>
+            </form>
         </flux:modal>
     </x-attendance.layout>
 </section>

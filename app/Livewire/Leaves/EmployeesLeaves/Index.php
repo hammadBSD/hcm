@@ -5,6 +5,7 @@ namespace App\Livewire\Leaves\EmployeesLeaves;
 use App\Models\Employee;
 use App\Models\EmployeeLeaveBalance;
 use App\Models\LeaveRequest as LeaveRequestModel;
+use App\Models\LeaveRequestEvent;
 use App\Models\LeaveType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -40,6 +41,7 @@ class Index extends Component
     public bool $showApproveFlyout = false;
     public bool $showRejectFlyout = false;
     public bool $showEditFlyout = false;
+    public bool $showCreateRequestFlyout = false;
     public ?int $activeRequestId = null;
     public array $activeRequest = [];
     public array $activeEvents = [];
@@ -52,6 +54,15 @@ class Index extends Component
         'notes' => '',
     ];
     public array $editForm = [
+        'leave_type_id' => null,
+        'start_date' => '',
+        'end_date' => '',
+        'total_days' => '',
+        'duration' => 'full_day',
+        'reason' => '',
+    ];
+    public array $createRequestForm = [
+        'employee_id' => null,
         'leave_type_id' => null,
         'start_date' => '',
         'end_date' => '',
@@ -258,12 +269,211 @@ class Index extends Component
         $this->showApproveFlyout = false;
         $this->showRejectFlyout = false;
         $this->showEditFlyout = false;
+        $this->showCreateRequestFlyout = false;
         $this->activeRequestId = null;
         $this->activeRequest = [];
         $this->activeEvents = [];
         $this->resetApproveForm();
         $this->resetRejectForm();
         $this->resetEditForm();
+        $this->resetCreateRequestForm();
+        $this->resetErrorBag();
+    }
+
+    public function openCreateRequestFlyout(): void
+    {
+        if (!Auth::user()->can('leaves.manage.all')) {
+            abort(403);
+        }
+
+        // Set default dates
+        $this->createRequestForm['start_date'] = now()->format('Y-m-d');
+        $this->createRequestForm['end_date'] = now()->format('Y-m-d');
+        $this->createRequestForm['total_days'] = '1.0';
+        
+        $this->showCreateRequestFlyout = true;
+    }
+
+    public function updatedCreateRequestFormStartDate(): void
+    {
+        $this->recalculateCreateRequestDays();
+    }
+
+    public function updatedCreateRequestFormEndDate(): void
+    {
+        $this->recalculateCreateRequestDays();
+    }
+
+    public function updatedCreateRequestFormDuration(): void
+    {
+        $this->recalculateCreateRequestDays();
+    }
+
+    protected function recalculateCreateRequestDays(): void
+    {
+        $days = $this->calculateCreateRequestDays();
+        $this->createRequestForm['total_days'] = number_format($days, 1);
+    }
+
+    protected function calculateCreateRequestDays(): float
+    {
+        // For half-day leaves, always return 0.5
+        if (in_array($this->createRequestForm['duration'] ?? 'full_day', ['half_day_morning', 'half_day_afternoon'], true)) {
+            return 0.5;
+        }
+
+        $startDate = $this->createRequestForm['start_date'] ?? '';
+        $endDate = $this->createRequestForm['end_date'] ?? '';
+
+        // If dates are not set, return 0
+        if (! $startDate || ! $endDate) {
+            return 0.0;
+        }
+
+        try {
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+
+            // Ensure end date is not before start date
+            if ($end->lt($start)) {
+                return 0.0;
+            }
+
+            // Calculate difference in days (inclusive of both start and end dates)
+            $days = $start->diffInDays($end) + 1;
+
+            return max(1.0, (float) $days);
+        } catch (\Exception $e) {
+            return 0.0;
+        }
+    }
+
+    public function submitCreateRequest(): void
+    {
+        if (!Auth::user()->can('leaves.manage.all')) {
+            abort(403);
+        }
+
+        // Validate date range before validation
+        if ($this->createRequestForm['start_date'] && $this->createRequestForm['end_date']) {
+            try {
+                $fromDate = Carbon::parse($this->createRequestForm['start_date']);
+                $toDate = Carbon::parse($this->createRequestForm['end_date']);
+                
+                if ($toDate->lt($fromDate)) {
+                    throw ValidationException::withMessages([
+                        'createRequestForm.end_date' => __('Leave end date must be on or after start date.'),
+                    ]);
+                }
+            } catch (ValidationException $e) {
+                throw $e;
+            } catch (\Exception $e) {
+                // Invalid date format, let validation handle it
+            }
+        }
+
+        $this->validate([
+            'createRequestForm.employee_id' => ['required', 'exists:employees,id'],
+            'createRequestForm.leave_type_id' => ['required', 'exists:leave_types,id'],
+            'createRequestForm.start_date' => ['required', 'date'],
+            'createRequestForm.end_date' => ['required', 'date', 'after_or_equal:createRequestForm.start_date'],
+            'createRequestForm.total_days' => ['nullable'],
+            'createRequestForm.duration' => ['required', 'string', 'in:full_day,half_day_morning,half_day_afternoon'],
+            'createRequestForm.reason' => ['nullable', 'string', 'min:10'],
+        ], [], [
+            'createRequestForm.employee_id' => __('employee'),
+            'createRequestForm.leave_type_id' => __('leave type'),
+            'createRequestForm.start_date' => __('start date'),
+            'createRequestForm.end_date' => __('end date'),
+            'createRequestForm.duration' => __('duration'),
+            'createRequestForm.reason' => __('reason'),
+        ]);
+
+        $calculatedDays = $this->calculateCreateRequestDays();
+
+        // Validate calculated days
+        if ($calculatedDays <= 0) {
+            throw ValidationException::withMessages([
+                'createRequestForm.start_date' => __('Please select valid leave dates.'),
+            ]);
+        }
+
+        if ($calculatedDays > 365) {
+            throw ValidationException::withMessages([
+                'createRequestForm.end_date' => __('Leave duration cannot exceed 365 days.'),
+            ]);
+        }
+
+        DB::transaction(function () use ($calculatedDays) {
+            $user = Auth::user();
+            $employee = Employee::findOrFail($this->createRequestForm['employee_id']);
+
+            $balance = EmployeeLeaveBalance::firstOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'leave_type_id' => $this->createRequestForm['leave_type_id'],
+                ],
+                [
+                    'entitled' => 0,
+                    'carried_forward' => 0,
+                    'manual_adjustment' => 0,
+                    'used' => 0,
+                    'pending' => 0,
+                    'balance' => 0,
+                ]
+            );
+
+            $request = LeaveRequestModel::create([
+                'employee_id' => $employee->id,
+                'requested_by' => $user->id,
+                'leave_type_id' => $this->createRequestForm['leave_type_id'],
+                'start_date' => $this->createRequestForm['start_date'],
+                'end_date' => $this->createRequestForm['end_date'],
+                'total_days' => $calculatedDays,
+                'duration' => $this->createRequestForm['duration'],
+                'reason' => $this->createRequestForm['reason'] ?: __('Leave request created by HR.'),
+                'status' => LeaveRequestModel::STATUS_PENDING,
+                'auto_approved' => false,
+                'balance_snapshot' => (float) $balance->balance,
+            ]);
+
+            LeaveRequestEvent::create([
+                'leave_request_id' => $request->id,
+                'performed_by' => $user->id,
+                'event_type' => 'created',
+                'notes' => $this->createRequestForm['reason'] ?: __('Leave request created by HR.'),
+                'attachment_path' => null,
+            ]);
+
+            $balance->pending += $calculatedDays;
+            $balance->balance -= $calculatedDays;
+            $balance->save();
+        });
+
+        session()->flash('success', __('Leave request created successfully.'));
+
+        $this->closeCreateRequestFlyout();
+        $this->resetPage();
+    }
+
+    public function closeCreateRequestFlyout(): void
+    {
+        $this->showCreateRequestFlyout = false;
+        $this->resetCreateRequestForm();
+        $this->resetErrorBag();
+    }
+
+    protected function resetCreateRequestForm(): void
+    {
+        $this->createRequestForm = [
+            'employee_id' => null,
+            'leave_type_id' => null,
+            'start_date' => '',
+            'end_date' => '',
+            'total_days' => '',
+            'duration' => 'full_day',
+            'reason' => '',
+        ];
     }
 
     public function submitApproval(): void
