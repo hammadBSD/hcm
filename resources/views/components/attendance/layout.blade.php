@@ -46,6 +46,21 @@
                 </div>
             @endcan
 
+            @can('attendance.sidebar.exemptions')
+                <div class="mb-3">
+                    <flux:navlist.item 
+                        :href="route('attendance.exemption-days')" 
+                        wire:navigate
+                        :class="request()->routeIs('attendance.exemption-days') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="calendar" class="w-4 h-4 mr-3" />
+                            {{ __('Exemption Days') }}
+                        </div>
+                    </flux:navlist.item>
+                </div>
+            @endcan
+
             @can('attendance.sidebar.approvals')
                 <div class="mb-3">
                     <flux:navlist.item 

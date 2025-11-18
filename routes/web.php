@@ -64,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('attendance/index', \App\Livewire\Attendance\Index::class)->name('attendance.index');
     Route::get('attendance/request', \App\Livewire\Attendance\Request::class)->name('attendance.request');
     Route::get('attendance/exemption-request', \App\Livewire\Attendance\ExemptionRequest::class)->name('attendance.exemption-request');
+    Route::get('attendance/exemption-days', \App\Livewire\Attendance\ExemptionDays::class)->name('attendance.exemption-days');
     Route::get('attendance/attendance-approval', \App\Livewire\Attendance\AttendanceApproval::class)->name('attendance.attendance-approval');
     Route::get('attendance/schedule', \App\Livewire\Attendance\Schedule::class)->name('attendance.schedule');
 
