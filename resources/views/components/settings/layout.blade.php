@@ -15,9 +15,9 @@
             <div class="mb-3">
                 <flux:navlist.item :href="route('settings.appearance')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
             </div>
-            <div class="mb-3">
+            <!-- <div class="mb-3">
                 <flux:navlist.item :href="route('settings.api-monitor')" wire:navigate>{{ __('API Monitor') }}</flux:navlist.item>
-            </div>
+            </div> -->
         </flux:navlist>
     </div>
 

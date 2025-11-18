@@ -24,7 +24,7 @@
             <livewire:dashboard.your-status-card />
 
             <!-- Total Present Today -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+            <!-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="flex items-center gap-2 mb-2">
@@ -42,10 +42,10 @@
                         <flux:icon name="user-group" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Pending Leave Requests -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+            <!-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="flex items-center gap-2 mb-2">
@@ -63,7 +63,7 @@
                         <flux:icon name="exclamation-triangle" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
                     </div>
                 </div>
-            </div>
+            </div> -->
         </div>
 
         <!-- Monthly Attendance Chart -->
@@ -80,8 +80,7 @@
         </div>
 
         <!-- Charts Section -->
-        <div class="grid gap-6 grid-cols-1 lg:grid-cols-2">
-            <!-- Attendance Trend Chart -->
+        {{-- <div class="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
                 <div class="flex items-center justify-between mb-4 md:mb-6">
                     <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
@@ -97,7 +96,6 @@
                 </div>
             </div>
 
-            <!-- Department Distribution -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
                 <div class="flex items-center justify-between mb-4 md:mb-6">
                     <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
@@ -111,10 +109,10 @@
                     <canvas id="departmentChart"></canvas>
                 </div>
             </div>
-        </div>
+        </div> --}}
 
         <!-- Bottom Section - Recent Activity & Quick Actions -->
-        <div class="grid gap-6 lg:grid-cols-2">
+        {{-- <div class="grid gap-6 lg:grid-cols-2">
             <!-- Recent Activity -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -167,7 +165,7 @@
                     </flux:button>
                 </div>
             </div>
-        </div>
+        </div> --}}
     </div>
 
     <!-- Chart.js CDN -->
@@ -212,12 +210,9 @@
 
             // Attendance Trend Chart (Line Chart)
             const attendanceCanvas = document.getElementById('attendanceChart');
-            if (!attendanceCanvas) {
-                console.error('Attendance chart canvas not found');
-                return;
-            }
-            const attendanceCtx = attendanceCanvas.getContext('2d');
-            charts.attendance = new Chart(attendanceCtx, {
+            if (attendanceCanvas) {
+                const attendanceCtx = attendanceCanvas.getContext('2d');
+                charts.attendance = new Chart(attendanceCtx, {
             type: 'line',
             data: {
                 labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -269,15 +264,13 @@
                 }
             }
         });
+            }
 
             // Department Distribution Chart (Doughnut Chart)
             const departmentCanvas = document.getElementById('departmentChart');
-            if (!departmentCanvas) {
-                console.error('Department chart canvas not found');
-                return;
-            }
-            const departmentCtx = departmentCanvas.getContext('2d');
-            charts.department = new Chart(departmentCtx, {
+            if (departmentCanvas) {
+                const departmentCtx = departmentCanvas.getContext('2d');
+                charts.department = new Chart(departmentCtx, {
             type: 'doughnut',
             data: {
                 labels: ['HR', 'Engineering', 'Marketing', 'Sales', 'Finance', 'Operations'],
@@ -324,6 +317,7 @@
                 cutout: '60%'
             }
         });
+            }
 
             // Monthly Attendance Chart - initialize if function exists
             if (typeof window.initMonthlyAttendanceChart === 'function') {
@@ -352,23 +346,17 @@
         // Additional fallback for page load issues
         window.addEventListener('load', function() {
             setTimeout(() => {
-                // Check if charts are missing and re-initialize
-                const attendanceCanvas = document.getElementById('attendanceChart');
-                const departmentCanvas = document.getElementById('departmentChart');
+                // Check if monthly attendance chart is missing and re-initialize
                 const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
                 
-                if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
-                    const attendanceCtx = attendanceCanvas.getContext('2d');
-                    const departmentCtx = departmentCanvas.getContext('2d');
+                if (monthlyAttendanceCanvas) {
                     const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                     
-                    // Check if any canvas is empty (no chart data)
-                    const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
-                    const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
+                    // Check if monthly attendance canvas is empty (no chart data)
                     const monthlyAttendanceEmpty = monthlyAttendanceCtx.getImageData(0, 0, monthlyAttendanceCanvas.width, monthlyAttendanceCanvas.height).data.every(pixel => pixel === 0);
                     
-                    if (attendanceEmpty || departmentEmpty || monthlyAttendanceEmpty) {
-                        console.log('Charts not rendered properly, re-initializing...');
+                    if (monthlyAttendanceEmpty) {
+                        console.log('Monthly attendance chart not rendered properly, re-initializing...');
                         destroyCharts();
                         initializeCharts();
                     }
@@ -380,18 +368,14 @@
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 setTimeout(() => {
-                    // Check if charts are blank and re-initialize if needed
-                    const attendanceCanvas = document.getElementById('attendanceChart');
-                    const departmentCanvas = document.getElementById('departmentChart');
+                    // Check if monthly attendance chart is blank and re-initialize if needed
                     const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
                     
-                    if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
-                        const attendanceCtx = attendanceCanvas.getContext('2d');
-                        const departmentCtx = departmentCanvas.getContext('2d');
+                    if (monthlyAttendanceCanvas) {
                         const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                         
                         // Check if canvas is empty (no chart data)
-                        if (attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0)) {
+                        if (monthlyAttendanceCtx.getImageData(0, 0, monthlyAttendanceCanvas.width, monthlyAttendanceCanvas.height).data.every(pixel => pixel === 0)) {
                             destroyCharts();
                             initializeCharts();
                         }
@@ -419,24 +403,18 @@
         // Initialize clock on page load
         updateClock();
 
-        // Final fallback - check charts after 2 seconds
+        // Final fallback - check monthly attendance chart after 2 seconds
         setTimeout(() => {
-            const attendanceCanvas = document.getElementById('attendanceChart');
-            const departmentCanvas = document.getElementById('departmentChart');
             const monthlyAttendanceCanvas = document.getElementById('monthlyAttendanceChart');
             
-            if (attendanceCanvas && departmentCanvas && monthlyAttendanceCanvas) {
-                const attendanceCtx = attendanceCanvas.getContext('2d');
-                const departmentCtx = departmentCanvas.getContext('2d');
+            if (monthlyAttendanceCanvas) {
                 const monthlyAttendanceCtx = monthlyAttendanceCanvas.getContext('2d');
                 
-                // Check if any canvas is empty (no chart data)
-                const attendanceEmpty = attendanceCtx.getImageData(0, 0, attendanceCanvas.width, attendanceCanvas.height).data.every(pixel => pixel === 0);
-                const departmentEmpty = departmentCtx.getImageData(0, 0, departmentCanvas.width, departmentCanvas.height).data.every(pixel => pixel === 0);
+                // Check if canvas is empty (no chart data)
                 const monthlyAttendanceEmpty = monthlyAttendanceCtx.getImageData(0, 0, monthlyAttendanceCanvas.width, monthlyAttendanceCanvas.height).data.every(pixel => pixel === 0);
                 
-                if (attendanceEmpty || departmentEmpty || monthlyAttendanceEmpty) {
-                    console.log('Final fallback: Charts not rendered, re-initializing...');
+                if (monthlyAttendanceEmpty) {
+                    console.log('Final fallback: Monthly attendance chart not rendered, re-initializing...');
                     destroyCharts();
                     initializeCharts();
                 }

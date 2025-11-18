@@ -419,7 +419,7 @@ class Index extends Component
             }
         }
 
-        // Add leave request info to attendance data
+        // Add leave request info to attendance data and adjust attendance status
         foreach ($this->attendanceData as $key => $record) {
             $dateKey = $record['date'] ?? null;
             if ($dateKey && isset($leaveRequestMap[$dateKey])) {
@@ -430,6 +430,19 @@ class Index extends Component
                     'leave_type' => $leaveRequest->leaveType->name ?? __('Unknown'),
                     'total_days' => $leaveRequest->total_days,
                 ];
+
+                // If leave is approved, adjust attendance status from "absent" to "on_leave"
+                if ($leaveRequest->status === LeaveRequestModel::STATUS_APPROVED) {
+                    $currentStatus = $this->attendanceData[$key]['status'] ?? 'absent';
+                    
+                    // Only change status if it's currently absent or if there's no attendance
+                    if ($currentStatus === 'absent' || (empty($record['check_in']) && empty($record['check_out']))) {
+                        $this->attendanceData[$key]['status'] = 'on_leave';
+                        // Clear any absent-related flags
+                        unset($this->attendanceData[$key]['is_late']);
+                        unset($this->attendanceData[$key]['is_early']);
+                    }
+                }
             }
         }
     }
@@ -1544,8 +1557,18 @@ class Index extends Component
         // Calculate expected hours till today (including today) for current month
         $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
 
-        // Calculate absent days based on working days till today (for current month) or full month (for past months)
-        $absentDays = $workingDaysTillToday - $attendedDays;
+        // Count on_leave days (exclude from absent calculation)
+        $onLeaveDays = 0;
+        if (!empty($processedData) && is_array($processedData)) {
+            foreach ($processedData as $record) {
+                if (isset($record['status']) && $record['status'] === 'on_leave') {
+                    $onLeaveDays++;
+                }
+            }
+        }
+
+        // Calculate absent days: working days - attended days - on_leave days
+        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays;
         
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
@@ -1554,6 +1577,7 @@ class Index extends Component
             'working_days' => $workingDays,
             'attended_days' => $attendedDays,
             'absent_days' => max(0, $absentDays), // Ensure non-negative
+            'on_leave_days' => $onLeaveDays,
             'attendance_percentage' => $workingDaysForPercentage > 0 ? round(($attendedDays / $workingDaysForPercentage) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
             'expected_hours' => $this->calculateExpectedHours($workingDays), // Calculate based on shift

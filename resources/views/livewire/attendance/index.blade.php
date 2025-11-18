@@ -17,55 +17,68 @@
 
             @if($employee && $punchCode)
                 <!-- Attendance Statistics Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <!-- Total Working Days -->
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Working Days</flux:text>
-                                <flux:heading size="xl" class="text-zinc-900 dark:text-zinc-100">{{ $attendanceStats['working_days'] ?? 0 }}</flux:heading>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Working Days</flux:text>
+                                <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100 mt-1">{{ $attendanceStats['working_days'] ?? 0 }}</flux:heading>
                             </div>
-                            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="calendar-days" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="calendar-days" class="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Present Days -->
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Present Days</flux:text>
-                                <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['attended_days'] ?? 0 }}</flux:heading>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Present Days</flux:text>
+                                <flux:heading size="lg" class="text-green-600 dark:text-green-400 mt-1">{{ $attendanceStats['attended_days'] ?? 0 }}</flux:heading>
                             </div>
-                            <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
+                            <div class="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="check-circle" class="w-5 h-5 text-green-600 dark:text-green-400" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leaves -->
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Leaves</flux:text>
+                                <flux:heading size="lg" class="text-cyan-600 dark:text-cyan-400 mt-1">{{ $attendanceStats['on_leave_days'] ?? 0 }}</flux:heading>
+                            </div>
+                            <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="calendar" class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Absent Days -->
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Absent Days</flux:text>
-                                <flux:heading size="xl" class="text-red-600 dark:text-red-400">{{ $attendanceStats['absent_days'] ?? 0 }}</flux:heading>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Absent Days</flux:text>
+                                <flux:heading size="lg" class="text-red-600 dark:text-red-400 mt-1">{{ $attendanceStats['absent_days'] ?? 0 }}</flux:heading>
                             </div>
-                            <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="x-circle" class="w-6 h-6 text-red-600 dark:text-red-400" />
+                            <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="x-circle" class="w-5 h-5 text-red-600 dark:text-red-400" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Late Days -->
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Late Days</flux:text>
-                                <flux:heading size="xl" class="text-zinc-900 dark:text-zinc-100">{{ $attendanceStats['late_days'] ?? 0 }}</flux:heading>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Late Days</flux:text>
+                                <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100 mt-1">{{ $attendanceStats['late_days'] ?? 0 }}</flux:heading>
                             </div>
-                            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="clock" class="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                            <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="clock" class="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                             </div>
                         </div>
                     </div>
@@ -354,6 +367,7 @@
                                                             'present_late_early' => 'amber',
                                                             'off' => 'zinc',
                                                             'absent' => 'red',
+                                                            'on_leave' => 'blue',
                                                             default => 'zinc'
                                                         };
                                                         
@@ -364,6 +378,7 @@
                                                             'present_late_early' => 'Present (Late & Early)',
                                                             'off' => 'Off Day',
                                                             'absent' => 'Absent',
+                                                            'on_leave' => 'On Leave',
                                                             default => ucfirst($record['status'])
                                                         };
                                                     @endphp
@@ -417,8 +432,8 @@
                                                     {{ $statusLabel }}
                                                 </flux:badge>
                                                 <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                                    {{ __('Leave Requested') }} <br>
-                                                    {{ $leaveRequest['leave_type'] }} ({{ number_format($leaveRequest['total_days'], 1) }} {{ __('days') }})
+                                                    <div>{{ __('Leave Requested') }}</div>
+                                                    <div>{{ $leaveRequest['leave_type'] }} ({{ number_format($leaveRequest['total_days'], 1) }} {{ __('days') }})</div>
                                                 </div>
                                             </div>
                                         @elseif($shouldShowMenu)

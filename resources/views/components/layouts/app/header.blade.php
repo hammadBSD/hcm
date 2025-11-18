@@ -90,11 +90,11 @@
             <flux:dropdown position="top" align="start">
                 <flux:profile avatar="" :initials="auth()->user()->initials()" />
                 <flux:menu>
-                    <flux:menu.radio.group>
+                    <!-- <flux:menu.radio.group>
                         <flux:menu.radio checked>{{ auth()->user()->name }}</flux:menu.radio>
                         <flux:menu.radio>{{ auth()->user()->roles->first()->name ?? 'No Role' }}</flux:menu.radio>
                     </flux:menu.radio.group>
-                    <flux:menu.separator />
+                    <flux:menu.separator /> -->
                     <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
                     <flux:menu.item href="#" icon="user">{{ __('Profile') }}</flux:menu.item>
                     <flux:menu.separator />
