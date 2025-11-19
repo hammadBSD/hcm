@@ -33,12 +33,8 @@ class Index extends Component
     public $sortBy = 'created_at';
     public $sortDirection = 'desc';
 
-    public array $summary = [
-        'entitled' => 0.0,
-        'used' => 0.0,
-        'pending' => 0.0,
-        'balance' => 0.0,
-    ];
+    public array $summary = [];
+    public array $leaveBalances = [];
     public $leaveTypeOptions = [];
 
     // Flyout properties
@@ -685,6 +681,7 @@ class Index extends Component
         $employee = $user?->employee;
 
         if (! $employee) {
+            $this->leaveBalances = [];
             $this->summary = [
                 'entitled' => 0.0,
                 'used' => 0.0,
@@ -695,10 +692,12 @@ class Index extends Component
         }
 
         $balances = EmployeeLeaveBalance::query()
+            ->with('leaveType:id,name,code')
             ->where('employee_id', $employee->id)
             ->get();
 
         if ($balances->isEmpty()) {
+            $this->leaveBalances = [];
             $this->summary = [
                 'entitled' => 0.0,
                 'used' => 0.0,
@@ -708,6 +707,20 @@ class Index extends Component
             return;
         }
 
+        // Store balances per leave type
+        $this->leaveBalances = $balances->map(function ($balance) {
+            return [
+                'leave_type_id' => $balance->leave_type_id,
+                'leave_type_name' => $balance->leaveType?->name ?? __('Unknown'),
+                'leave_type_code' => $balance->leaveType?->code,
+                'entitled' => (float) $balance->entitled,
+                'used' => (float) $balance->used,
+                'pending' => (float) $balance->pending,
+                'balance' => (float) $balance->balance,
+            ];
+        })->toArray();
+
+        // Also keep aggregated summary for backward compatibility
         $this->summary = [
             'entitled' => (float) $balances->sum('entitled'),
             'used' => (float) $balances->sum('used'),

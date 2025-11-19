@@ -669,51 +669,63 @@
 
                             <!-- Leave Balance Card (shown when employee is selected) -->
                             @if($createRequestForm['employee_id'])
-                                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                                    <div class="space-y-4">
-                                        <!-- First Row: Title -->
-                                        <div class="flex items-center gap-2">
-                                            <flux:icon name="calendar-days" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                                            <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Leave Balance <span class="text-zinc-500 dark:text-zinc-400 font-normal">(Current Leave Quota Year)</span></span>
+                                <div class="space-y-4">
+                                    @forelse($createRequestLeaveBalances as $balance)
+                                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                            <div class="space-y-4">
+                                                <!-- First Row: Title -->
+                                                <div class="flex items-center gap-2">
+                                                    <flux:icon name="calendar-days" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                        {{ $balance['leave_type_name'] }}@if(!empty($balance['leave_type_code'])) ({{ $balance['leave_type_code'] }}) @endif - Leave Balance <span class="text-zinc-500 dark:text-zinc-400 font-normal">(Current Leave Quota Year)</span>
+                                                    </span>
+                                                </div>
+                                                
+                                                <!-- Second Row: Metrics -->
+                                                <div class="flex items-center gap-6 text-sm">
+                                                    <div class="text-center">
+                                                        <div class="text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</div>
+                                                        <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                            {{ number_format($balance['entitled'] ?? 0, 1) }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-center">
+                                                        <div class="text-zinc-500 dark:text-zinc-400">{{ __('Taken') }}</div>
+                                                        <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                            {{ number_format($balance['used'] ?? 0, 1) }}
+                                                        </div>
+                                                    </div>
+                                                    @php
+                                                        $pendingValue = $balance['pending'] ?? 0;
+                                                        $pendingTextClasses = $pendingValue > 0
+                                                            ? 'text-amber-600 dark:text-amber-300'
+                                                            : 'text-zinc-900 dark:text-zinc-100';
+                                                    @endphp
+                                                    <div class="text-center">
+                                                        <div class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</div>
+                                                        <div class="font-semibold {{ $pendingTextClasses }}">
+                                                            {{ number_format($pendingValue, 1) }}
+                                                        </div>
+                                                    </div>
+                                                    @php
+                                                        $balanceValue = $balance['balance'] ?? 0;
+                                                    @endphp
+                                                    <div class="text-center">
+                                                        <div class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</div>
+                                                        <div class="font-bold {{ $balanceValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                                            {{ number_format($balanceValue, 1) }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        
-                                        <!-- Second Row: Metrics -->
-                                        <div class="flex items-center gap-6 text-sm">
-                                            <div class="text-center">
-                                                <div class="text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</div>
-                                                <div class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                    {{ number_format($createRequestSummary['entitled'] ?? 0, 1) }}
-                                                </div>
-                                            </div>
-                                            <div class="text-center">
-                                                <div class="text-zinc-500 dark:text-zinc-400">{{ __('Taken') }}</div>
-                                                <div class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                    {{ number_format($createRequestSummary['used'] ?? 0, 1) }}
-                                                </div>
-                                            </div>
-                                            @php
-                                                $pendingValue = $createRequestSummary['pending'] ?? 0;
-                                                $pendingTextClasses = $pendingValue > 0
-                                                    ? 'text-amber-600 dark:text-amber-300'
-                                                    : 'text-zinc-900 dark:text-zinc-100';
-                                            @endphp
-                                            <div class="text-center">
-                                                <div class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</div>
-                                                <div class="font-semibold {{ $pendingTextClasses }}">
-                                                    {{ number_format($pendingValue, 1) }}
-                                                </div>
-                                            </div>
-                                            @php
-                                                $balanceValue = $createRequestSummary['balance'] ?? 0;
-                                            @endphp
-                                            <div class="text-center">
-                                                <div class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</div>
-                                                <div class="font-bold {{ $balanceValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                                                    {{ number_format($balanceValue, 1) }}
-                                                </div>
+                                    @empty
+                                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                            <div class="text-center text-zinc-500 dark:text-zinc-400">
+                                                {{ __('No leave balances found') }}
                                             </div>
                                         </div>
-                                    </div>
+                                    @endforelse
                                 </div>
                             @endif
 

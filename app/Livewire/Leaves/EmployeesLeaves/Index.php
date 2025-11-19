@@ -70,12 +70,8 @@ class Index extends Component
         'duration' => 'full_day',
         'reason' => '',
     ];
-    public array $createRequestSummary = [
-        'entitled' => 0.0,
-        'used' => 0.0,
-        'pending' => 0.0,
-        'balance' => 0.0,
-    ];
+    public array $createRequestSummary = [];
+    public array $createRequestLeaveBalances = [];
     public $approveAttachment;
     public $rejectAttachment;
 
@@ -320,6 +316,7 @@ class Index extends Component
         if ($this->createRequestForm['employee_id']) {
             $this->loadCreateRequestSummary((int) $this->createRequestForm['employee_id']);
         } else {
+            $this->createRequestLeaveBalances = [];
             $this->createRequestSummary = [
                 'entitled' => 0.0,
                 'used' => 0.0,
@@ -334,6 +331,7 @@ class Index extends Component
         $employee = Employee::find($employeeId);
         
         if (!$employee) {
+            $this->createRequestLeaveBalances = [];
             $this->createRequestSummary = [
                 'entitled' => 0.0,
                 'used' => 0.0,
@@ -344,9 +342,24 @@ class Index extends Component
         }
 
         $balances = EmployeeLeaveBalance::query()
+            ->with('leaveType:id,name,code')
             ->where('employee_id', $employee->id)
             ->get();
 
+        // Store balances per leave type
+        $this->createRequestLeaveBalances = $balances->map(function ($balance) {
+            return [
+                'leave_type_id' => $balance->leave_type_id,
+                'leave_type_name' => $balance->leaveType?->name ?? __('Unknown'),
+                'leave_type_code' => $balance->leaveType?->code,
+                'entitled' => (float) $balance->entitled,
+                'used' => (float) $balance->used,
+                'pending' => (float) $balance->pending,
+                'balance' => (float) $balance->balance,
+            ];
+        })->toArray();
+
+        // Also keep aggregated summary for backward compatibility
         $this->createRequestSummary = [
             'entitled' => (float) $balances->sum('entitled'),
             'used' => (float) $balances->sum('used'),
@@ -520,6 +533,7 @@ class Index extends Component
             'duration' => 'full_day',
             'reason' => '',
         ];
+        $this->createRequestLeaveBalances = [];
         $this->createRequestSummary = [
             'entitled' => 0.0,
             'used' => 0.0,

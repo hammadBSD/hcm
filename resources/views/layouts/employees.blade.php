@@ -18,9 +18,32 @@
                 <flux:navbar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
-                <flux:navbar.item icon="users" href="#" :current="request()->routeIs('employees.*')">
-                    {{ __('Employees') }}
-                </flux:navbar.item>
+                @canany([
+                    'employees.sidebar.directory',
+                    'employees.sidebar.create',
+                    'employees.sidebar.import',
+                    'employees.sidebar.roles',
+                    'employees.sidebar.transfer',
+                    'employees.sidebar.delegation',
+                    'employees.sidebar.amend_department',
+                    'employees.sidebar.suggestions',
+                    'employees.manage.directory',
+                    'employees.manage.create',
+                    'employees.manage.import',
+                    'employees.manage.roles',
+                    'employees.manage.transfer',
+                    'employees.manage.delegation',
+                    'employees.manage.amend_department',
+                    'employees.manage.suggestions',
+                    'employee.view',
+                    'employee.create',
+                    'employee.edit',
+                    'employee.delete',
+                ])
+                    <flux:navbar.item icon="users" href="#" :current="request()->routeIs('employees.*')">
+                        {{ __('Employees') }}
+                    </flux:navbar.item>
+                @endcanany
                 <flux:navbar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
                     {{ __('Attendance') }}
                 </flux:navbar.item>
@@ -89,9 +112,32 @@
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
-                <flux:sidebar.item icon="users" href="#" :current="request()->routeIs('employees.*')">
-                    {{ __('Employees') }}
-                </flux:sidebar.item>
+                @canany([
+                    'employees.sidebar.directory',
+                    'employees.sidebar.create',
+                    'employees.sidebar.import',
+                    'employees.sidebar.roles',
+                    'employees.sidebar.transfer',
+                    'employees.sidebar.delegation',
+                    'employees.sidebar.amend_department',
+                    'employees.sidebar.suggestions',
+                    'employees.manage.directory',
+                    'employees.manage.create',
+                    'employees.manage.import',
+                    'employees.manage.roles',
+                    'employees.manage.transfer',
+                    'employees.manage.delegation',
+                    'employees.manage.amend_department',
+                    'employees.manage.suggestions',
+                    'employee.view',
+                    'employee.create',
+                    'employee.edit',
+                    'employee.delete',
+                ])
+                    <flux:sidebar.item icon="users" href="#" :current="request()->routeIs('employees.*')">
+                        {{ __('Employees') }}
+                    </flux:sidebar.item>
+                @endcanany
                 <flux:sidebar.item icon="clock" href="#" :current="request()->routeIs('attendance.*')">
                     {{ __('Attendance') }}
                 </flux:sidebar.item>

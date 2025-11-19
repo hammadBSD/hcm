@@ -42,10 +42,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('two-factor.show');
 
     // Employees Routes
-    Route::redirect('employees', 'employees/index');
+    Route::redirect('employees', 'employees/list');
     
     // Employee Module Routes
-    Route::get('employees/index', \App\Livewire\Employees\Index::class)->name('employees.index');
     Route::get('employees/register', \App\Livewire\Employees\Register::class)->name('employees.register');
     Route::get('employees/list', \App\Livewire\Employees\EmployeeList::class)->name('employees.list');
     Route::get('employees/import', \App\Livewire\Employees\Import::class)->name('employees.import');

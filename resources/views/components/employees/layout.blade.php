@@ -1,18 +1,6 @@
 <div class="flex items-start max-md:flex-col">
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist>
-            <div class="mb-3">
-                <flux:navlist.item 
-                    :href="route('employees.index')" 
-                    wire:navigate
-                    :class="request()->routeIs('employees.index') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
-                >
-                    <div class="flex items-center">
-                        <flux:icon name="user-circle" class="w-4 h-4 mr-3" />
-                        {{ __('My Profile') }}
-                    </div>
-                </flux:navlist.item>
-            </div>
             @can('employees.sidebar.directory')
                 <div class="mb-3">
                     <flux:navlist.item 

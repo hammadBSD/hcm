@@ -56,12 +56,8 @@ class Index extends Component
     public $leaveFrom = '';
     public $leaveTo = '';
     public $reason = '';
-    public array $leaveSummary = [
-        'entitled' => 0.0,
-        'used' => 0.0,
-        'pending' => 0.0,
-        'balance' => 0.0,
-    ];
+    public array $leaveSummary = [];
+    public array $leaveBalances = [];
     public $leaveTypeOptions = [];
     public bool $leaveBalanceDepleted = false;
     
@@ -1729,6 +1725,8 @@ class Index extends Component
         $this->selectedMonth = '';
         // Reload attendance data when user filter changes
         $this->loadUserAttendance();
+        // Reload leave summary for the selected employee
+        $this->loadLeaveSummary();
     }
 
     public function updatedSelectedMonth()
@@ -2089,15 +2087,22 @@ class Index extends Component
 
     protected function loadLeaveSummary(): void
     {
-        $user = Auth::user();
-
-        if (! $user || ! $user->relationLoaded('employee')) {
-            $user->loadMissing('employee');
-        }
-
-        $employee = $user->employee;
+        // Use the currently selected employee (from dropdown) or fall back to logged-in user's employee
+        $employee = $this->employee;
 
         if (! $employee) {
+            // Fallback to logged-in user's employee if no employee is selected
+            $user = Auth::user();
+            if ($user && $user->relationLoaded('employee')) {
+                $employee = $user->employee;
+            } else {
+                $user?->loadMissing('employee');
+                $employee = $user->employee ?? null;
+            }
+        }
+
+        if (! $employee) {
+            $this->leaveBalances = [];
             $this->leaveSummary = [
                 'entitled' => 0.0,
                 'used' => 0.0,
@@ -2109,9 +2114,24 @@ class Index extends Component
         }
 
         $balances = EmployeeLeaveBalance::query()
+            ->with('leaveType:id,name,code')
             ->where('employee_id', $employee->id)
             ->get();
 
+        // Store balances per leave type
+        $this->leaveBalances = $balances->map(function ($balance) {
+            return [
+                'leave_type_id' => $balance->leave_type_id,
+                'leave_type_name' => $balance->leaveType?->name ?? __('Unknown'),
+                'leave_type_code' => $balance->leaveType?->code,
+                'entitled' => (float) $balance->entitled,
+                'used' => (float) $balance->used,
+                'pending' => (float) $balance->pending,
+                'balance' => (float) $balance->balance,
+            ];
+        })->toArray();
+
+        // Also keep aggregated summary for backward compatibility
         $this->leaveSummary = [
             'entitled' => (float) $balances->sum('entitled'),
             'used' => (float) $balances->sum('used'),

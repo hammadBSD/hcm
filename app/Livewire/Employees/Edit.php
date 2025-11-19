@@ -515,7 +515,7 @@ class Edit extends Component
             });
 
             session()->flash('message', 'Employee updated successfully!');
-            return redirect()->route('employees.index');
+            return redirect()->route('employees.list');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to update employee: ' . $e->getMessage());
         }

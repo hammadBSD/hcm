@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\Shift;
 use App\Models\Constant;
+use App\Models\ExemptionDay;
 use Carbon\Carbon;
 use App\Models\User;
 
@@ -192,6 +193,122 @@ class MonthlyAttendance extends Component
         $this->dispatch('monthly-attendance-updated');
     }
 
+    /**
+     * Check if a date is exempted for the employee
+     */
+    private function isDateExempted($date, $employee)
+    {
+        if (!$employee) {
+            return false;
+        }
+
+        $dateCarbon = Carbon::parse($date);
+        $userId = $employee->user_id;
+        $departmentId = $employee->department_id;
+        $user = $employee->user;
+        $userRoles = $user ? $user->roles->pluck('id')->toArray() : [];
+
+        // Check for exemption days that apply to this employee
+        $exemptions = ExemptionDay::where(function($query) use ($dateCarbon) {
+                $query->where('from_date', '<=', $dateCarbon->format('Y-m-d'))
+                      ->where('to_date', '>=', $dateCarbon->format('Y-m-d'));
+            })
+            ->where(function($query) use ($userId, $departmentId, $userRoles) {
+                $query->where('scope_type', 'all')
+                      ->orWhere(function($q) use ($userId) {
+                          $q->where('scope_type', 'user')->where('user_id', $userId);
+                      })
+                      ->orWhere(function($q) use ($departmentId) {
+                          $q->where('scope_type', 'department')->where('department_id', $departmentId);
+                      })
+                      ->orWhere(function($q) use ($userRoles) {
+                          $q->where('scope_type', 'role')->whereIn('role_id', $userRoles);
+                      });
+            })
+            ->exists();
+
+        return $exemptions;
+    }
+
+    /**
+     * Deduplicate records (same as attendance module)
+     */
+    private function deduplicateRecords($records)
+    {
+        if (empty($records)) {
+            return $records;
+        }
+
+        $recordsArray = is_array($records) ? $records : $records->toArray();
+
+        if (count($recordsArray) <= 1) {
+            return $recordsArray;
+        }
+
+        $deduplicated = [];
+        $lastRecord = null;
+        $lastTime = null;
+
+        foreach ($recordsArray as $record) {
+            $recordTime = Carbon::parse($record['punch_time']);
+            $recordType = $record['device_type'];
+
+            if ($lastRecord === null) {
+                $deduplicated[] = $record;
+                $lastRecord = $record;
+                $lastTime = $recordTime;
+            } else {
+                $lastType = $lastRecord['device_type'];
+                $timeDiff = $lastTime->diffInSeconds($recordTime);
+
+                // If same type and within 10 seconds, keep the later one (replace)
+                if ($recordType === $lastType && $timeDiff <= 10) {
+                    array_pop($deduplicated);
+                    $deduplicated[] = $record;
+                    $lastRecord = $record;
+                    $lastTime = $recordTime;
+                } else {
+                    $deduplicated[] = $record;
+                    $lastRecord = $record;
+                    $lastTime = $recordTime;
+                }
+            }
+        }
+
+        return $deduplicated;
+    }
+
+    /**
+     * Calculate minutes from first IN to last OUT (for missing pairs with break exclusion)
+     */
+    private function calculateMinutesFromFirstInToLastOut($records)
+    {
+        if (empty($records)) {
+            return null;
+        }
+
+        $firstInRecord = collect($records)->first(function ($record) {
+            return ($record['device_type'] ?? null) === 'IN';
+        });
+
+        $lastOutRecord = collect($records)->reverse()->first(function ($record) {
+            return ($record['device_type'] ?? null) === 'OUT';
+        });
+
+        if (!$firstInRecord || !$lastOutRecord) {
+            return null;
+        }
+
+        $firstInTime = Carbon::parse($firstInRecord['punch_time']);
+        $lastOutTime = Carbon::parse($lastOutRecord['punch_time']);
+
+        if ($lastOutTime->lessThanOrEqualTo($firstInTime)) {
+            return null;
+        }
+
+        return $firstInTime->diffInMinutes($lastOutTime);
+    }
+
     private function calculateDailyAttendance()
     {
         // Get current logged-in user
@@ -205,7 +322,7 @@ class MonthlyAttendance extends Component
         
         // Get the employee record with shift and department
         $employee = Employee::where('user_id', $user->id)
-            ->with(['shift', 'department.shift'])
+            ->with(['shift', 'department.shift', 'user.roles'])
             ->first();
         
         if (!$employee || !$employee->punch_code) {
@@ -230,20 +347,99 @@ class MonthlyAttendance extends Component
             $endDate = $endOfMonth->copy()->endOfDay();
         }
         
-        // Get all attendance records for this month
+        // Get all attendance records for this month (need to extend range for overnight shifts)
         $records = DeviceAttendance::where('punch_code', $employee->punch_code)
             ->whereBetween('punch_time', [
-                $startOfMonth->format('Y-m-d 00:00:00'),
-                $endDate->format('Y-m-d 23:59:59')
+                $startOfMonth->copy()->subDay()->format('Y-m-d 00:00:00'), // Include previous day for overnight shifts
+                $endDate->copy()->addDay()->format('Y-m-d 23:59:59') // Include next day for overnight shifts
             ])
             ->orderBy('punch_time')
             ->get();
         
-        // Group records by date
+        // Group records by date with grace period logic (same as attendance module)
         $groupedRecords = [];
+        
+        // First, determine shift characteristics if available
+        $isOvernight = false;
+        $timeFrom = null;
+        $timeTo = null;
+        $gracePeriodHours = 5; // 5 hours grace period
+        
+        if ($employeeShift) {
+            $timeFromParts = explode(':', $employeeShift->time_from);
+            $timeToParts = explode(':', $employeeShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int)($timeFromParts[0] ?? 0),
+                (int)($timeFromParts[1] ?? 0),
+                (int)($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int)($timeToParts[0] ?? 0),
+                (int)($timeToParts[1] ?? 0),
+                (int)($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+        }
+        
+        // Group records with grace period logic for non-overnight shifts (same as attendance module)
         foreach ($records as $record) {
-            $date = Carbon::parse($record->punch_time)->format('Y-m-d');
-            $groupedRecords[$date][] = $record;
+            $punchTime = Carbon::parse($record->punch_time);
+            $punchDate = $punchTime->format('Y-m-d');
+            
+            // For non-overnight shifts, apply grace period logic
+            if (!$isOvernight && $employeeShift && $timeFrom && $timeTo) {
+                // Check if this is a check-out on the next calendar day (after midnight)
+                if ($record->device_type === 'OUT') {
+                    if ($punchTime->hour < 12) {
+                        $previousDate = $punchTime->copy()->subDay()->format('Y-m-d');
+                        $previousDayShiftEnd = Carbon::parse($previousDate)->setTime(
+                            $timeTo->hour,
+                            $timeTo->minute,
+                            $timeTo->second
+                        );
+                        $checkOutCutoff = $previousDayShiftEnd->copy()->addHours($gracePeriodHours);
+                        
+                        if ($punchTime->lte($checkOutCutoff)) {
+                            $groupedRecords[$previousDate][] = $record;
+                            continue;
+                        }
+                    }
+                }
+                
+                // Check if this is a check-in on the next calendar day that still belongs to previous day
+                if ($record->device_type === 'IN' && $punchTime->hour < 12) {
+                    $previousDate = $punchTime->copy()->subDay()->format('Y-m-d');
+                    $previousDayShiftEnd = Carbon::parse($previousDate)->setTime(
+                        $timeTo->hour,
+                        $timeTo->minute,
+                        $timeTo->second
+                    );
+                    $checkOutCutoff = $previousDayShiftEnd->copy()->addHours($gracePeriodHours);
+                    
+                    if ($punchTime->lte($checkOutCutoff)) {
+                        $groupedRecords[$previousDate][] = $record;
+                        continue;
+                    }
+                }
+                
+                // Check if this is an early check-in (before shift start but within grace period)
+                if ($record->device_type === 'IN') {
+                    $currentDayShiftStart = Carbon::parse($punchDate)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    $checkInCutoff = $currentDayShiftStart->copy()->subHours($gracePeriodHours);
+                    
+                    if ($punchTime->lt($currentDayShiftStart) && $punchTime->gte($checkInCutoff)) {
+                        $groupedRecords[$punchDate][] = $record;
+                        continue;
+                    }
+                }
+            }
+            
+            // Default: group by punch date
+            $groupedRecords[$punchDate][] = $record;
         }
         
         // Get approved leave requests for this month
@@ -279,22 +475,27 @@ class MonthlyAttendance extends Component
             }
         }
         
-        $dailyData = [];
-        $current = $startOfMonth->copy()->startOfDay();
+        // Process ALL days of the month (including weekends and absent days) - same as attendance module
+        $current = $startOfMonth->copy();
+        $today = Carbon::now();
         
-        // For date comparison, use date-only comparison
-        $endDateForLoop = $endDate->copy()->startOfDay();
+        // For current month, only show days up to today
+        // For previous months, show all days
+        $endDateForLoop = ($targetMonth === $today->format('Y-m')) ? $today : $endOfMonth;
+        
+        $dailyData = [];
         
         while ($current->lte($endDateForLoop)) {
-            $dateKey = $current->format('Y-m-d');
+            $date = $current->format('Y-m-d');
             $dayNumber = $current->format('d');
-            $dayRecords = $groupedRecords[$dateKey] ?? [];
+            $dayRecords = $groupedRecords[$date] ?? [];
             
-            // Determine shift characteristics
+            // Determine shift characteristics once for this day
             $isOvernight = false;
             $shiftStartsInPM = false;
             $timeFrom = null;
             $timeTo = null;
+            $expectedCheckOutTime = null;
             
             if ($employeeShift) {
                 $timeFromParts = explode(':', $employeeShift->time_from);
@@ -311,112 +512,439 @@ class MonthlyAttendance extends Component
                 );
                 $isOvernight = $timeFrom->gt($timeTo);
                 $shiftStartsInPM = $timeFrom->hour >= 12;
+                
+                if ($isOvernight) {
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $expectedCheckOutTime = Carbon::parse($nextDate)->setTime(
+                        $timeTo->hour,
+                        $timeTo->minute,
+                        $timeTo->second
+                    );
+                }
+            }
+            
+            // Determine if there's valid attendance for this day
+            $hasValidAttendance = false;
+            if ($employeeShift && !empty($dayRecords)) {
+                // For PM-start shifts, only count PM check-ins as valid attendance
+                if ($isOvernight && $shiftStartsInPM) {
+                    foreach ($dayRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $checkInTime = Carbon::parse($record->punch_time);
+                            if ($checkInTime->hour >= 12) {
+                                $hasValidAttendance = true;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // For other shifts, any records mean attendance
+                    $hasValidAttendance = true;
+                }
+            } elseif (!empty($dayRecords)) {
+                // No shift assigned, any records mean attendance
+                $hasValidAttendance = true;
+            }
+            
+            // Check if this date is exempted
+            $isExempted = $this->isDateExempted($date, $employee);
+            
+            // Check if this date has an approved leave request
+            $hasApprovedLeave = isset($leaveRequestMap[$date]);
+            
+            // Determine day status
+            $status = 'absent'; // Default
+            if ($current->isWeekend()) {
+                $status = 'off';
+            } elseif ($hasValidAttendance) {
+                $status = 'present';
+            } elseif ($isExempted) {
+                $status = 'exempted';
             }
             
             // Initialize day data
             $checkIn = null;
             $checkOut = null;
             $totalHours = null;
-            $hoursDecimal = 0; // For bar height
+            $hoursDecimal = 0;
             $isLate = false;
-            $status = 'absent';
             
-            // Check if it's a weekend
-            if ($current->isWeekend()) {
-                $status = 'off';
-                $dailyData[] = [
-                    'date' => $dateKey,
-                    'label' => $dayNumber . '-' . $current->format('M'),
-                    'present' => 0,
-                    'absent' => 0,
-                    'off_days' => 0,
-                    'late' => 0,
-                    'hours' => 0,
-                    'status' => 'off',
-                    'check_in' => null,
-                    'check_out' => null,
-                    'total_hours' => null,
-                    'is_late' => false,
-                ];
-                $current->addDay();
-                continue;
-            }
-            
-            // Check if this date has an approved leave request
-            if (isset($leaveRequestMap[$dateKey])) {
-                $status = 'on_leave';
-            }
-            
-            // Process attendance records
-            // If on leave and no records, keep status as 'on_leave'
+            // Process attendance records for this day if they exist
             if (!empty($dayRecords)) {
-                // Sort records chronologically
+                // Sort records by punch_time to get chronological order
                 usort($dayRecords, function($a, $b) {
                     return Carbon::parse($a->punch_time)->timestamp - Carbon::parse($b->punch_time)->timestamp;
                 });
                 
-                // Get first check-in and last check-out
-                $checkIns = [];
-                $checkOuts = [];
+                // Filter records based on shift type (same logic as attendance module)
+                $validCheckIns = [];
+                $validCheckOuts = [];
                 
+                if ($isOvernight && $shiftStartsInPM) {
+                    // For PM-start overnight shifts
+                    $expectedCheckInTime = Carbon::parse($date)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    
+                    // For check-ins: only PM check-ins count for this day
                     foreach ($dayRecords as $record) {
-                    $recordTime = Carbon::parse($record->punch_time);
                     if ($record->device_type === 'IN') {
-                        // For PM-start shifts, only count PM check-ins
-                        if ($employeeShift && $isOvernight && $shiftStartsInPM) {
-                            if ($recordTime->hour >= 12) {
-                                $checkIns[] = $recordTime;
+                            $checkInTime = Carbon::parse($record->punch_time);
+                            if ($checkInTime->hour >= 12) {
+                                $validCheckIns[] = $checkInTime;
                             }
-                        } else {
-                            $checkIns[] = $recordTime;
-                        }
-                    } elseif ($record->device_type === 'OUT') {
-                        // For PM-start shifts, exclude AM check-outs on current day (they belong to previous shift)
-                        if ($employeeShift && $isOvernight && $shiftStartsInPM) {
-                            if ($recordTime->hour >= 12) {
-                                $checkOuts[] = $recordTime; // Only PM check-outs on current day
+                        } elseif ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
+                            if ($checkOutTime->hour >= 12) {
+                                $validCheckOuts[] = $checkOutTime;
                             }
-                        } else {
-                            $checkOuts[] = $recordTime;
                         }
                     }
-                }
-                
-                // For PM-start overnight shifts, include next day's AM check-outs
-                if ($employeeShift && $isOvernight && $shiftStartsInPM && !empty($checkIns)) {
+                    
+                    // Get next day's AM check-ins and check-outs that belong to this shift
                     $nextDate = $current->copy()->addDay()->format('Y-m-d');
                     $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    
+                    // Special handling for last day of month
+                    $isLastDayOfMonth = $current->format('Y-m-d') === $endOfMonth->format('Y-m-d');
+                    if ($isLastDayOfMonth && empty($nextDayRecords)) {
+                        foreach ($records as $record) {
+                            $recordDate = Carbon::parse($record->punch_time)->format('Y-m-d');
+                            if ($recordDate === $nextDate) {
+                                $recordTime = Carbon::parse($record->punch_time);
+                                
+                                if ($record->device_type === 'IN' && $recordTime->hour < 12) {
+                                    $validCheckIns[] = $recordTime;
+                    } elseif ($record->device_type === 'OUT') {
+                                    $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                        $timeTo->hour,
+                                        $timeTo->minute,
+                                        $timeTo->second
+                                    );
+                                    $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+                                    
+                                    if ($recordTime->hour < 12 && $recordTime->lte($checkOutCutoff)) {
+                                        $validCheckOuts[] = $recordTime;
+                                    }
+                                }
+                            }
+                            }
+                        } else {
+                        foreach ($nextDayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            
+                            if ($record->device_type === 'IN' && $recordTime->hour < 12) {
+                                $validCheckIns[] = $recordTime;
+                            } elseif ($record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
+                                );
+                                $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+                                
+                                if ($checkOutTime->lte($checkOutCutoff)) {
+                                    $validCheckOuts[] = $checkOutTime;
+                                }
+                            }
+                        }
+                    }
+                } elseif ($isOvernight && !$shiftStartsInPM) {
+                    // For AM-start overnight shifts
+                    $expectedCheckInTime = Carbon::parse($date)->setTime(
+                        $timeFrom->hour,
+                        $timeFrom->minute,
+                        $timeFrom->second
+                    );
+                    
+                    foreach ($dayRecords as $record) {
+                        $recordTime = Carbon::parse($record->punch_time);
+                        if ($record->device_type === 'IN' || 
+                            ($record->device_type === 'OUT' && $recordTime->gte($expectedCheckInTime))) {
+                            if ($record->device_type === 'IN') {
+                                $validCheckIns[] = $recordTime;
+                            } else {
+                                $validCheckOuts[] = $recordTime;
+                            }
+                        }
+                    }
+                    
+                    // Get next day's check-outs that belong to this shift
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    
                     foreach ($nextDayRecords as $record) {
                         if ($record->device_type === 'OUT') {
                             $checkOutTime = Carbon::parse($record->punch_time);
-                            // Include all AM check-outs (before 12 PM) - they belong to this shift
-                            if ($checkOutTime->hour < 12) {
-                                $checkOuts[] = $checkOutTime;
+                            if ($checkOutTime->lte($expectedCheckOutTime)) {
+                                $validCheckOuts[] = $checkOutTime;
                             }
+                        }
+                    }
+                } else {
+                    // For regular shifts, use all records
+                    foreach ($dayRecords as $record) {
+                        if ($record->device_type === 'IN') {
+                            $validCheckIns[] = Carbon::parse($record->punch_time);
+                        } elseif ($record->device_type === 'OUT') {
+                            $validCheckOuts[] = Carbon::parse($record->punch_time);
                         }
                     }
                 }
                 
-                if (!empty($checkIns)) {
-                    $checkIn = $checkIns[0];
-                }
-                if (!empty($checkOuts)) {
-                    usort($checkOuts, function($a, $b) {
-                        return $b->timestamp - $a->timestamp;
-                    });
-                    $checkOut = $checkOuts[0];
+                // For off days with PM-start shifts: if only AM check-out exists, don't show it
+                if ($current->isWeekend() && $isOvernight && $shiftStartsInPM && empty($validCheckIns)) {
+                    $validCheckOuts = [];
                 }
                 
-                // Calculate total hours if both check-in and check-out exist
+                // Sort and get first check-in and last check-out
+                usort($validCheckIns, function($a, $b) {
+                    return $a->timestamp - $b->timestamp;
+                });
+                usort($validCheckOuts, function($a, $b) {
+                    return $a->timestamp - $b->timestamp;
+                });
+                
+                $firstCheckIn = !empty($validCheckIns) ? $validCheckIns[0] : null;
+                $lastCheckOut = !empty($validCheckOuts) ? end($validCheckOuts) : null;
+                
+                // For exempted days, if we have records, mark as present
+                if ($isExempted && ($firstCheckIn || $lastCheckOut)) {
+                    $status = 'present';
+                }
+                
+                // Update status: only mark as present if there's a valid check-in for PM-start shifts
+                if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
+                    if (!$isExempted) {
+                        $firstCheckIn = null;
+                        $lastCheckOut = null;
+                        if ($current->isWeekend()) {
+                            $status = 'off';
+                        } else {
+                            $status = 'absent';
+                        }
+                    }
+                }
+                
+                $checkIn = $firstCheckIn;
+                $checkOut = $lastCheckOut;
+                
+                // If there's an approved leave request and no valid attendance, set to on_leave
+                // (Same logic as attendance module: only change to on_leave if absent or no check-in/check-out)
+                if ($hasApprovedLeave && ($status === 'absent' || (empty($checkIn) && empty($checkOut)))) {
+                    $status = 'on_leave';
+                }
+                
+                // Now calculate total hours using the same logic as attendance module
                 if ($checkIn && $checkOut) {
-                    $totalMinutes = $checkIn->diffInMinutes($checkOut);
-                    $hours = floor($totalMinutes / 60);
-                    $minutes = $totalMinutes % 60;
+                    // Build recordsForCalculation array (same as attendance module)
+                    $recordsForCalculation = [];
+                    
+                    if ($isOvernight && $shiftStartsInPM) {
+                        // For PM-start overnight shifts
+                        foreach ($dayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            if ($record->device_type === 'IN' && $recordTime->hour >= 12) {
+                                $recordsForCalculation[] = $record;
+                            }
+                            if ($record->device_type === 'OUT' && $recordTime->hour >= 12) {
+                                $recordsForCalculation[] = $record;
+                            }
+                        }
+                        
+                        $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                        $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                        
+                        foreach ($nextDayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            
+                            if ($record->device_type === 'IN' && $recordTime->hour < 12) {
+                                $recordsForCalculation[] = $record;
+                            } elseif ($record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
+                                );
+                                $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+                                
+                                if ($checkOutTime->lte($checkOutCutoff)) {
+                                    $recordsForCalculation[] = $record;
+                                }
+                            }
+                        }
+                    } elseif ($isOvernight && !$shiftStartsInPM) {
+                        // For AM-start overnight shifts
+                        $expectedCheckInTime = Carbon::parse($date)->setTime(
+                            $timeFrom->hour,
+                            $timeFrom->minute,
+                            $timeFrom->second
+                        );
+                        
+                        foreach ($dayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            if ($record->device_type === 'IN' || 
+                                ($record->device_type === 'OUT' && $recordTime->gte($expectedCheckInTime))) {
+                                $recordsForCalculation[] = $record;
+                            }
+                        }
+                        
+                        $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                        $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                        
+                        foreach ($nextDayRecords as $record) {
+                            if ($record->device_type === 'OUT') {
+                                $checkOutTime = Carbon::parse($record->punch_time);
+                                if ($checkOutTime->lte($expectedCheckOutTime)) {
+                                    $recordsForCalculation[] = $record;
+                                }
+                            }
+                        }
+                    } else {
+                        // For regular (non-overnight) shifts, use all records from the day
+                        $recordsForCalculation = $dayRecords;
+                    }
+                    
+                    // For exempted days, only use first check-in and last check-out
+                    if ($isExempted && !empty($recordsForCalculation)) {
+                        $originalRecordsForCalculation = $recordsForCalculation;
+                        
+                        $checkIns = [];
+                        $checkOuts = [];
+                        
+                        foreach ($recordsForCalculation as $record) {
+                            $recordTime = Carbon::parse($record->punch_time ?? (is_object($record) ? $record->punch_time : $record['punch_time']));
+                            $deviceType = is_object($record) ? $record->device_type : $record['device_type'];
+                            if ($deviceType === 'IN') {
+                                $checkIns[] = $recordTime;
+                            } elseif ($deviceType === 'OUT') {
+                                $checkOuts[] = $recordTime;
+                            }
+                        }
+                        
+                        usort($checkIns, function($a, $b) {
+                            return $a->timestamp - $b->timestamp;
+                        });
+                        usort($checkOuts, function($a, $b) {
+                            return $a->timestamp - $b->timestamp;
+                        });
+                        
+                        $recordsForCalculation = [];
+                        if (!empty($checkIns)) {
+                            foreach ($originalRecordsForCalculation as $record) {
+                                $recordTime = Carbon::parse($record->punch_time ?? (is_object($record) ? $record->punch_time : $record['punch_time']));
+                                $deviceType = is_object($record) ? $record->device_type : $record['device_type'];
+                                if ($deviceType === 'IN' && $recordTime->equalTo($checkIns[0])) {
+                                    $recordsForCalculation[] = $record;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!empty($checkOuts)) {
+                            $lastCheckOutTime = end($checkOuts);
+                            foreach ($originalRecordsForCalculation as $record) {
+                                $recordTime = Carbon::parse($record->punch_time ?? (is_object($record) ? $record->punch_time : $record['punch_time']));
+                                $deviceType = is_object($record) ? $record->device_type : $record['device_type'];
+                                if ($deviceType === 'OUT' && $recordTime->equalTo($lastCheckOutTime)) {
+                                    $recordsForCalculation[] = $record;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (!empty($recordsForCalculation)) {
+                        // Convert DeviceAttendance models to arrays
+                        $recordsArray = collect($recordsForCalculation)->map(function($record) {
+                            if (is_object($record) && method_exists($record, 'toArray')) {
+                                return $record->toArray();
+                            }
+                            return $record;
+                        })->toArray();
+                        
+                        $sortedRecords = collect($recordsArray)->sortBy('punch_time');
+                        
+                        // Deduplicate records before processing
+                        $deduplicatedRecords = $this->deduplicateRecords($sortedRecords->toArray());
+                        $deduplicatedCollection = collect($deduplicatedRecords);
+                        
+                        // For exempted days, calculate hours from first check-in to last check-out
+                        if ($isExempted && $firstCheckIn && $lastCheckOut) {
+                            $exemptedMinutes = $firstCheckIn->diffInMinutes($lastCheckOut);
+                            if ($exemptedMinutes > 0) {
+                                $hours = floor($exemptedMinutes / 60);
+                                $minutes = $exemptedMinutes % 60;
+                                $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                                $hoursDecimal = $hours + ($minutes / 60);
+                            } else {
+                                $totalHours = 'N/A';
+                                $hoursDecimal = 0;
+                            }
+                        } else {
+                            // Calculate total working hours by processing all records for work sessions
+                            $dayTotalMinutes = 0;
+                            $currentWorkStart = null;
+                            $hasMissingPair = false;
+                            
+                            foreach ($deduplicatedCollection as $record) {
+                                $recordTime = Carbon::parse($record['punch_time']);
+                                
+                                if ($record['device_type'] === 'IN') {
+                                    if ($currentWorkStart !== null) {
+                                        $hasMissingPair = true;
+                                    }
+                                    $currentWorkStart = $recordTime;
+                                } elseif ($record['device_type'] === 'OUT' && $currentWorkStart) {
+                                    $workDuration = $currentWorkStart->diffInMinutes($recordTime);
+                                    if ($workDuration > 0) {
+                                        $dayTotalMinutes += $workDuration;
+                                    }
+                                    $currentWorkStart = null;
+                                } elseif ($record['device_type'] === 'OUT' && $currentWorkStart === null) {
+                                    $hasMissingPair = true;
+                                }
+                            }
+                            
+                            if ($currentWorkStart !== null) {
+                                $hasMissingPair = true;
+                            }
+                            
+                            // Format total hours - show N/A if missing pairs detected
+                            if ($hasMissingPair) {
+                                $calculatedMinutes = null;
+                                // For break exclusion, use first IN to last OUT
+                                $calculatedMinutes = $this->calculateMinutesFromFirstInToLastOut($deduplicatedCollection->toArray());
+                                
+                                if ($calculatedMinutes !== null) {
+                                    $hours = floor($calculatedMinutes / 60);
+                                    $minutes = $calculatedMinutes % 60;
+                                    $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                                    $hoursDecimal = $hours + ($minutes / 60);
+                                } else {
+                                    $totalHours = 'N/A';
+                                    $hoursDecimal = 0;
+                                }
+                            } elseif ($dayTotalMinutes > 0) {
+                                $hours = floor($dayTotalMinutes / 60);
+                                $minutes = $dayTotalMinutes % 60;
                     $totalHours = sprintf('%d:%02d', $hours, $minutes);
                     $hoursDecimal = $hours + ($minutes / 60);
+                            } else {
+                                $totalHours = 'N/A';
+                                $hoursDecimal = 0;
+                            }
+                        }
+                    } else {
+                        $totalHours = 'N/A';
+                        $hoursDecimal = 0;
+                    }
                 } elseif ($checkIn && !$checkOut) {
-                    // For current day with only check-in, calculate hours from check-in to now
-                    $isToday = $dateKey === Carbon::today()->format('Y-m-d');
+                    // For current day with only check-in
+                    $isToday = $date === Carbon::today()->format('Y-m-d');
                     if ($isToday) {
                         $now = Carbon::now();
                         $totalMinutes = $checkIn->diffInMinutes($now);
@@ -424,107 +952,57 @@ class MonthlyAttendance extends Component
                         $minutes = $totalMinutes % 60;
                         $totalHours = sprintf('%d:%02d', $hours, $minutes);
                         $hoursDecimal = $hours + ($minutes / 60);
-                        // Ensure minimum bar height for visibility (at least 1 hour)
                         if ($hoursDecimal < 1) {
                             $hoursDecimal = 1;
                         }
                     } else {
-                        // For past days with only check-in, show N/A
                         $totalHours = 'N/A';
                         $hoursDecimal = 0;
                     }
                 } else {
                     $totalHours = 'N/A';
+                    $hoursDecimal = 0;
                 }
                 
-                // Check if late or early (if shift exists)
+                // Check if late (if shift exists)
                 if ($employeeShift && $checkIn && $timeFrom) {
-                    // For PM-start overnight shifts, expected check-in is on the same day
-                    $expectedCheckIn = Carbon::parse($dateKey)->setTime(
+                    $expectedCheckIn = Carbon::parse($date)->setTime(
                         $timeFrom->hour,
                         $timeFrom->minute,
                         $timeFrom->second
                     );
                     
-                    // For PM-start shifts, if check-in is in AM, it belongs to previous day
-                    // So we need to compare with the actual check-in time on the correct date
                     $gracePeriod = $this->getEffectiveGracePeriodLateIn($employeeShift);
                     $gracePeriodTime = $expectedCheckIn->copy()->addMinutes($gracePeriod);
                     
-                    $isLate = false;
-                    $isEarly = false;
-                    
-                    // Check if late - compare checkIn time with expected time + grace period
                     if ($checkIn->gt($gracePeriodTime)) {
                         $isLate = true;
                     }
                     
-                    // Check if early (if check-out exists)
-                    if ($checkOut && $timeTo) {
-                        // Determine expected check-out time
-                        if ($isOvernight) {
-                            // For overnight shifts, check-out is on next day
-                            $expectedCheckOut = Carbon::parse($dateKey)->addDay()->setTime(
-                                $timeTo->hour,
-                                $timeTo->minute,
-                                $timeTo->second
-                            );
-                        } else {
-                            // For regular shifts, check-out is on same day
-                            $expectedCheckOut = Carbon::parse($dateKey)->setTime(
-                                $timeTo->hour,
-                                $timeTo->minute,
-                                $timeTo->second
-                            );
-                        }
-                        
-                        $gracePeriodEarly = $this->getEffectiveGracePeriodEarlyOut($employeeShift);
-                        $gracePeriodEarlyTime = $expectedCheckOut->copy()->subMinutes($gracePeriodEarly);
-                        
-                        if ($checkOut->lt($gracePeriodEarlyTime)) {
-                            $isEarly = true;
-                        }
-                    }
-                    
-                    // Set status based on late/early (but preserve 'on_leave' if it was set)
-                    if (isset($leaveRequestMap[$dateKey])) {
-                        // If there's an approved leave request, keep status as 'on_leave'
-                        $status = 'on_leave';
-                    } else {
-                        // Only set present status if not on leave
-                        if ($isLate && $isEarly) {
-                            $status = 'present_late_early';
-                        } elseif ($isLate) {
+                    // Update status to include late information
+                    if ($status === 'present' && !$hasApprovedLeave) {
+                        if ($isLate) {
                             $status = 'present_late';
-                        } elseif ($isEarly) {
-                            $status = 'present_early';
-                        } else {
-                            $status = 'present';
                         }
-                    }
-                } else {
-                    // If there's an approved leave request, keep status as 'on_leave'
-                    if (isset($leaveRequestMap[$dateKey])) {
-                        $status = 'on_leave';
-                    } else {
-                        $status = 'present';
                     }
                 }
-            } elseif ($status === 'absent' && isset($leaveRequestMap[$dateKey])) {
-                // If no records but has approved leave, keep status as 'on_leave'
+            }
+            
+            // Final check: if there's an approved leave request and status is absent (no attendance records), set to on_leave
+            // This matches the attendance module's logic
+            if ($hasApprovedLeave && $status === 'absent') {
                 $status = 'on_leave';
             }
             
             $dailyData[] = [
-                'date' => $dateKey,
+                'date' => $date,
                 'label' => $dayNumber . '-' . $current->format('M'),
-                'hours' => $hoursDecimal, // For bar height
+                'hours' => $hoursDecimal,
                 'status' => $status,
                 'check_in' => $checkIn ? $checkIn->format('h:i A') : null,
                 'check_out' => $checkOut ? $checkOut->format('h:i A') : null,
                 'total_hours' => $totalHours,
                 'is_late' => $isLate,
-                'is_early' => isset($isEarly) ? $isEarly : false,
             ];
             
             $current->addDay();

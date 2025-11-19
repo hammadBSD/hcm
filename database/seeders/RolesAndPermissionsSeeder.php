@@ -53,7 +53,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view.company',
 
             // Employees Module
-            'employees.sidebar.my_profile',
             'employees.sidebar.directory',
             'employees.sidebar.create',
             'employees.sidebar.import',
@@ -236,9 +235,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $dashboardTeam = array_merge($dashboardSelf, ['dashboard.view.team']);
         $dashboardCompany = array_merge($dashboardTeam, ['dashboard.view.company']);
 
-        $employeesSidebarBasic = ['employees.sidebar.my_profile'];
+        $employeesSidebarBasic = [];
         $employeesSidebarExtended = [
-            'employees.sidebar.my_profile',
             'employees.sidebar.directory',
             'employees.sidebar.create',
             'employees.sidebar.import',
