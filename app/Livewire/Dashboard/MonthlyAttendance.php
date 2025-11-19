@@ -6,6 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
+use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\Shift;
 use App\Models\Constant;
 use Carbon\Carbon;
@@ -240,6 +241,35 @@ class MonthlyAttendance extends Component
             $groupedRecords[$date][] = $record;
         }
         
+        // Get approved leave requests for this month
+        $leaveRequests = LeaveRequestModel::where('employee_id', $employee->id)
+            ->where('status', LeaveRequestModel::STATUS_APPROVED)
+            ->where(function($query) use ($startOfMonth, $endDate) {
+                $query->whereBetween('start_date', [$startOfMonth->format('Y-m-d'), $endDate->format('Y-m-d')])
+                      ->orWhereBetween('end_date', [$startOfMonth->format('Y-m-d'), $endDate->format('Y-m-d')])
+                      ->orWhere(function($q) use ($startOfMonth, $endDate) {
+                          $q->where('start_date', '<=', $startOfMonth->format('Y-m-d'))
+                            ->where('end_date', '>=', $endDate->format('Y-m-d'));
+                      });
+            })
+            ->get();
+        
+        // Create a map of dates that have approved leave requests
+        $leaveRequestMap = [];
+        foreach ($leaveRequests as $request) {
+            $start = Carbon::parse($request->start_date);
+            $end = Carbon::parse($request->end_date);
+            $currentDate = $start->copy();
+            
+            while ($currentDate->lte($end)) {
+                $dateKey = $currentDate->format('Y-m-d');
+                if (!isset($leaveRequestMap[$dateKey])) {
+                    $leaveRequestMap[$dateKey] = $request;
+                }
+                $currentDate->addDay();
+            }
+        }
+        
         $dailyData = [];
         $current = $startOfMonth->copy();
         
@@ -300,7 +330,13 @@ class MonthlyAttendance extends Component
                 continue;
             }
             
+            // Check if this date has an approved leave request
+            if (isset($leaveRequestMap[$dateKey])) {
+                $status = 'on_leave';
+            }
+            
             // Process attendance records
+            // If on leave and no records, keep status as 'on_leave'
             if (!empty($dayRecords)) {
                 // Sort records chronologically
                 usort($dayRecords, function($a, $b) {
@@ -419,19 +455,33 @@ class MonthlyAttendance extends Component
                         }
                     }
                     
-                    // Set status based on late/early
-                    if ($isLate && $isEarly) {
-                        $status = 'present_late_early';
-                    } elseif ($isLate) {
-                        $status = 'present_late';
-                    } elseif ($isEarly) {
-                        $status = 'present_early';
+                    // Set status based on late/early (but preserve 'on_leave' if it was set)
+                    if (isset($leaveRequestMap[$dateKey])) {
+                        // If there's an approved leave request, keep status as 'on_leave'
+                        $status = 'on_leave';
+                    } else {
+                        // Only set present status if not on leave
+                        if ($isLate && $isEarly) {
+                            $status = 'present_late_early';
+                        } elseif ($isLate) {
+                            $status = 'present_late';
+                        } elseif ($isEarly) {
+                            $status = 'present_early';
+                        } else {
+                            $status = 'present';
+                        }
+                    }
+                } else {
+                    // If there's an approved leave request, keep status as 'on_leave'
+                    if (isset($leaveRequestMap[$dateKey])) {
+                        $status = 'on_leave';
                     } else {
                         $status = 'present';
                     }
-                } else {
-                    $status = 'present';
                 }
+            } elseif ($status === 'absent' && isset($leaveRequestMap[$dateKey])) {
+                // If no records but has approved leave, keep status as 'on_leave'
+                $status = 'on_leave';
             }
             
             $dailyData[] = [

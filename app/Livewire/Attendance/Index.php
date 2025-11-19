@@ -9,6 +9,7 @@ use App\Models\AttendanceBreakExclusion;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\EmployeeLeaveBalance;
+use App\Models\ExemptionDay;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\LeaveRequestEvent;
 use App\Models\LeaveSetting;
@@ -447,6 +448,42 @@ class Index extends Component
         }
     }
 
+    /**
+     * Check if a date is exempted for the current employee
+     */
+    private function isDateExempted($date)
+    {
+        if (!$this->employee) {
+            return false;
+        }
+
+        $dateCarbon = Carbon::parse($date);
+        $userId = $this->employee->user_id;
+        $departmentId = $this->employee->department_id;
+        $userRoles = Auth::user()->roles->pluck('id')->toArray();
+
+        // Check for exemption days that apply to this employee
+        $exemptions = ExemptionDay::where(function($query) use ($dateCarbon) {
+                $query->where('from_date', '<=', $dateCarbon->format('Y-m-d'))
+                      ->where('to_date', '>=', $dateCarbon->format('Y-m-d'));
+            })
+            ->where(function($query) use ($userId, $departmentId, $userRoles) {
+                $query->where('scope_type', 'all')
+                      ->orWhere(function($q) use ($userId) {
+                          $q->where('scope_type', 'user')->where('user_id', $userId);
+                      })
+                      ->orWhere(function($q) use ($departmentId) {
+                          $q->where('scope_type', 'department')->where('department_id', $departmentId);
+                      })
+                      ->orWhere(function($q) use ($userRoles) {
+                          $q->where('scope_type', 'role')->whereIn('role_id', $userRoles);
+                      });
+            })
+            ->exists();
+
+        return $exemptions;
+    }
+
     private function processAttendanceData($records)
     {
         // Determine which month to process
@@ -626,12 +663,19 @@ class Index extends Component
                 $hasValidAttendance = true;
             }
             
+            // Check if this date is exempted
+            $isExempted = $this->isDateExempted($date);
+            
             // Determine day status
             $status = 'absent'; // Default
             if ($current->isWeekend()) {
                 $status = 'off';
             } elseif ($hasValidAttendance) {
                 $status = 'present';
+            } elseif ($isExempted) {
+                // For exempted days with no attendance, don't mark as absent
+                // Status will remain as 'absent' but we'll handle it differently below
+                $status = 'exempted';
             }
             
             $processedData[$date] = [
@@ -797,7 +841,8 @@ class Index extends Component
                     $validCheckOuts = [];
                 }
                 
-                // Get first check-in and last check-out
+                // For exempted days, only use first check-in and last check-out
+                // (exclude intermediate entries)
                 usort($validCheckIns, function($a, $b) {
                     return $a->timestamp - $b->timestamp;
                 });
@@ -805,20 +850,30 @@ class Index extends Component
                     return $a->timestamp - $b->timestamp;
                 });
                 
+                // Get first check-in and last check-out
+                // For exempted days, this ensures we only use the first and last entries
                 $firstCheckIn = !empty($validCheckIns) ? $validCheckIns[0] : null;
                 $lastCheckOut = !empty($validCheckOuts) ? end($validCheckOuts) : null;
+                
+                // For exempted days, if we have records, mark as present
+                if ($isExempted && ($firstCheckIn || $lastCheckOut)) {
+                    $status = 'present';
+                }
                 
                 // Update status: only mark as present if there's a valid check-in for PM-start shifts
                 if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
                     // Only AM check-out exists (belongs to previous day), don't mark as present
-                    $firstCheckIn = null;
-                    $lastCheckOut = null;
-                    if ($current->isWeekend()) {
-                        $status = 'off';
-                    } else {
-                        $status = 'absent';
+                    // Unless it's an exempted day
+                    if (!$isExempted) {
+                        $firstCheckIn = null;
+                        $lastCheckOut = null;
+                        if ($current->isWeekend()) {
+                            $status = 'off';
+                        } else {
+                            $status = 'absent';
+                        }
+                        $processedData[$date]['status'] = $status;
                     }
-                    $processedData[$date]['status'] = $status;
                 }
                 
                 $processedData[$date]['check_in'] = $firstCheckIn ? $firstCheckIn->format('h:i:s A') : null;
@@ -933,6 +988,54 @@ class Index extends Component
                     $recordsForCalculation = $dayRecords;
                 }
                 
+                // For exempted days, only use first check-in and last check-out
+                // Exclude intermediate entries and missing pairs
+                if ($isExempted && !empty($recordsForCalculation)) {
+                    $checkIns = [];
+                    $checkOuts = [];
+                    
+                    foreach ($recordsForCalculation as $record) {
+                        $recordTime = Carbon::parse($record->punch_time ?? $record['punch_time']);
+                        if (($record->device_type ?? $record['device_type']) === 'IN') {
+                            $checkIns[] = $recordTime;
+                        } elseif (($record->device_type ?? $record['device_type']) === 'OUT') {
+                            $checkOuts[] = $recordTime;
+                        }
+                    }
+                    
+                    // Sort and get only first check-in and last check-out
+                    usort($checkIns, function($a, $b) {
+                        return $a->timestamp - $b->timestamp;
+                    });
+                    usort($checkOuts, function($a, $b) {
+                        return $a->timestamp - $b->timestamp;
+                    });
+                    
+                    // Rebuild recordsForCalculation with only first check-in and last check-out
+                    $recordsForCalculation = [];
+                    if (!empty($checkIns)) {
+                        // Find the record matching the first check-in
+                        foreach ($dayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            if ($record->device_type === 'IN' && $recordTime->equalTo($checkIns[0])) {
+                                $recordsForCalculation[] = $record;
+                                break;
+                            }
+                        }
+                    }
+                    if (!empty($checkOuts)) {
+                        // Find the record matching the last check-out
+                        $lastCheckOut = end($checkOuts);
+                        foreach ($dayRecords as $record) {
+                            $recordTime = Carbon::parse($record->punch_time);
+                            if ($record->device_type === 'OUT' && $recordTime->equalTo($lastCheckOut)) {
+                                $recordsForCalculation[] = $record;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
                 if (!empty($recordsForCalculation)) {
                     // Check if any records are manual entries
                     $hasManualEntries = false;
@@ -989,68 +1092,87 @@ class Index extends Component
                         }
                     }
                     
-                    // Now calculate total working hours by processing all records for work sessions
-                    $currentWorkStart = null;
-                    $hasMissingPair = false;
-                    
-                    foreach ($deduplicatedCollection as $record) {
-                        $recordTime = Carbon::parse($record['punch_time']);
-                        
-                        if ($record['device_type'] === 'IN') {
-                            // If we already have an IN pending, missing OUT before this
-                            if ($currentWorkStart !== null) {
-                                $hasMissingPair = true;
-                            }
-                            $currentWorkStart = $recordTime;
-                        } elseif ($record['device_type'] === 'OUT' && $currentWorkStart) {
-                            // Valid work session: check-in → check-out
-                            $workDuration = $currentWorkStart->diffInMinutes($recordTime);
-                            if ($workDuration > 0) {
-                                $dayTotalMinutes += $workDuration;
-                            }
-                            $currentWorkStart = null; // Reset for next session
-                        } elseif ($record['device_type'] === 'OUT' && $currentWorkStart === null) {
-                            // OUT without a prior IN indicates missing IN
-                            $hasMissingPair = true;
-                        }
-                    }
-                    
-                    // If we ended with an unmatched IN, missing OUT
-                    if ($currentWorkStart !== null) {
-                        $hasMissingPair = true;
-                    }
-                    
-                    // Format total hours - show N/A if missing pairs detected
-                    if ($hasMissingPair) {
-                        $calculatedMinutes = null;
-
-                        if ($this->isBreakTrackingExcluded) {
-                            $calculatedMinutes = $this->calculateMinutesFromFirstInToLastOut($deduplicatedCollection);
-                        }
-
-                        if ($calculatedMinutes !== null) {
-                            $hours = floor($calculatedMinutes / 60);
-                            $minutes = $calculatedMinutes % 60;
+                    // For exempted days, calculate hours from first check-in to last check-out
+                    // Ignore missing pairs and intermediate entries
+                    if ($isExempted && $firstCheckIn && $lastCheckOut) {
+                        $exemptedMinutes = $firstCheckIn->diffInMinutes($lastCheckOut);
+                        if ($exemptedMinutes > 0) {
+                            $hours = floor($exemptedMinutes / 60);
+                            $minutes = $exemptedMinutes % 60;
                             $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                            // For exempted days, don't count breaks (we're only using first and last)
+                            $processedData[$date]['breaks'] = '0 (0h 0m total)';
                         } else {
                             $processedData[$date]['total_hours'] = 'N/A';
                             $processedData[$date]['actual_hours'] = null;
                         }
-                    } elseif ($dayTotalMinutes > 0) {
-                        $hours = floor($dayTotalMinutes / 60);
-                        $minutes = $dayTotalMinutes % 60;
-                        $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
-                        $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                    } else {
+                        // Now calculate total working hours by processing all records for work sessions
+                        $currentWorkStart = null;
+                        $hasMissingPair = false;
+                        
+                        foreach ($deduplicatedCollection as $record) {
+                            $recordTime = Carbon::parse($record['punch_time']);
+                            
+                            if ($record['device_type'] === 'IN') {
+                                // If we already have an IN pending, missing OUT before this
+                                if ($currentWorkStart !== null) {
+                                    $hasMissingPair = true;
+                                }
+                                $currentWorkStart = $recordTime;
+                            } elseif ($record['device_type'] === 'OUT' && $currentWorkStart) {
+                                // Valid work session: check-in → check-out
+                                $workDuration = $currentWorkStart->diffInMinutes($recordTime);
+                                if ($workDuration > 0) {
+                                    $dayTotalMinutes += $workDuration;
+                                }
+                                $currentWorkStart = null; // Reset for next session
+                            } elseif ($record['device_type'] === 'OUT' && $currentWorkStart === null) {
+                                // OUT without a prior IN indicates missing IN
+                                $hasMissingPair = true;
+                            }
+                        }
+                        
+                        // If we ended with an unmatched IN, missing OUT
+                        if ($currentWorkStart !== null) {
+                            $hasMissingPair = true;
+                        }
+                        
+                        // Format total hours - show N/A if missing pairs detected
+                        if ($hasMissingPair) {
+                            $calculatedMinutes = null;
+
+                            if ($this->isBreakTrackingExcluded) {
+                                $calculatedMinutes = $this->calculateMinutesFromFirstInToLastOut($deduplicatedCollection);
+                            }
+
+                            if ($calculatedMinutes !== null) {
+                                $hours = floor($calculatedMinutes / 60);
+                                $minutes = $calculatedMinutes % 60;
+                                $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                                $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                            } else {
+                                $processedData[$date]['total_hours'] = 'N/A';
+                                $processedData[$date]['actual_hours'] = null;
+                            }
+                        } elseif ($dayTotalMinutes > 0) {
+                            $hours = floor($dayTotalMinutes / 60);
+                            $minutes = $dayTotalMinutes % 60;
+                            $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                            $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
+                        }
                     }
                     
-                    // Format breaks information
-                    $breakHours = floor($totalBreakMinutes / 60);
-                    $breakMinutes = $totalBreakMinutes % 60;
-                    $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
-                    
-                    // Store individual break details for tooltip
-                    $processedData[$date]['break_details'] = $this->getBreakDetails($deduplicatedCollection);
+                    // Format breaks information (skip for exempted days as breaks are already set to 0)
+                    if (!$isExempted) {
+                        $breakHours = floor($totalBreakMinutes / 60);
+                        $breakMinutes = $totalBreakMinutes % 60;
+                        $processedData[$date]['breaks'] = sprintf('%d (%dh %dm total)', $breaksCount, $breakHours, $breakMinutes);
+                        
+                        // Store individual break details for tooltip
+                        $processedData[$date]['break_details'] = $this->getBreakDetails($deduplicatedCollection);
+                    }
                 }
             }
             
@@ -1559,16 +1681,19 @@ class Index extends Component
 
         // Count on_leave days (exclude from absent calculation)
         $onLeaveDays = 0;
+        $exemptedDays = 0;
         if (!empty($processedData) && is_array($processedData)) {
             foreach ($processedData as $record) {
                 if (isset($record['status']) && $record['status'] === 'on_leave') {
                     $onLeaveDays++;
+                } elseif (isset($record['status']) && $record['status'] === 'exempted') {
+                    $exemptedDays++;
                 }
             }
         }
 
-        // Calculate absent days: working days - attended days - on_leave days
-        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays;
+        // Calculate absent days: working days - attended days - on_leave days - exempted days
+        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays - $exemptedDays;
         
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;

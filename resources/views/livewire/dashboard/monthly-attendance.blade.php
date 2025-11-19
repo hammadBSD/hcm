@@ -84,6 +84,9 @@
                 } else if (item.status === 'absent') {
                     // For absent, show a full-height bar (use max hours or 8 hours)
                     return Math.max(maxHours, 8); // Full height bar for absent
+                } else if (item.status === 'on_leave') {
+                    // For on leave, show a full-height bar (use max hours or 8 hours)
+                    return Math.max(maxHours, 8); // Full height bar for on leave
                 } else {
                     return item.hours || 0; // Actual hours for present/late
                 }
@@ -95,6 +98,8 @@
                     return '#6b7280'; // Gray
                 } else if (item.status === 'absent') {
                     return '#ef4444'; // Red
+                } else if (item.status === 'on_leave') {
+                    return '#3b82f6'; // Blue for on leave
                 } else if (item.status === 'present_late' || item.status === 'present_late_early' || item.status === 'present_early') {
                     return '#eab308'; // Yellow for late or early
                 } else {
@@ -146,6 +151,8 @@
                                         statusLabel = 'Off Day';
                                     } else if (dayData.status === 'absent') {
                                         statusLabel = 'Absent';
+                                    } else if (dayData.status === 'on_leave') {
+                                        statusLabel = 'On Leave';
                                     } else if (dayData.status === 'present_late' || dayData.status === 'present_late_early') {
                                         statusLabel = 'Late';
                                     }
@@ -157,11 +164,12 @@
                                         tooltip.push('Weekend/Off Day');
                                     } else if (dayData.status === 'absent') {
                                         tooltip.push('No attendance recorded');
+                                    } else if (dayData.status === 'on_leave') {
+                                        tooltip.push('On approved leave');
                                     } else {
-                                        tooltip.push(`Hours: ${value.toFixed(1)}h`);
                                         tooltip.push(`Check In: ${dayData.check_in || '--'}`);
                                         tooltip.push(`Check Out: ${dayData.check_out || '--'}`);
-                                        tooltip.push(`Total Hours: ${dayData.total_hours || 'N/A'}`);
+                                        tooltip.push(`Worked Hours: ${dayData.total_hours || 'N/A'}`);
                                         
                                         if (dayData.is_late) {
                                             tooltip.push('⚠️ Late arrival');
