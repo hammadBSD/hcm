@@ -196,6 +196,23 @@ class Index extends Component
                             : $joiningDate->copy()->addDays((int) $policy->probation_wait_days);
 
                         if ($eligibleDate->greaterThan($now)) {
+                            // Employee is still in probation - remove/clear their leave balance if it exists
+                            $existing = $employee->leaveBalances
+                                ->firstWhere('leave_type_id', $leaveType->id);
+                            
+                            if ($existing) {
+                                // Clear entitled leave for employees in probation
+                                // Balance will be negative if they have used/pending leaves (which is correct)
+                                $existing->entitled = 0;
+                                $existing->balance = round(
+                                    ($existing->entitled + $existing->carried_forward + $existing->manual_adjustment)
+                                    - ($existing->used + $existing->pending),
+                                    2
+                                );
+                                $existing->save();
+                                $updated++; // Count as updated since we're clearing it
+                            }
+                            
                             $skipped++;
                             $this->skipReasons[] = [
                                 'employee_id' => $employee->id,
@@ -334,14 +351,44 @@ class Index extends Component
         }
 
         return $query
-            ->orderByDesc('updated_at')
-            ->paginate($this->perPage);
+            ->orderBy('employee_id')
+            ->orderBy('leave_type_id')
+            ->get()
+            ->groupBy('employee_id');
+    }
+
+    public function getGroupedBalancesProperty()
+    {
+        $balances = $this->balances;
+        $perPage = $this->perPage;
+        
+        // Get all unique employee IDs
+        $employeeIds = $balances->keys()->toArray();
+        
+        // Calculate pagination
+        $total = count($employeeIds);
+        $currentPage = $this->getPage();
+        $offset = ($currentPage - 1) * $perPage;
+        $items = array_slice($employeeIds, $offset, $perPage);
+        
+        // Build paginated grouped data
+        $grouped = collect($items)->mapWithKeys(function ($employeeId) use ($balances) {
+            return [$employeeId => $balances->get($employeeId)];
+        });
+        
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $grouped,
+            $total,
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
     }
 
     public function render()
     {
         return view('livewire.system-management.leaves-management.leave-balances.index', [
-            'balances' => $this->balances,
+            'groupedBalances' => $this->groupedBalances,
         ])->layout('components.layouts.app');
     }
 }

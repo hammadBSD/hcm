@@ -104,52 +104,61 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @forelse($balances as $balance)
-                                <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                    <td class="px-6 py-6">
-                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                            {{ optional($balance->employee->user)->name ?? __('Unknown Employee') }}
-                                        </div>
-                                        <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                            {{ optional($balance->employee->user)->email ?? '—' }}
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap">
-                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                            {{ optional($balance->leaveType)->name ?? __('N/A') }}
-                                        </div>
-                                        <div class="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                                            {{ optional($balance->leaveType)->code }}
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
-                                        {{ number_format($balance->entitled, 1) }}
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-red-500 dark:text-red-400">
-                                        {{ number_format($balance->used, 1) }}
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-amber-500 dark:text-amber-300">
-                                        {{ number_format($balance->pending, 1) }}
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-blue-500 dark:text-blue-300">
-                                        {{ number_format($balance->manual_adjustment, 1) }}
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm font-semibold {{ $balance->balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-300' }}">
-                                        {{ number_format($balance->balance, 1) }}
-                                    </td>
-                                    <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex items-center justify-center">
-                                            <flux:dropdown>
-                                                <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
-                                                <flux:menu>
-                                                    <flux:menu.item icon="adjustments-horizontal" wire:click="openAdjustmentModal({{ $balance->id }})">
-                                                        {{ __('Adjust Balance') }}
-                                                    </flux:menu.item>
-                                                </flux:menu>
-                                            </flux:dropdown>
-                                        </div>
-                                    </td>
-                                </tr>
+                            @forelse($groupedBalances as $employeeId => $employeeBalances)
+                                @php
+                                    $firstBalance = $employeeBalances->first();
+                                    $employee = $firstBalance->employee;
+                                    $rowCount = $employeeBalances->count();
+                                @endphp
+                                @foreach($employeeBalances as $index => $balance)
+                                    <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
+                                        @if($index === 0)
+                                            <td class="px-6 py-6" rowspan="{{ $rowCount }}">
+                                                <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ optional($employee->user)->name ?? __('Unknown Employee') }}
+                                                </div>
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ optional($employee->user)->email ?? '—' }}
+                                                </div>
+                                            </td>
+                                        @endif
+                                        <td class="px-6 py-6 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ optional($balance->leaveType)->name ?? __('N/A') }}
+                                            </div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                                                {{ optional($balance->leaveType)->code }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
+                                            {{ number_format($balance->entitled, 1) }}
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm text-red-500 dark:text-red-400">
+                                            {{ number_format($balance->used, 1) }}
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm text-amber-500 dark:text-amber-300">
+                                            {{ number_format($balance->pending, 1) }}
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm text-blue-500 dark:text-blue-300">
+                                            {{ number_format($balance->manual_adjustment, 1) }}
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-semibold {{ $balance->balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-300' }}">
+                                            {{ number_format($balance->balance, 1) }}
+                                        </td>
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex items-center justify-center">
+                                                <flux:dropdown>
+                                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                    <flux:menu>
+                                                        <flux:menu.item icon="adjustments-horizontal" wire:click="openAdjustmentModal({{ $balance->id }})">
+                                                            {{ __('Adjust Balance') }}
+                                                        </flux:menu.item>
+                                                    </flux:menu>
+                                                </flux:dropdown>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
                             @empty
                                 <tr>
                                     <td colspan="8" class="px-6 py-12 text-center">
@@ -167,9 +176,9 @@
                     </table>
                 </div>
 
-                @if($balances->hasPages())
+                @if($groupedBalances->hasPages())
                     <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
-                        {{ $balances->links() }}
+                        {{ $groupedBalances->links() }}
                     </div>
                 @endif
             </div>

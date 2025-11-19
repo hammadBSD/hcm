@@ -110,10 +110,11 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Reports To') }}</flux:label>
-                                    <flux:select wire:model="reports_to">
+                                    <flux:select wire:model="reportsTo">
                                         <option value="">{{ __('-- Select Manager --') }}</option>
-                                        <option value="1">{{ __('John Smith') }}</option>
-                                        <option value="2">{{ __('Jane Doe') }}</option>
+                                        @foreach($reportsToOptions as $employee)
+                                            <option value="{{ $employee['id'] }}">{{ $employee['name'] }}</option>
+                                        @endforeach
                                     </flux:select>
                                 </flux:field>
                             </div>
@@ -122,7 +123,12 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Role') }}</flux:label>
-                                    <flux:input wire:model="role" placeholder="Enter role" />
+                                    <flux:select wire:model="role">
+                                        <option value="">{{ __('-- Select Role --') }}</option>
+                                        @foreach($roleOptions as $role)
+                                            <option value="{{ $role['id'] }}">{{ $role['name'] }}</option>
+                                        @endforeach
+                                    </flux:select>
                                 </flux:field>
                             </div>
 
@@ -158,12 +164,9 @@
                                     <flux:label>{{ __('Department') }}</flux:label>
                                     <flux:select wire:model="department">
                                         <option value="">{{ __('-- Select --') }}</option>
-                                        <option value="hr">{{ __('Human Resources') }}</option>
-                                        <option value="it">{{ __('Information Technology') }}</option>
-                                        <option value="finance">{{ __('Finance') }}</option>
-                                        <option value="marketing">{{ __('Marketing') }}</option>
-                                        <option value="sales">{{ __('Sales') }}</option>
-                                        <option value="operations">{{ __('Operations') }}</option>
+                                        @foreach($departmentOptions as $dept)
+                                            <option value="{{ $dept['id'] }}">{{ $dept['title'] }}</option>
+                                        @endforeach
                                     </flux:select>
                                 </flux:field>
                             </div>
@@ -174,10 +177,9 @@
                                     <flux:label>{{ __('Designation') }}</flux:label>
                                     <flux:select wire:model="designation">
                                         <option value="">{{ __('-- Select --') }}</option>
-                                        <option value="ceo">{{ __('CEO') }}</option>
-                                        <option value="manager">{{ __('Manager') }}</option>
-                                        <option value="senior">{{ __('Senior') }}</option>
-                                        <option value="junior">{{ __('Junior') }}</option>
+                                        @foreach($designationOptions as $designation)
+                                            <option value="{{ $designation['id'] }}">{{ $designation['name'] }}</option>
+                                        @endforeach
                                     </flux:select>
                                 </flux:field>
                             </div>
@@ -207,9 +209,11 @@
                                     <flux:label>{{ __('Shift') }}</flux:label>
                                     <flux:select wire:model="shift">
                                         <option value="">{{ __('-- Select Shift --') }}</option>
-                                        <option value="morning">{{ __('Morning (9 AM - 5 PM)') }}</option>
-                                        <option value="evening">{{ __('Evening (2 PM - 10 PM)') }}</option>
-                                        <option value="night">{{ __('Night (10 PM - 6 AM)') }}</option>
+                                        @foreach($shiftOptions as $shift)
+                                            <option value="{{ $shift['id'] }}">
+                                                {{ $shift['name'] }}@if($shift['time_from'] && $shift['time_to']) ({{ $shift['time_from'] }} - {{ $shift['time_to'] }})@endif
+                                            </option>
+                                        @endforeach
                                     </flux:select>
                                 </flux:field>
                             </div>

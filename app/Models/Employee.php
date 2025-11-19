@@ -42,6 +42,7 @@ class Employee extends Model
         'emergency_address',
         'allow_employee_login',
         // Foreign key relationships
+        'reports_to_id',
         'department_id',
         'designation_id',
         'group_id',

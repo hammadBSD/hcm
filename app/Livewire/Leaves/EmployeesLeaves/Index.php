@@ -70,6 +70,12 @@ class Index extends Component
         'duration' => 'full_day',
         'reason' => '',
     ];
+    public array $createRequestSummary = [
+        'entitled' => 0.0,
+        'used' => 0.0,
+        'pending' => 0.0,
+        'balance' => 0.0,
+    ];
     public $approveAttachment;
     public $rejectAttachment;
 
@@ -309,6 +315,46 @@ class Index extends Component
         $this->recalculateCreateRequestDays();
     }
 
+    public function updatedCreateRequestFormEmployeeId(): void
+    {
+        if ($this->createRequestForm['employee_id']) {
+            $this->loadCreateRequestSummary((int) $this->createRequestForm['employee_id']);
+        } else {
+            $this->createRequestSummary = [
+                'entitled' => 0.0,
+                'used' => 0.0,
+                'pending' => 0.0,
+                'balance' => 0.0,
+            ];
+        }
+    }
+
+    protected function loadCreateRequestSummary(int $employeeId): void
+    {
+        $employee = Employee::find($employeeId);
+        
+        if (!$employee) {
+            $this->createRequestSummary = [
+                'entitled' => 0.0,
+                'used' => 0.0,
+                'pending' => 0.0,
+                'balance' => 0.0,
+            ];
+            return;
+        }
+
+        $balances = EmployeeLeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->get();
+
+        $this->createRequestSummary = [
+            'entitled' => (float) $balances->sum('entitled'),
+            'used' => (float) $balances->sum('used'),
+            'pending' => (float) $balances->sum('pending'),
+            'balance' => (float) $balances->sum('balance'),
+        ];
+    }
+
     protected function recalculateCreateRequestDays(): void
     {
         $days = $this->calculateCreateRequestDays();
@@ -473,6 +519,12 @@ class Index extends Component
             'total_days' => '',
             'duration' => 'full_day',
             'reason' => '',
+        ];
+        $this->createRequestSummary = [
+            'entitled' => 0.0,
+            'used' => 0.0,
+            'pending' => 0.0,
+            'balance' => 0.0,
         ];
     }
 
