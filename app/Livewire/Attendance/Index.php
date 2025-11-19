@@ -991,6 +991,10 @@ class Index extends Component
                 // For exempted days, only use first check-in and last check-out
                 // Exclude intermediate entries and missing pairs
                 if ($isExempted && !empty($recordsForCalculation)) {
+                    // Store the original merged records before we rebuild
+                    // This includes next day's records for overnight shifts
+                    $originalRecordsForCalculation = $recordsForCalculation;
+                    
                     $checkIns = [];
                     $checkOuts = [];
                     
@@ -1012,12 +1016,14 @@ class Index extends Component
                     });
                     
                     // Rebuild recordsForCalculation with only first check-in and last check-out
+                    // Search in the original merged records (which includes next day's records for overnight shifts)
                     $recordsForCalculation = [];
                     if (!empty($checkIns)) {
                         // Find the record matching the first check-in
-                        foreach ($dayRecords as $record) {
-                            $recordTime = Carbon::parse($record->punch_time);
-                            if ($record->device_type === 'IN' && $recordTime->equalTo($checkIns[0])) {
+                        foreach ($originalRecordsForCalculation as $record) {
+                            $recordTime = Carbon::parse($record->punch_time ?? $record['punch_time']);
+                            $deviceType = is_object($record) ? $record->device_type : $record['device_type'];
+                            if ($deviceType === 'IN' && $recordTime->equalTo($checkIns[0])) {
                                 $recordsForCalculation[] = $record;
                                 break;
                             }
@@ -1025,10 +1031,11 @@ class Index extends Component
                     }
                     if (!empty($checkOuts)) {
                         // Find the record matching the last check-out
-                        $lastCheckOut = end($checkOuts);
-                        foreach ($dayRecords as $record) {
-                            $recordTime = Carbon::parse($record->punch_time);
-                            if ($record->device_type === 'OUT' && $recordTime->equalTo($lastCheckOut)) {
+                        $lastCheckOutTime = end($checkOuts);
+                        foreach ($originalRecordsForCalculation as $record) {
+                            $recordTime = Carbon::parse($record->punch_time ?? $record['punch_time']);
+                            $deviceType = is_object($record) ? $record->device_type : $record['device_type'];
+                            if ($deviceType === 'OUT' && $recordTime->equalTo($lastCheckOutTime)) {
                                 $recordsForCalculation[] = $record;
                                 break;
                             }

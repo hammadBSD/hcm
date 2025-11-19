@@ -20,6 +20,9 @@ Route::view('dashboard', 'dashboard')
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
+    // Profile Route
+    Route::get('profile', \App\Livewire\Profile::class)->name('profile');
+    
     Route::redirect('settings', 'settings/profile');
 
     Route::get('settings/profile', Profile::class)->name('settings.profile');
@@ -54,8 +57,8 @@ Route::middleware(['auth'])->group(function () {
     
     // Employee CRUD Routes
     Route::get('employees/create', \App\Livewire\Employees\Create::class)->name('employees.create');
-    Route::get('employees/{id}', \App\Livewire\Employees\Show::class)->name('employees.show');
     Route::get('employees/{id}/edit', \App\Livewire\Employees\Edit::class)->name('employees.edit');
+    Route::get('employees/{id}', \App\Livewire\Employees\Show::class)->name('employees.show');
 
     // Attendance Routes
     Route::redirect('attendance', 'attendance/index');
