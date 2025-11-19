@@ -222,8 +222,13 @@ class MonthlyAttendance extends Component
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
         $today = Carbon::now();
         
-        // For current month, only count days up to today
-        $endDate = ($targetMonth === $today->format('Y-m')) ? $today->copy() : $endOfMonth->copy();
+        // For current month, only count days up to today (end of day)
+        // For past/future months, use end of month
+        if ($targetMonth === $today->format('Y-m')) {
+            $endDate = $today->copy()->endOfDay();
+        } else {
+            $endDate = $endOfMonth->copy()->endOfDay();
+        }
         
         // Get all attendance records for this month
         $records = DeviceAttendance::where('punch_code', $employee->punch_code)
@@ -242,14 +247,18 @@ class MonthlyAttendance extends Component
         }
         
         // Get approved leave requests for this month
+        // Use start of day for date comparisons
+        $startDateForLeave = $startOfMonth->copy()->startOfDay()->format('Y-m-d');
+        $endDateForLeave = $endDate->copy()->startOfDay()->format('Y-m-d');
+        
         $leaveRequests = LeaveRequestModel::where('employee_id', $employee->id)
             ->where('status', LeaveRequestModel::STATUS_APPROVED)
-            ->where(function($query) use ($startOfMonth, $endDate) {
-                $query->whereBetween('start_date', [$startOfMonth->format('Y-m-d'), $endDate->format('Y-m-d')])
-                      ->orWhereBetween('end_date', [$startOfMonth->format('Y-m-d'), $endDate->format('Y-m-d')])
-                      ->orWhere(function($q) use ($startOfMonth, $endDate) {
-                          $q->where('start_date', '<=', $startOfMonth->format('Y-m-d'))
-                            ->where('end_date', '>=', $endDate->format('Y-m-d'));
+            ->where(function($query) use ($startDateForLeave, $endDateForLeave) {
+                $query->whereBetween('start_date', [$startDateForLeave, $endDateForLeave])
+                      ->orWhereBetween('end_date', [$startDateForLeave, $endDateForLeave])
+                      ->orWhere(function($q) use ($startDateForLeave, $endDateForLeave) {
+                          $q->where('start_date', '<=', $startDateForLeave)
+                            ->where('end_date', '>=', $endDateForLeave);
                       });
             })
             ->get();
@@ -271,9 +280,12 @@ class MonthlyAttendance extends Component
         }
         
         $dailyData = [];
-        $current = $startOfMonth->copy();
+        $current = $startOfMonth->copy()->startOfDay();
         
-        while ($current->lte($endDate)) {
+        // For date comparison, use date-only comparison
+        $endDateForLoop = $endDate->copy()->startOfDay();
+        
+        while ($current->lte($endDateForLoop)) {
             $dateKey = $current->format('Y-m-d');
             $dayNumber = $current->format('d');
             $dayRecords = $groupedRecords[$dateKey] ?? [];
@@ -402,6 +414,25 @@ class MonthlyAttendance extends Component
                     $minutes = $totalMinutes % 60;
                     $totalHours = sprintf('%d:%02d', $hours, $minutes);
                     $hoursDecimal = $hours + ($minutes / 60);
+                } elseif ($checkIn && !$checkOut) {
+                    // For current day with only check-in, calculate hours from check-in to now
+                    $isToday = $dateKey === Carbon::today()->format('Y-m-d');
+                    if ($isToday) {
+                        $now = Carbon::now();
+                        $totalMinutes = $checkIn->diffInMinutes($now);
+                        $hours = floor($totalMinutes / 60);
+                        $minutes = $totalMinutes % 60;
+                        $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                        $hoursDecimal = $hours + ($minutes / 60);
+                        // Ensure minimum bar height for visibility (at least 1 hour)
+                        if ($hoursDecimal < 1) {
+                            $hoursDecimal = 1;
+                        }
+                    } else {
+                        // For past days with only check-in, show N/A
+                        $totalHours = 'N/A';
+                        $hoursDecimal = 0;
+                    }
                 } else {
                     $totalHours = 'N/A';
                 }

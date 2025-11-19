@@ -38,20 +38,19 @@ class YourStatusCard extends Component
         // Get today's first check-in from device attendance
         $firstCheckIn = DeviceAttendance::where('punch_code', $employee->punch_code)
             ->whereDate('punch_time', $today)
-            ->where('punch_type', 'check_in') // Using actual punch_type from database
+            ->where('device_type', 'IN')
             ->orderBy('punch_time', 'asc')
             ->first();
 
         if ($firstCheckIn) {
             $this->status = 'Present';
-            $this->checkInTime = $firstCheckIn->punch_time->format('g:i A');
+            $this->checkInTime = Carbon::parse($firstCheckIn->punch_time)->format('g:i A');
             $this->isPresent = true;
         } else {
-            // Check if there's any attendance record for today (excluding empty punch_type)
+            // Check if there's any attendance record for today
             $anyAttendance = DeviceAttendance::where('punch_code', $employee->punch_code)
                 ->whereDate('punch_time', $today)
-                ->where('punch_type', '!=', '')
-                ->whereNotNull('punch_type')
+                ->whereIn('device_type', ['IN', 'OUT'])
                 ->exists();
 
             if ($anyAttendance) {
