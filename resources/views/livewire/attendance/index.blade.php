@@ -108,7 +108,16 @@
                             <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Expected Hours</flux:text>
-                                    <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours'] ?? '0:00' }}</flux:heading>
+                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0)
+                                        {{-- Show adjusted hours prominently with original strikethrough beneath when there are leaves --}}
+                                        <div class="flex flex-col">
+                                            <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours_adjusted'] ?? '0:00' }}</flux:heading>
+                                            <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 line-through"><s>{{ $attendanceStats['expected_hours'] ?? '0:00' }}</s></flux:text>
+                                        </div>
+                                    @else
+                                        {{-- Show only original when no leaves --}}
+                                        <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours'] ?? '0:00' }}</flux:heading>
+                                    @endif
                                 </div>
                                 <flux:icon name="check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
                             </div>

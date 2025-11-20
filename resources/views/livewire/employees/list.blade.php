@@ -607,6 +607,48 @@
                             <flux:textarea wire:model="shiftNotes" rows="3" placeholder="{{ __('Add any notes about this shift assignment...') }}" />
                             <flux:error name="shiftNotes" />
                         </flux:field>
+
+                        @if(!empty($shiftHistory))
+                            <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                                <flux:heading size="sm" class="mb-3 text-zinc-700 dark:text-zinc-300">{{ __('Recent Shift Assignments') }}</flux:heading>
+                                <div class="space-y-4 max-h-64 overflow-y-auto pr-1">
+                                    @foreach($shiftHistory as $index => $history)
+                                        <div class="flex gap-3">
+                                            {{-- Timeline icon --}}
+                                            <div class="flex flex-col items-center">
+                                                <div class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                                                    <flux:icon name="clock" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                </div>
+                                                @if(!$loop->last)
+                                                    <div class="w-0.5 h-full min-h-4 bg-zinc-200 dark:bg-zinc-700 mt-2"></div>
+                                                @endif
+                                            </div>
+                                            
+                                            {{-- Content --}}
+                                            <div class="flex-1 min-w-0 pb-2">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $history['shift_name'] }}</span>
+                                                    @if($history['end_date'] === 'Current')
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                                                            {{ __('(Current)') }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div class="text-xs text-zinc-600 dark:text-zinc-400 space-y-0.5">
+                                                    <div>By - {{ $history['assigned_by'] }} on {{ $history['assigned_date'] }}</div>
+                                                    <div class="text-zinc-500 dark:text-zinc-500">
+                                                        {{ __('Start') }}: {{ $history['start_date'] }}
+                                                        @if($history['end_date'] !== 'Current')
+                                                            · {{ __('End') }}: {{ $history['end_date'] }}
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700">

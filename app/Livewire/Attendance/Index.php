@@ -128,20 +128,22 @@ class Index extends Component
      * Get effective grace period for late check-in
      * Returns shift-specific if set, otherwise global, but respects disable flag
      */
-    private function getEffectiveGracePeriodLateIn()
+    private function getEffectiveGracePeriodLateIn($shift = null)
     {
-        if (!$this->employeeShift) {
+        $shift = $shift ?? $this->employeeShift;
+        
+        if (!$shift) {
             return $this->globalGracePeriodLateIn;
         }
         
         // If grace period is completely disabled for this shift, return 0
-        if ($this->employeeShift->disable_grace_period) {
+        if ($shift->disable_grace_period) {
             return 0;
         }
         
         // Return shift-specific if set, otherwise global
-        return $this->employeeShift->grace_period_late_in !== null 
-            ? $this->employeeShift->grace_period_late_in 
+        return $shift->grace_period_late_in !== null 
+            ? $shift->grace_period_late_in 
             : $this->globalGracePeriodLateIn;
     }
     
@@ -149,20 +151,22 @@ class Index extends Component
      * Get effective grace period for early check-out
      * Returns shift-specific if set, otherwise global, but respects disable flag
      */
-    private function getEffectiveGracePeriodEarlyOut()
+    private function getEffectiveGracePeriodEarlyOut($shift = null)
     {
-        if (!$this->employeeShift) {
+        $shift = $shift ?? $this->employeeShift;
+        
+        if (!$shift) {
             return $this->globalGracePeriodEarlyOut;
         }
         
         // If grace period is completely disabled for this shift, return 0
-        if ($this->employeeShift->disable_grace_period) {
+        if ($shift->disable_grace_period) {
             return 0;
         }
         
         // Return shift-specific if set, otherwise global
-        return $this->employeeShift->grace_period_early_out !== null 
-            ? $this->employeeShift->grace_period_early_out 
+        return $shift->grace_period_early_out !== null 
+            ? $shift->grace_period_early_out 
             : $this->globalGracePeriodEarlyOut;
     }
     
@@ -603,6 +607,9 @@ class Index extends Component
             $date = $current->format('Y-m-d');
             $dayRecords = $groupedRecords[$date] ?? [];
             
+            // Get the effective shift for this specific date (considers EmployeeShift assignments with start_date)
+            $dayShift = $this->employee->getEffectiveShiftForDate($date);
+            
             // Determine shift characteristics once for this day
             $isOvernight = false;
             $shiftStartsInPM = false;
@@ -610,9 +617,9 @@ class Index extends Component
             $timeTo = null;
             $expectedCheckOutTime = null;
             
-            if ($this->employeeShift) {
-                $timeFromParts = explode(':', $this->employeeShift->time_from);
-                $timeToParts = explode(':', $this->employeeShift->time_to);
+            if ($dayShift) {
+                $timeFromParts = explode(':', $dayShift->time_from);
+                $timeToParts = explode(':', $dayShift->time_to);
                 $timeFrom = Carbon::createFromTime(
                     (int)($timeFromParts[0] ?? 0),
                     (int)($timeFromParts[1] ?? 0),
@@ -638,7 +645,7 @@ class Index extends Component
             
             // Determine if there's valid attendance for this day
             $hasValidAttendance = false;
-            if ($this->employeeShift && !empty($dayRecords)) {
+            if ($dayShift && !empty($dayRecords)) {
                 // For PM-start shifts, only count PM check-ins as valid attendance
                 if ($isOvernight && $shiftStartsInPM) {
                     foreach ($dayRecords as $record) {
@@ -683,7 +690,7 @@ class Index extends Component
                 'total_hours' => null,
                 'breaks' => '0 (0h 0m total)',
                 'status' => $status,
-                'shift_name' => $this->employeeShift ? $this->employeeShift->shift_name : null,
+                'shift_name' => $dayShift ? $dayShift->shift_name : null,
                 'expected_check_in' => null,
                 'expected_check_out' => null,
                 'is_late' => false,
@@ -876,8 +883,8 @@ class Index extends Component
                 $processedData[$date]['check_out'] = $lastCheckOut ? $lastCheckOut->format('h:i:s A') : null;
                 
                 // Validate against shift and calculate late/early if shift exists
-                if ($this->employeeShift && $firstCheckIn) {
-                    $shiftValidation = $this->validateShiftAttendance($current, $firstCheckIn, $lastCheckOut);
+                if ($dayShift && $firstCheckIn) {
+                    $shiftValidation = $this->validateShiftAttendance($current, $firstCheckIn, $lastCheckOut, $dayShift);
                     $processedData[$date]['expected_check_in'] = $shiftValidation['expected_check_in'];
                     $processedData[$date]['expected_check_out'] = $shiftValidation['expected_check_out'];
                     $processedData[$date]['is_late'] = $shiftValidation['is_late'];
@@ -906,7 +913,7 @@ class Index extends Component
                 // For overnight shifts, merge next day's check-out records into current day's records for calculation
                 // Use the same filtering logic as above for consistency
                 $recordsForCalculation = [];
-                if ($this->employeeShift && $isOvernight && $shiftStartsInPM) {
+                if ($dayShift && $isOvernight && $shiftStartsInPM) {
                     // For PM-start overnight shifts, use the same filtered logic
                     // Include PM check-ins and PM check-outs from current day, plus next-day AM check-outs
                     foreach ($dayRecords as $record) {
@@ -950,7 +957,7 @@ class Index extends Component
                             }
                         }
                     }
-                } elseif ($this->employeeShift && $isOvernight && !$shiftStartsInPM) {
+                } elseif ($dayShift && $isOvernight && !$shiftStartsInPM) {
                     // For AM-start overnight shifts
                     $expectedCheckInTime = Carbon::parse($date)->setTime(
                         $timeFrom->hour,
@@ -1193,9 +1200,12 @@ class Index extends Component
      * Validate attendance against employee's shift
      * Handles regular shifts and overnight shifts (where time_from > time_to)
      */
-    private function validateShiftAttendance($date, $actualCheckIn, $actualCheckOut = null)
+    private function validateShiftAttendance($date, $actualCheckIn, $actualCheckOut = null, $shift = null)
     {
-        if (!$this->employeeShift) {
+        // Use provided shift or fall back to employeeShift
+        $shift = $shift ?? $this->employeeShift;
+        
+        if (!$shift) {
             return [
                 'expected_check_in' => null,
                 'expected_check_out' => null,
@@ -1206,8 +1216,6 @@ class Index extends Component
                 'expected_hours' => null,
             ];
         }
-
-        $shift = $this->employeeShift;
         $dateString = $date->format('Y-m-d');
         
         // Parse shift times - handle various formats
@@ -1263,7 +1271,7 @@ class Index extends Component
         
         if ($actualCheckIn) {
             // Get effective grace period (shift-specific or global, respecting disable flag)
-            $gracePeriodLateIn = $this->getEffectiveGracePeriodLateIn();
+            $gracePeriodLateIn = $this->getEffectiveGracePeriodLateIn($shift);
             $checkInDeadline = $expectedCheckIn->copy()->addMinutes($gracePeriodLateIn);
             
             if ($actualCheckIn->gt($checkInDeadline)) {
@@ -1288,7 +1296,7 @@ class Index extends Component
             }
             
             // Get effective grace period for early check-out
-            $gracePeriodEarlyOut = $this->getEffectiveGracePeriodEarlyOut();
+            $gracePeriodEarlyOut = $this->getEffectiveGracePeriodEarlyOut($shift);
             $checkOutDeadline = $expectedCheckOut->copy()->subMinutes($gracePeriodEarlyOut);
             
             if ($actualCheckOutDate->lt($checkOutDeadline)) {
@@ -1701,6 +1709,13 @@ class Index extends Component
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
 
+        // Calculate original expected hours (full month)
+        $expectedHours = $this->calculateExpectedHours($workingDays);
+        
+        // Calculate adjusted expected hours (after accounting for approved leaves)
+        $adjustedWorkingDays = $workingDays - $onLeaveDays;
+        $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays);
+
         return [
             'working_days' => $workingDays,
             'attended_days' => $attendedDays,
@@ -1708,7 +1723,8 @@ class Index extends Component
             'on_leave_days' => $onLeaveDays,
             'attendance_percentage' => $workingDaysForPercentage > 0 ? round(($attendedDays / $workingDaysForPercentage) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
-            'expected_hours' => $this->calculateExpectedHours($workingDays), // Calculate based on shift
+            'expected_hours' => $expectedHours, // Original expected hours (full month)
+            'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves)
             'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including today)
             'late_days' => $lateDays,
         ];

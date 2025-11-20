@@ -64,6 +64,7 @@ class EmployeeList extends Component
     public $shiftStartDate = '';
     public $shiftNotes = '';
     public $shifts = [];
+    public $shiftHistory = [];
 
     // Department Assignment Flyout Properties
     public $showAssignDepartmentFlyout = false;
@@ -125,7 +126,33 @@ class EmployeeList extends Component
         $this->selectedShiftId = $employee ? $employee->shift_id : null;
         $this->shiftStartDate = Carbon::now()->format('Y-m-d');
         $this->shiftNotes = '';
+        $this->loadShiftHistory($employee ? $employee->id : null);
         $this->showAssignShiftFlyout = true;
+    }
+
+    public function loadShiftHistory($employeeId)
+    {
+        if (!$employeeId) {
+            $this->shiftHistory = [];
+            return;
+        }
+
+        $this->shiftHistory = EmployeeShift::where('employee_id', $employeeId)
+            ->with(['shift:id,shift_name', 'changedBy:id,name'])
+            ->orderBy('start_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->limit(5) // Show last 5 shift assignments
+            ->get()
+            ->map(function ($employeeShift) {
+                return [
+                    'shift_name' => $employeeShift->shift->shift_name ?? 'N/A',
+                    'start_date' => Carbon::parse($employeeShift->start_date)->format('M d, Y'),
+                    'end_date' => $employeeShift->end_date ? Carbon::parse($employeeShift->end_date)->format('M d, Y') : 'Current',
+                    'assigned_date' => Carbon::parse($employeeShift->created_at)->format('M d, Y'),
+                    'assigned_by' => $employeeShift->changedBy->name ?? 'System',
+                ];
+            })
+            ->toArray();
     }
 
     public function closeAssignShiftFlyout()
@@ -135,6 +162,7 @@ class EmployeeList extends Component
         $this->selectedShiftId = null;
         $this->shiftStartDate = '';
         $this->shiftNotes = '';
+        $this->shiftHistory = [];
     }
 
     public function assignShift()

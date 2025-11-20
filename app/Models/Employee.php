@@ -192,4 +192,31 @@ class Employee extends Model
         // No shift assigned
         return null;
     }
+
+    /**
+     * Get the effective shift for a specific date
+     * This considers EmployeeShift assignments with start_date and end_date
+     */
+    public function getEffectiveShiftForDate($date)
+    {
+        $dateCarbon = \Carbon\Carbon::parse($date)->startOfDay();
+        
+        // First, check for EmployeeShift assignments that are active on this date
+        $employeeShift = \App\Models\EmployeeShift::where('employee_id', $this->id)
+            ->where('start_date', '<=', $dateCarbon->format('Y-m-d'))
+            ->where(function($query) use ($dateCarbon) {
+                $query->whereNull('end_date')
+                      ->orWhere('end_date', '>=', $dateCarbon->format('Y-m-d'));
+            })
+            ->orderBy('start_date', 'desc')
+            ->with('shift')
+            ->first();
+        
+        if ($employeeShift && $employeeShift->shift) {
+            return $employeeShift->shift;
+        }
+        
+        // Fallback to the standard getEffectiveShift() method
+        return $this->getEffectiveShift();
+    }
 }
