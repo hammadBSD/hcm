@@ -717,8 +717,16 @@ class MonthlyAttendance extends Component
                     $status = 'present';
                 }
                 
-                // Update status: only mark as present if there's a valid check-in for PM-start shifts
-                if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
+                // If there's a check-out (even without check-in), mark as present (incomplete attendance)
+                // This handles cases where employee forgot to check-in but checked out
+                if (!$isExempted && empty($validCheckIns) && !empty($validCheckOuts)) {
+                    // Don't clear check-out - we want to show it as present with incomplete attendance
+                    $status = 'present';
+                }
+                
+                // Update status: only mark as absent if there's no check-in AND no check-out for PM-start shifts
+                // But if there's a check-out, we already set status to 'present' above
+                if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && empty($validCheckOuts)) {
                     if (!$isExempted) {
                         $firstCheckIn = null;
                         $lastCheckOut = null;
@@ -996,6 +1004,73 @@ class MonthlyAttendance extends Component
                             }
                         } else {
                             // No shift info, show minimum bar height (1 hour) to indicate presence
+                            $hoursDecimal = 1;
+                            $totalHours = '1:00';
+                        }
+                    }
+                } elseif (!$checkIn && $checkOut) {
+                    // For days with only check-out (missing check-in)
+                    // Calculate hours from a reasonable start time to check-out
+                    $totalHours = 'N/A';
+                    $hoursDecimal = 0;
+                    
+                    // If we have shift information, calculate from shift start to check-out
+                    if ($employeeShift && $timeFrom) {
+                        // Determine expected check-in time
+                        if ($isOvernight && $shiftStartsInPM) {
+                            // For PM-start overnight shifts, check-in is on the same day (PM)
+                            $expectedCheckIn = Carbon::parse($date)->setTime(
+                                $timeFrom->hour,
+                                $timeFrom->minute,
+                                $timeFrom->second
+                            );
+                        } elseif ($isOvernight && !$shiftStartsInPM) {
+                            // For AM-start overnight shifts, check-in is on previous day
+                            $prevDate = Carbon::parse($date)->subDay();
+                            $expectedCheckIn = $prevDate->setTime(
+                                $timeFrom->hour,
+                                $timeFrom->minute,
+                                $timeFrom->second
+                            );
+                        } else {
+                            // For regular shifts, check-in is on same day
+                            $expectedCheckIn = Carbon::parse($date)->setTime(
+                                $timeFrom->hour,
+                                $timeFrom->minute,
+                                $timeFrom->second
+                            );
+                        }
+                        
+                        // Ensure expected check-in is before check-out
+                        if ($expectedCheckIn->lt($checkOut)) {
+                            $totalMinutes = $expectedCheckIn->diffInMinutes($checkOut);
+                            $hours = floor($totalMinutes / 60);
+                            $minutes = $totalMinutes % 60;
+                            $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                            $hoursDecimal = $hours + ($minutes / 60);
+                            // Ensure minimum bar height for visibility (at least 1 hour)
+                            if ($hoursDecimal < 1) {
+                                $hoursDecimal = 1;
+                            }
+                        } else {
+                            // If expected check-in is after check-out, show minimum 1 hour
+                            $hoursDecimal = 1;
+                            $totalHours = '1:00';
+                        }
+                    } else {
+                        // No shift info, calculate from start of day to check-out, or show minimum 1 hour
+                        $startOfDay = Carbon::parse($date)->startOfDay();
+                        if ($startOfDay->lt($checkOut)) {
+                            $totalMinutes = $startOfDay->diffInMinutes($checkOut);
+                            $hours = floor($totalMinutes / 60);
+                            $minutes = $totalMinutes % 60;
+                            $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                            $hoursDecimal = $hours + ($minutes / 60);
+                            if ($hoursDecimal < 1) {
+                                $hoursDecimal = 1;
+                            }
+                        } else {
+                            // Show minimum bar height (1 hour) to indicate presence
                             $hoursDecimal = 1;
                             $totalHours = '1:00';
                         }

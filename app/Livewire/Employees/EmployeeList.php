@@ -180,39 +180,54 @@ class EmployeeList extends Component
             return;
         }
 
-        // Get the previous shift for history tracking
+        $startDate = Carbon::parse($this->shiftStartDate)->startOfDay();
         $previousShiftId = $employee->shift_id;
+
+        // Check if there's an existing EmployeeShift that overlaps with the new start date
+        // End any existing EmployeeShift records that overlap or start on/after the new start date
+        $overlappingShifts = EmployeeShift::where('employee_id', $employee->id)
+            ->where(function($query) use ($startDate) {
+                // Records that start before or on the new start date and don't have an end date
+                $query->where(function($q) use ($startDate) {
+                    $q->where('start_date', '<=', $startDate->format('Y-m-d'))
+                      ->whereNull('end_date');
+                })
+                // Or records that start on or after the new start date
+                ->orWhere('start_date', '>=', $startDate->format('Y-m-d'));
+            })
+            ->get();
+
+        // End overlapping shifts (set end_date to one day before the new start date)
+        foreach ($overlappingShifts as $overlappingShift) {
+            $endDate = $startDate->copy()->subDay();
+            // Only set end_date if it's before the new start date
+            if ($overlappingShift->start_date->lt($startDate)) {
+                $overlappingShift->end_date = $endDate->format('Y-m-d');
+                $overlappingShift->save();
+            } else {
+                // If the shift starts on or after the new start date, delete it (it will be replaced)
+                $overlappingShift->delete();
+            }
+        }
 
         // Update the employee's current shift
         $employee->shift_id = $this->selectedShiftId;
         $employee->save();
 
-        // Create shift history record if shift changed
+        // Always create a new shift history record (even if shift is the same, start date might be different)
+        EmployeeShift::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $this->selectedShiftId,
+            'start_date' => $this->shiftStartDate,
+            'end_date' => null, // Current shift
+            'changed_by' => Auth::id(),
+            'notes' => $this->shiftNotes,
+        ]);
+
         if ($previousShiftId != $this->selectedShiftId) {
-            // End the previous shift history record if exists
-            $previousShiftHistory = EmployeeShift::where('employee_id', $employee->id)
-                ->whereNull('end_date')
-                ->latest()
-                ->first();
-
-            if ($previousShiftHistory) {
-                $previousShiftHistory->end_date = Carbon::parse($this->shiftStartDate)->subDay()->format('Y-m-d');
-                $previousShiftHistory->save();
-            }
-
-            // Create new shift history record
-            EmployeeShift::create([
-                'employee_id' => $employee->id,
-                'shift_id' => $this->selectedShiftId,
-                'start_date' => $this->shiftStartDate,
-                'end_date' => null, // Current shift
-                'changed_by' => Auth::id(),
-                'notes' => $this->shiftNotes,
-            ]);
-
             session()->flash('message', 'Shift assigned successfully!');
         } else {
-            session()->flash('message', 'Employee already has this shift assigned.');
+            session()->flash('message', 'Shift assignment updated with new start date!');
         }
 
         $this->closeAssignShiftFlyout();
