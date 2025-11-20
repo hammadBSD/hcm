@@ -100,10 +100,16 @@
                     return '#ef4444'; // Red
                 } else if (item.status === 'on_leave') {
                     return '#3b82f6'; // Blue for on leave
-                } else if (item.status === 'present_late' || item.status === 'present_late_early' || item.status === 'present_early') {
-                    return '#eab308'; // Yellow for late or early
+                } else if (item.has_incomplete_attendance) {
+                    return '#f97316'; // Orange for incomplete attendance (missing check-in or check-out)
+                } else if (item.status === 'present_late_early') {
+                    return '#dc2626'; // Dark red for late & early (both issues)
+                } else if (item.status === 'present_late') {
+                    return '#eab308'; // Yellow for late only
+                } else if (item.status === 'present_early') {
+                    return '#f59e0b'; // Amber/Orange for early only
                 } else {
-                    return '#10b981'; // Green
+                    return '#10b981'; // Green for on-time
                 }
             });
             
@@ -153,8 +159,12 @@
                                         statusLabel = 'Absent';
                                     } else if (dayData.status === 'on_leave') {
                                         statusLabel = 'On Leave';
-                                    } else if (dayData.status === 'present_late' || dayData.status === 'present_late_early') {
+                                    } else if (dayData.status === 'present_late_early') {
+                                        statusLabel = 'Late & Early';
+                                    } else if (dayData.status === 'present_late') {
                                         statusLabel = 'Late';
+                                    } else if (dayData.status === 'present_early') {
+                                        statusLabel = 'Left Early';
                                     }
                                     
                                     tooltip.push(`Status: ${statusLabel}`);
@@ -171,8 +181,13 @@
                                         tooltip.push(`Check Out: ${dayData.check_out || '--'}`);
                                         tooltip.push(`Worked Hours: ${dayData.total_hours || 'N/A'}`);
                                         
-                                        if (dayData.is_late) {
+                                        // Show warnings for late/early
+                                        if (dayData.status === 'present_late_early') {
+                                            tooltip.push('⚠️ Late arrival & Left early');
+                                        } else if (dayData.status === 'present_late') {
                                             tooltip.push('⚠️ Late arrival');
+                                        } else if (dayData.status === 'present_early') {
+                                            tooltip.push('⚠️ Left early');
                                         }
                                     }
                                     

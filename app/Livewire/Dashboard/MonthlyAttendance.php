@@ -568,6 +568,7 @@ class MonthlyAttendance extends Component
             $totalHours = null;
             $hoursDecimal = 0;
             $isLate = false;
+            $isEarly = false;
             
             // Process attendance records for this day if they exist
             if (!empty($dayRecords)) {
@@ -732,9 +733,9 @@ class MonthlyAttendance extends Component
                 $checkIn = $firstCheckIn;
                 $checkOut = $lastCheckOut;
                 
-                // If there's an approved leave request and no valid attendance, set to on_leave
-                // (Same logic as attendance module: only change to on_leave if absent or no check-in/check-out)
-                if ($hasApprovedLeave && ($status === 'absent' || (empty($checkIn) && empty($checkOut)))) {
+                // If there's an approved leave request, always set to on_leave (even if attendance records exist)
+                // This ensures leave days are clearly visible in the dashboard bar graph
+                if ($hasApprovedLeave) {
                     $status = 'on_leave';
                 }
                 
@@ -956,15 +957,55 @@ class MonthlyAttendance extends Component
                             $hoursDecimal = 1;
                         }
                     } else {
+                        // For past days with only check-in, show minimum bar height to indicate presence
+                        // Calculate hours from check-in to expected shift end (or reasonable end time)
                         $totalHours = 'N/A';
                         $hoursDecimal = 0;
+                        
+                        // If we have shift information, calculate from check-in to expected shift end
+                        if ($employeeShift && $timeTo) {
+                            // Determine expected check-out time
+                            if ($isOvernight) {
+                                // For overnight shifts, check-out is on next day
+                                $nextDate = Carbon::parse($date)->addDay();
+                                $expectedCheckOut = $nextDate->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
+                                );
+                            } else {
+                                // For regular shifts, check-out is on same day
+                                $expectedCheckOut = Carbon::parse($date)->setTime(
+                                    $timeTo->hour,
+                                    $timeTo->minute,
+                                    $timeTo->second
+                                );
+                            }
+                            
+                            // Calculate hours from check-in to expected check-out
+                            $totalMinutes = $checkIn->diffInMinutes($expectedCheckOut);
+                            if ($totalMinutes > 0) {
+                                $hours = floor($totalMinutes / 60);
+                                $minutes = $totalMinutes % 60;
+                                $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                                $hoursDecimal = $hours + ($minutes / 60);
+                            } else {
+                                // If check-in is after expected check-out, show minimum 1 hour
+                                $hoursDecimal = 1;
+                                $totalHours = '1:00';
+                            }
+                        } else {
+                            // No shift info, show minimum bar height (1 hour) to indicate presence
+                            $hoursDecimal = 1;
+                            $totalHours = '1:00';
+                        }
                     }
                 } else {
                     $totalHours = 'N/A';
                     $hoursDecimal = 0;
                 }
                 
-                // Check if late (if shift exists)
+                // Check if late or early (if shift exists)
                 if ($employeeShift && $checkIn && $timeFrom) {
                     $expectedCheckIn = Carbon::parse($date)->setTime(
                         $timeFrom->hour,
@@ -979,19 +1020,59 @@ class MonthlyAttendance extends Component
                         $isLate = true;
                     }
                     
-                    // Update status to include late information
+                    // Check if early (if check-out exists)
+                    if ($checkOut && $timeTo) {
+                        // Determine expected check-out time
+                        if ($isOvernight) {
+                            // For overnight shifts, check-out is on next day
+                            $expectedCheckOut = Carbon::parse($date)->addDay()->setTime(
+                                $timeTo->hour,
+                                $timeTo->minute,
+                                $timeTo->second
+                            );
+                        } else {
+                            // For regular shifts, check-out is on same day
+                            $expectedCheckOut = Carbon::parse($date)->setTime(
+                                $timeTo->hour,
+                                $timeTo->minute,
+                                $timeTo->second
+                            );
+                        }
+                        
+                        $gracePeriodEarly = $this->getEffectiveGracePeriodEarlyOut($employeeShift);
+                        $gracePeriodEarlyTime = $expectedCheckOut->copy()->subMinutes($gracePeriodEarly);
+                        
+                        if ($checkOut->lt($gracePeriodEarlyTime)) {
+                            $isEarly = true;
+                        }
+                    }
+                    
+                    // Update status to include late/early information (but don't override on_leave)
                     if ($status === 'present' && !$hasApprovedLeave) {
-                        if ($isLate) {
+                        if ($isLate && $isEarly) {
+                            $status = 'present_late_early';
+                        } elseif ($isLate) {
                             $status = 'present_late';
+                        } elseif ($isEarly) {
+                            $status = 'present_early';
                         }
                     }
                 }
             }
             
-            // Final check: if there's an approved leave request and status is absent (no attendance records), set to on_leave
-            // This matches the attendance module's logic
-            if ($hasApprovedLeave && $status === 'absent') {
+            // Final check: if there's an approved leave request, always set to on_leave
+            // This ensures leave days are clearly visible in the dashboard bar graph, even if attendance records exist
+            if ($hasApprovedLeave) {
                 $status = 'on_leave';
+            }
+            
+            // Check if attendance is incomplete (missing check-in or check-out)
+            $hasIncompleteAttendance = false;
+            if ($status === 'present' || $status === 'present_late' || $status === 'present_early' || $status === 'present_late_early') {
+                // Only mark as incomplete if we have attendance status but missing check-in or check-out
+                if (empty($checkIn) || empty($checkOut)) {
+                    $hasIncompleteAttendance = true;
+                }
             }
             
             $dailyData[] = [
@@ -1003,6 +1084,8 @@ class MonthlyAttendance extends Component
                 'check_out' => $checkOut ? $checkOut->format('h:i A') : null,
                 'total_hours' => $totalHours,
                 'is_late' => $isLate,
+                'is_early' => isset($isEarly) ? $isEarly : false,
+                'has_incomplete_attendance' => $hasIncompleteAttendance,
             ];
             
             $current->addDay();
