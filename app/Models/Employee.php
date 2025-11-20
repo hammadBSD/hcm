@@ -196,6 +196,7 @@ class Employee extends Model
     /**
      * Get the effective shift for a specific date
      * This considers EmployeeShift assignments with start_date and end_date
+     * Falls back to department shift if no EmployeeShift assignment found
      */
     public function getEffectiveShiftForDate($date)
     {
@@ -216,7 +217,23 @@ class Employee extends Model
             return $employeeShift->shift;
         }
         
-        // Fallback to the standard getEffectiveShift() method
-        return $this->getEffectiveShift();
+        // If no EmployeeShift assignment found, fallback to department shift
+        // (This handles dates before the first EmployeeShift assignment)
+        if ($this->department_id) {
+            // Always use the relationship method to avoid conflict with old varchar column
+            $department = $this->department()->with('shift')->first();
+            
+            // Verify it's an object and has shift_id
+            if ($department && is_object($department) && $department->shift_id) {
+                // Ensure shift is loaded
+                if (!$department->relationLoaded('shift')) {
+                    $department->load('shift');
+                }
+                return $department->shift;
+            }
+        }
+        
+        // No shift assigned (neither EmployeeShift nor department shift)
+        return null;
     }
 }
