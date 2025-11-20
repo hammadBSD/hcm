@@ -23,6 +23,9 @@
             <!-- Attendance Status Card -->
             <livewire:dashboard.your-status-card />
 
+            <!-- Suggestions/Complaints Card -->
+            <livewire:dashboard.suggestions-complaints />
+
             <!-- Total Present Today -->
             <!-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between">
@@ -65,6 +68,7 @@
                 </div>
             </div> -->
         </div>
+
 
         <!-- Monthly Attendance Chart -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
