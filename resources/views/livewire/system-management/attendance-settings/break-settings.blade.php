@@ -35,6 +35,18 @@
                         label="{{ __('Break Notifications') }}"
                         description="{{ __('Send notifications when employees take breaks or exceed break limits') }}"
                     />
+                    <flux:separator variant="subtle" />
+                    
+                    <flux:field>
+                        <flux:label>{{ __('Allowed Break Time (minutes)') }}</flux:label>
+                        <flux:input 
+                            type="number" 
+                            min="0" 
+                            wire:model="settings.allowed_break_time" 
+                            placeholder="e.g. 60" 
+                        />
+                        <flux:description>{{ __('Allowed break time for employees (this time will not be deducted from working hours)') }}</flux:description>
+                    </flux:field>
                 </div>
             </div>
 
@@ -121,11 +133,11 @@
                                 @if(!empty($existingUserExclusions))
                                     <ul class="mt-2 space-y-2">
                                         @foreach($existingUserExclusions as $exclusion)
-                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
                                                 <span>
                                                     {{ $exclusion['name'] }}
                                                     @if($exclusion['email'])
-                                                        <span class="text-xs text-zinc-400">({{ $exclusion['email'] }})</span>
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ $exclusion['email'] }})</span>
                                                     @endif
                                                 </span>
                                             </li>
@@ -144,7 +156,7 @@
                                 @if(!empty($existingRoleExclusions))
                                     <ul class="mt-2 space-y-2">
                                         @foreach($existingRoleExclusions as $exclusion)
-                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
                                                 <span>{{ $exclusion['name'] }}</span>
                                             </li>
                                         @endforeach

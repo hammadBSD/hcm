@@ -125,6 +125,16 @@ class Index extends Component
     }
     
     /**
+     * Get allowed break time from settings
+     * Returns the allowed break time in minutes (null if not set)
+     */
+    private function getAllowedBreakTime()
+    {
+        $breakSettings = AttendanceBreakSetting::current();
+        return $breakSettings->allowed_break_time ?? null;
+    }
+    
+    /**
      * Get effective grace period for late check-in
      * Returns shift-specific if set, otherwise global, but respects disable flag
      */
@@ -1158,8 +1168,17 @@ class Index extends Component
                             }
 
                             if ($calculatedMinutes !== null) {
-                                $hours = floor($calculatedMinutes / 60);
-                                $minutes = $calculatedMinutes % 60;
+                                // Get allowed break time from settings
+                                $allowedBreakTime = $this->getAllowedBreakTime() ?? 0;
+                                
+                                // calculatedMinutes is from first check-in to last check-out (includes all breaks)
+                                // We need to add back the allowed break time, then only deduct the excess
+                                // Formula: calculatedMinutes + totalBreakMinutes - (totalBreakMinutes - allowedBreakTime)
+                                // Simplified: calculatedMinutes + allowedBreakTime
+                                $adjustedMinutes = $calculatedMinutes + $allowedBreakTime;
+                                
+                                $hours = floor($adjustedMinutes / 60);
+                                $minutes = $adjustedMinutes % 60;
                                 $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                                 $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             } else {
@@ -1167,8 +1186,18 @@ class Index extends Component
                                 $processedData[$date]['actual_hours'] = null;
                             }
                         } elseif ($dayTotalMinutes > 0) {
-                            $hours = floor($dayTotalMinutes / 60);
-                            $minutes = $dayTotalMinutes % 60;
+                            // Get allowed break time from settings
+                            $allowedBreakTime = $this->getAllowedBreakTime() ?? 0;
+                            
+                            // dayTotalMinutes is the sum of work sessions (already excludes ALL break time)
+                            // To get total time from first check-in to last check-out, we add back all break time
+                            // Then we only deduct the excess break time (beyond allowed)
+                            // Formula: dayTotalMinutes + totalBreakMinutes - (totalBreakMinutes - allowedBreakTime)
+                            // Simplified: dayTotalMinutes + allowedBreakTime
+                            $adjustedTotalMinutes = $dayTotalMinutes + $allowedBreakTime;
+                            
+                            $hours = floor($adjustedTotalMinutes / 60);
+                            $minutes = $adjustedTotalMinutes % 60;
                             $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                         }
