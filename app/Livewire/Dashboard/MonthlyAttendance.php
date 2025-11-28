@@ -690,7 +690,7 @@ class MonthlyAttendance extends Component
                     foreach ($dayRecords as $record) {
                         if ($record->device_type === 'IN') {
                             $validCheckIns[] = Carbon::parse($record->punch_time);
-                        } elseif ($record->device_type === 'OUT') {
+                    } elseif ($record->device_type === 'OUT') {
                             $validCheckOuts[] = Carbon::parse($record->punch_time);
                         }
                     }
@@ -764,8 +764,8 @@ class MonthlyAttendance extends Component
                             }
                         }
                         
-                        $nextDate = $current->copy()->addDay()->format('Y-m-d');
-                        $nextDayRecords = $groupedRecords[$nextDate] ?? [];
+                    $nextDate = $current->copy()->addDay()->format('Y-m-d');
+                    $nextDayRecords = $groupedRecords[$nextDate] ?? [];
                         
                         foreach ($nextDayRecords as $record) {
                             $recordTime = Carbon::parse($record->punch_time);
@@ -805,9 +805,9 @@ class MonthlyAttendance extends Component
                         $nextDate = $current->copy()->addDay()->format('Y-m-d');
                         $nextDayRecords = $groupedRecords[$nextDate] ?? [];
                         
-                        foreach ($nextDayRecords as $record) {
-                            if ($record->device_type === 'OUT') {
-                                $checkOutTime = Carbon::parse($record->punch_time);
+                    foreach ($nextDayRecords as $record) {
+                        if ($record->device_type === 'OUT') {
+                            $checkOutTime = Carbon::parse($record->punch_time);
                                 if ($checkOutTime->lte($expectedCheckOutTime)) {
                                     $recordsForCalculation[] = $record;
                                 }
@@ -832,15 +832,15 @@ class MonthlyAttendance extends Component
                                 $checkIns[] = $recordTime;
                             } elseif ($deviceType === 'OUT') {
                                 $checkOuts[] = $recordTime;
-                            }
+                }
                         }
                         
                         usort($checkIns, function($a, $b) {
                             return $a->timestamp - $b->timestamp;
                         });
-                        usort($checkOuts, function($a, $b) {
+                    usort($checkOuts, function($a, $b) {
                             return $a->timestamp - $b->timestamp;
-                        });
+                    });
                         
                         $recordsForCalculation = [];
                         if (!empty($checkIns)) {
@@ -850,7 +850,7 @@ class MonthlyAttendance extends Component
                                 if ($deviceType === 'IN' && $recordTime->equalTo($checkIns[0])) {
                                     $recordsForCalculation[] = $record;
                                     break;
-                                }
+                }
                             }
                         }
                         if (!empty($checkOuts)) {
@@ -887,8 +887,8 @@ class MonthlyAttendance extends Component
                             if ($exemptedMinutes > 0) {
                                 $hours = floor($exemptedMinutes / 60);
                                 $minutes = $exemptedMinutes % 60;
-                                $totalHours = sprintf('%d:%02d', $hours, $minutes);
-                                $hoursDecimal = $hours + ($minutes / 60);
+                    $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                    $hoursDecimal = $hours + ($minutes / 60);
                             } else {
                                 $totalHours = 'N/A';
                                 $hoursDecimal = 0;
@@ -997,7 +997,7 @@ class MonthlyAttendance extends Component
                                 $minutes = $totalMinutes % 60;
                                 $totalHours = sprintf('%d:%02d', $hours, $minutes);
                                 $hoursDecimal = $hours + ($minutes / 60);
-                            } else {
+                } else {
                                 // If check-in is after expected check-out, show minimum 1 hour
                                 $hoursDecimal = 1;
                                 $totalHours = '1:00';
@@ -1131,8 +1131,8 @@ class MonthlyAttendance extends Component
                         } elseif ($isEarly) {
                             $status = 'present_early';
                         }
+                        }
                     }
-                }
             }
             
             // Final check: if there's an approved leave request, always set to on_leave

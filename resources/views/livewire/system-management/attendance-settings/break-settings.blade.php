@@ -133,11 +133,11 @@
                                 @if(!empty($existingUserExclusions))
                                     <ul class="mt-2 space-y-2">
                                         @foreach($existingUserExclusions as $exclusion)
-                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
                                                 <span>
                                                     {{ $exclusion['name'] }}
                                                     @if($exclusion['email'])
-                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ $exclusion['email'] }})</span>
+                                                        <span class="text-xs text-zinc-400">({{ $exclusion['email'] }})</span>
                                                     @endif
                                                 </span>
                                             </li>
@@ -156,7 +156,7 @@
                                 @if(!empty($existingRoleExclusions))
                                     <ul class="mt-2 space-y-2">
                                         @foreach($existingRoleExclusions as $exclusion)
-                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
+                                            <li class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded px-3 py-2">
                                                 <span>{{ $exclusion['name'] }}</span>
                                             </li>
                                         @endforeach

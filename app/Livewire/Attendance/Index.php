@@ -125,16 +125,6 @@ class Index extends Component
     }
     
     /**
-     * Get allowed break time from settings
-     * Returns the allowed break time in minutes (null if not set)
-     */
-    private function getAllowedBreakTime()
-    {
-        $breakSettings = AttendanceBreakSetting::current();
-        return $breakSettings->allowed_break_time ?? null;
-    }
-    
-    /**
      * Get effective grace period for late check-in
      * Returns shift-specific if set, otherwise global, but respects disable flag
      */
@@ -1168,18 +1158,8 @@ class Index extends Component
                             }
 
                             if ($calculatedMinutes !== null) {
-                                // Get allowed break time from settings
-                                $allowedBreakTime = $this->getAllowedBreakTime() ?? 0;
-                                
-                                // calculatedMinutes is from first check-in to last check-out (includes all breaks)
-                                // We need to adjust: add back allowed break time, then deduct excess
-                                // Formula: calculatedMinutes - totalBreakMinutes + min(totalBreakMinutes, allowedBreakTime)
-                                // Simplified: calculatedMinutes - max(0, totalBreakMinutes - allowedBreakTime)
-                                $breakTimeToDeduct = max(0, $totalBreakMinutes - $allowedBreakTime);
-                                $adjustedMinutes = $calculatedMinutes - $breakTimeToDeduct;
-                                
-                                $hours = floor($adjustedMinutes / 60);
-                                $minutes = $adjustedMinutes % 60;
+                                $hours = floor($calculatedMinutes / 60);
+                                $minutes = $calculatedMinutes % 60;
                                 $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                                 $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             } else {
@@ -1187,27 +1167,8 @@ class Index extends Component
                                 $processedData[$date]['actual_hours'] = null;
                             }
                         } elseif ($dayTotalMinutes > 0) {
-                            // Get allowed break time from settings
-                            $allowedBreakTime = $this->getAllowedBreakTime() ?? 0;
-                            
-                            // dayTotalMinutes is the sum of work sessions (already excludes ALL break time)
-                            // Logic based on user requirements:
-                            // - If break time <= allowed: Add back all break time (it's all allowed)
-                            // - If break time > allowed: Deduct only the excess (break - allowed)
-                            // Examples:
-                            //   Break: 13, Allowed: 60 → 8:48 + 13 = 9:01
-                            //   Break: 75, Allowed: 60 → 8:48 - 15 = 8:33
-                            if ($totalBreakMinutes <= $allowedBreakTime) {
-                                // All break time is allowed, add it all back
-                                $adjustedTotalMinutes = $dayTotalMinutes + $totalBreakMinutes;
-                            } else {
-                                // Only deduct the excess break time
-                                $breakTimeExcess = $totalBreakMinutes - $allowedBreakTime;
-                                $adjustedTotalMinutes = $dayTotalMinutes - $breakTimeExcess;
-                            }
-                            
-                            $hours = floor($adjustedTotalMinutes / 60);
-                            $minutes = $adjustedTotalMinutes % 60;
+                            $hours = floor($dayTotalMinutes / 60);
+                            $minutes = $dayTotalMinutes % 60;
                             $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                         }

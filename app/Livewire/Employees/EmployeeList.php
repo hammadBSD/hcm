@@ -215,14 +215,14 @@ class EmployeeList extends Component
         $employee->save();
 
         // Always create a new shift history record (even if shift is the same, start date might be different)
-        EmployeeShift::create([
-            'employee_id' => $employee->id,
-            'shift_id' => $this->selectedShiftId,
-            'start_date' => $this->shiftStartDate,
-            'end_date' => null, // Current shift
-            'changed_by' => Auth::id(),
-            'notes' => $this->shiftNotes,
-        ]);
+            EmployeeShift::create([
+                'employee_id' => $employee->id,
+                'shift_id' => $this->selectedShiftId,
+                'start_date' => $this->shiftStartDate,
+                'end_date' => null, // Current shift
+                'changed_by' => Auth::id(),
+                'notes' => $this->shiftNotes,
+            ]);
 
         if ($previousShiftId != $this->selectedShiftId) {
             session()->flash('message', 'Shift assigned successfully!');
