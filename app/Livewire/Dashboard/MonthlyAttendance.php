@@ -10,6 +10,8 @@ use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\Shift;
 use App\Models\Constant;
 use App\Models\ExemptionDay;
+use App\Models\Holiday;
+use App\Models\AttendanceBreakSetting;
 use Carbon\Carbon;
 use App\Models\User;
 
@@ -27,6 +29,9 @@ class MonthlyAttendance extends Component
     // Global grace period settings
     public $globalGracePeriodLateIn = 30;
     public $globalGracePeriodEarlyOut = 30;
+    
+    // Allowed break time
+    public $allowedBreakTime = null; // Allowed break time in minutes
 
     public function mount()
     {
@@ -46,6 +51,7 @@ class MonthlyAttendance extends Component
         }
 
         $this->loadGlobalGracePeriods();
+        $this->loadAllowedBreakTime();
         $this->loadAvailableMonths();
         $this->calculateDailyAttendance();
     }
@@ -97,6 +103,92 @@ class MonthlyAttendance extends Component
         return $shift->grace_period_early_out !== null 
             ? $shift->grace_period_early_out 
             : $this->globalGracePeriodEarlyOut;
+    }
+    
+    private function loadAllowedBreakTime()
+    {
+        $breakSettings = AttendanceBreakSetting::current();
+        if ($breakSettings) {
+            $this->allowedBreakTime = $breakSettings->allowed_break_time;
+        }
+    }
+    
+    private function loadHolidaysForMonth($startOfMonth, $endOfMonth, $employee)
+    {
+        if (!$employee) {
+            return [];
+        }
+
+        $holidaysMap = [];
+        $employeeId = $employee->id;
+        $departmentId = $employee->department_id;
+        $user = $employee->user;
+        $userRoles = $user ? $user->roles->pluck('id')->toArray() : [];
+
+        // Load active holidays that fall within the month range
+        $holidays = Holiday::where('status', 'active')
+            ->where(function($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('from_date', [$startOfMonth->format('Y-m-d'), $endOfMonth->format('Y-m-d')])
+                      ->orWhereBetween('to_date', [$startOfMonth->format('Y-m-d'), $endOfMonth->format('Y-m-d')])
+                      ->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
+                          $q->where('from_date', '<=', $startOfMonth->format('Y-m-d'))
+                            ->where('to_date', '>=', $endOfMonth->format('Y-m-d'));
+                      });
+            })
+            ->with(['departments', 'roles', 'employees'])
+            ->get();
+
+        foreach ($holidays as $holiday) {
+            // Check if this holiday applies to the employee
+            $appliesToEmployee = false;
+
+            if ($holiday->scope_type === 'all_employees') {
+                $appliesToEmployee = true;
+            } elseif ($holiday->scope_type === 'department') {
+                // Check if employee's department is in the holiday's departments
+                if ($departmentId && $holiday->departments->contains('id', $departmentId)) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'role') {
+                // Check if employee's role is in the holiday's roles
+                if (!empty(array_intersect($userRoles, $holiday->roles->pluck('id')->toArray()))) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'employee') {
+                // Check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            }
+
+            if ($appliesToEmployee) {
+                // Generate all dates for this holiday
+                $currentDate = Carbon::parse($holiday->from_date);
+                $endDate = Carbon::parse($holiday->to_date ?: $holiday->from_date);
+
+                while ($currentDate->lte($endDate)) {
+                    $dateKey = $currentDate->format('Y-m-d');
+                    // Only add if within the month range
+                    if ($currentDate->gte($startOfMonth) && $currentDate->lte($endOfMonth)) {
+                        $holidaysMap[$dateKey] = [
+                            'name' => $holiday->name,
+                            'id' => $holiday->id,
+                        ];
+                    }
+                    $currentDate->addDay();
+                }
+            }
+        }
+
+        return $holidaysMap;
     }
 
     public function loadAvailableUsers()
@@ -330,13 +422,13 @@ class MonthlyAttendance extends Component
             return;
         }
         
-        // Get effective shift (employee shift or department shift fallback)
-        $employeeShift = $employee->getEffectiveShift();
-        
         // Determine which month to load
         $targetMonth = $this->selectedMonth ?: Carbon::now()->format('Y-m');
         $startOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
+        
+        // Load holidays for this month
+        $holidaysMap = $this->loadHolidaysForMonth($startOfMonth, $endOfMonth, $employee);
         $today = Carbon::now();
         
         // For current month, only count days up to today (end of day)
@@ -359,15 +451,17 @@ class MonthlyAttendance extends Component
         // Group records by date with grace period logic (same as attendance module)
         $groupedRecords = [];
         
-        // First, determine shift characteristics if available
+        // First, determine shift characteristics if available (using default shift for grouping)
+        // Note: We'll use date-specific shifts in the daily loop
+        $defaultShift = $employee->getEffectiveShift();
         $isOvernight = false;
         $timeFrom = null;
         $timeTo = null;
         $gracePeriodHours = 5; // 5 hours grace period
         
-        if ($employeeShift) {
-            $timeFromParts = explode(':', $employeeShift->time_from);
-            $timeToParts = explode(':', $employeeShift->time_to);
+        if ($defaultShift) {
+            $timeFromParts = explode(':', $defaultShift->time_from);
+            $timeToParts = explode(':', $defaultShift->time_to);
             $timeFrom = Carbon::createFromTime(
                 (int)($timeFromParts[0] ?? 0),
                 (int)($timeFromParts[1] ?? 0),
@@ -387,7 +481,7 @@ class MonthlyAttendance extends Component
             $punchDate = $punchTime->format('Y-m-d');
             
             // For non-overnight shifts, apply grace period logic
-            if (!$isOvernight && $employeeShift && $timeFrom && $timeTo) {
+            if (!$isOvernight && $defaultShift && $timeFrom && $timeTo) {
                 // Check if this is a check-out on the next calendar day (after midnight)
                 if ($record->device_type === 'OUT') {
                     if ($punchTime->hour < 12) {
@@ -490,6 +584,9 @@ class MonthlyAttendance extends Component
             $dayNumber = $current->format('d');
             $dayRecords = $groupedRecords[$date] ?? [];
             
+            // Get the effective shift for this specific date (considers EmployeeShift assignments with start_date)
+            $dayShift = $employee->getEffectiveShiftForDate($date);
+            
             // Determine shift characteristics once for this day
             $isOvernight = false;
             $shiftStartsInPM = false;
@@ -497,9 +594,9 @@ class MonthlyAttendance extends Component
             $timeTo = null;
             $expectedCheckOutTime = null;
             
-            if ($employeeShift) {
-                $timeFromParts = explode(':', $employeeShift->time_from);
-                $timeToParts = explode(':', $employeeShift->time_to);
+            if ($dayShift) {
+                $timeFromParts = explode(':', $dayShift->time_from);
+                $timeToParts = explode(':', $dayShift->time_to);
                 $timeFrom = Carbon::createFromTime(
                     (int)($timeFromParts[0] ?? 0),
                     (int)($timeFromParts[1] ?? 0),
@@ -523,9 +620,32 @@ class MonthlyAttendance extends Component
                 }
             }
             
+            // Check if this date is a holiday
+            $holiday = $holidaysMap[$date] ?? null;
+            $isHoliday = $holiday !== null;
+            
+            // Skip processing attendance records if it's a holiday
+            if ($isHoliday) {
+                $dailyData[] = [
+                    'date' => $date,
+                    'label' => $dayNumber . '-' . $current->format('M'),
+                    'hours' => 0,
+                    'status' => 'holiday',
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'is_late' => false,
+                    'is_early' => false,
+                    'has_incomplete_attendance' => false,
+                    'holiday_name' => $holiday['name'] ?? null,
+                ];
+                $current->addDay();
+                continue;
+            }
+            
             // Determine if there's valid attendance for this day
             $hasValidAttendance = false;
-            if ($employeeShift && !empty($dayRecords)) {
+            if ($dayShift && !empty($dayRecords)) {
                 // For PM-start shifts, only count PM check-ins as valid attendance
                 if ($isOvernight && $shiftStartsInPM) {
                     foreach ($dayRecords as $record) {
@@ -896,7 +1016,9 @@ class MonthlyAttendance extends Component
                         } else {
                             // Calculate total working hours by processing all records for work sessions
                             $dayTotalMinutes = 0;
+                            $totalBreakMinutes = 0;
                             $currentWorkStart = null;
+                            $lastCheckOut = null;
                             $hasMissingPair = false;
                             
                             foreach ($deduplicatedCollection as $record) {
@@ -906,6 +1028,14 @@ class MonthlyAttendance extends Component
                                     if ($currentWorkStart !== null) {
                                         $hasMissingPair = true;
                                     }
+                                    // If there was a previous check-out, this is a break
+                                    if ($lastCheckOut !== null) {
+                                        $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
+                                        if ($breakDuration > 0) {
+                                            $totalBreakMinutes += $breakDuration;
+                                        }
+                                        $lastCheckOut = null;
+                                    }
                                     $currentWorkStart = $recordTime;
                                 } elseif ($record['device_type'] === 'OUT' && $currentWorkStart) {
                                     $workDuration = $currentWorkStart->diffInMinutes($recordTime);
@@ -913,8 +1043,10 @@ class MonthlyAttendance extends Component
                                         $dayTotalMinutes += $workDuration;
                                     }
                                     $currentWorkStart = null;
+                                    $lastCheckOut = $recordTime;
                                 } elseif ($record['device_type'] === 'OUT' && $currentWorkStart === null) {
                                     $hasMissingPair = true;
+                                    $lastCheckOut = $recordTime;
                                 }
                             }
                             
@@ -929,8 +1061,26 @@ class MonthlyAttendance extends Component
                                 $calculatedMinutes = $this->calculateMinutesFromFirstInToLastOut($deduplicatedCollection->toArray());
                                 
                                 if ($calculatedMinutes !== null) {
-                                    $hours = floor($calculatedMinutes / 60);
-                                    $minutes = $calculatedMinutes % 60;
+                                    // Calculate breaks from first IN to last OUT
+                                    $firstIn = collect($deduplicatedCollection)->first(function($r) { return $r['device_type'] === 'IN'; });
+                                    $lastOut = collect($deduplicatedCollection)->reverse()->first(function($r) { return $r['device_type'] === 'OUT'; });
+                                    
+                                    if ($firstIn && $lastOut) {
+                                        $firstInTime = Carbon::parse($firstIn['punch_time']);
+                                        $lastOutTime = Carbon::parse($lastOut['punch_time']);
+                                        $totalTimeMinutes = $firstInTime->diffInMinutes($lastOutTime);
+                                        $totalBreakMinutes = $totalTimeMinutes - $dayTotalMinutes;
+                                    }
+                                    
+                                    // Apply allowed break time logic
+                                    $workingMinutes = $calculatedMinutes;
+                                    if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0) {
+                                        $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                                        $workingMinutes = $calculatedMinutes - $excessBreakMinutes;
+                                    }
+                                    
+                                    $hours = floor($workingMinutes / 60);
+                                    $minutes = $workingMinutes % 60;
                                     $totalHours = sprintf('%d:%02d', $hours, $minutes);
                                     $hoursDecimal = $hours + ($minutes / 60);
                                 } else {
@@ -938,10 +1088,19 @@ class MonthlyAttendance extends Component
                                     $hoursDecimal = 0;
                                 }
                             } elseif ($dayTotalMinutes > 0) {
-                                $hours = floor($dayTotalMinutes / 60);
-                                $minutes = $dayTotalMinutes % 60;
-                    $totalHours = sprintf('%d:%02d', $hours, $minutes);
-                    $hoursDecimal = $hours + ($minutes / 60);
+                                // Apply allowed break time logic
+                                $workingMinutes = $dayTotalMinutes;
+                                if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0) {
+                                    $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                                    // Total time = working time + break time
+                                    $totalTimeMinutes = $dayTotalMinutes + $totalBreakMinutes;
+                                    $workingMinutes = $totalTimeMinutes - $excessBreakMinutes;
+                                }
+                                
+                                $hours = floor($workingMinutes / 60);
+                                $minutes = $workingMinutes % 60;
+                                $totalHours = sprintf('%d:%02d', $hours, $minutes);
+                                $hoursDecimal = $hours + ($minutes / 60);
                             } else {
                                 $totalHours = 'N/A';
                                 $hoursDecimal = 0;
@@ -971,7 +1130,7 @@ class MonthlyAttendance extends Component
                         $hoursDecimal = 0;
                         
                         // If we have shift information, calculate from check-in to expected shift end
-                        if ($employeeShift && $timeTo) {
+                        if ($dayShift && $timeTo) {
                             // Determine expected check-out time
                             if ($isOvernight) {
                                 // For overnight shifts, check-out is on next day
@@ -1015,7 +1174,7 @@ class MonthlyAttendance extends Component
                     $hoursDecimal = 0;
                     
                     // If we have shift information, calculate from shift start to check-out
-                    if ($employeeShift && $timeFrom) {
+                    if ($dayShift && $timeFrom) {
                         // Determine expected check-in time
                         if ($isOvernight && $shiftStartsInPM) {
                             // For PM-start overnight shifts, check-in is on the same day (PM)
@@ -1081,14 +1240,14 @@ class MonthlyAttendance extends Component
                 }
                 
                 // Check if late or early (if shift exists)
-                if ($employeeShift && $checkIn && $timeFrom) {
+                if ($dayShift && $checkIn && $timeFrom) {
                     $expectedCheckIn = Carbon::parse($date)->setTime(
                         $timeFrom->hour,
                         $timeFrom->minute,
                         $timeFrom->second
                     );
                     
-                    $gracePeriod = $this->getEffectiveGracePeriodLateIn($employeeShift);
+                    $gracePeriod = $this->getEffectiveGracePeriodLateIn($dayShift);
                     $gracePeriodTime = $expectedCheckIn->copy()->addMinutes($gracePeriod);
                     
                     if ($checkIn->gt($gracePeriodTime)) {
@@ -1114,7 +1273,7 @@ class MonthlyAttendance extends Component
                             );
                         }
                         
-                        $gracePeriodEarly = $this->getEffectiveGracePeriodEarlyOut($employeeShift);
+                        $gracePeriodEarly = $this->getEffectiveGracePeriodEarlyOut($dayShift);
                         $gracePeriodEarlyTime = $expectedCheckOut->copy()->subMinutes($gracePeriodEarly);
                         
                         if ($checkOut->lt($gracePeriodEarlyTime)) {

@@ -87,6 +87,9 @@
                 } else if (item.status === 'on_leave') {
                     // For on leave, show a full-height bar (use max hours or 8 hours)
                     return Math.max(maxHours, 8); // Full height bar for on leave
+                } else if (item.status === 'holiday') {
+                    // For holiday, show a full-height bar (use max hours or 8 hours)
+                    return Math.max(maxHours, 8); // Full height bar for holiday
                 } else {
                     return item.hours || 0; // Actual hours for present/late
                 }
@@ -100,6 +103,8 @@
                     return '#ef4444'; // Red
                 } else if (item.status === 'on_leave') {
                     return '#3b82f6'; // Blue for on leave
+                } else if (item.status === 'holiday') {
+                    return '#1e40af'; // Dark blue for holiday
                 } else if (item.has_incomplete_attendance) {
                     return '#f97316'; // Orange for incomplete attendance (missing check-in or check-out)
                 } else if (item.status === 'present_late_early') {
@@ -159,6 +164,8 @@
                                         statusLabel = 'Absent';
                                     } else if (dayData.status === 'on_leave') {
                                         statusLabel = 'On Leave';
+                                    } else if (dayData.status === 'holiday') {
+                                        statusLabel = 'Holiday';
                                     } else if (dayData.status === 'present_late_early') {
                                         statusLabel = 'Late & Early';
                                     } else if (dayData.status === 'present_late') {
@@ -176,6 +183,8 @@
                                         tooltip.push('No attendance recorded');
                                     } else if (dayData.status === 'on_leave') {
                                         tooltip.push('On approved leave');
+                                    } else if (dayData.status === 'holiday') {
+                                        tooltip.push(`Holiday: ${dayData.holiday_name || 'Holiday'}`);
                                     } else {
                                         tooltip.push(`Check In: ${dayData.check_in || '--'}`);
                                         tooltip.push(`Check Out: ${dayData.check_out || '--'}`);
