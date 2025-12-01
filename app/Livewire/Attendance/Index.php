@@ -1506,13 +1506,32 @@ class Index extends Component
     }
 
     /**
-     * Calculate expected hours based on employee's shift
+     * Get grace time per day in minutes (late + early)
      */
-    private function calculateExpectedHours($workingDays)
+    private function getGraceTimePerDay($shift = null)
+    {
+        $shift = $shift ?? $this->employeeShift;
+        $gracePeriodLateIn = $this->getEffectiveGracePeriodLateIn($shift);
+        $gracePeriodEarlyOut = $this->getEffectiveGracePeriodEarlyOut($shift);
+        return $gracePeriodLateIn + $gracePeriodEarlyOut;
+    }
+
+    /**
+     * Calculate expected hours based on employee's shift
+     * @param int $workingDays Number of working days
+     * @param bool $includeGraceTime Whether to include grace time in the calculation
+     */
+    private function calculateExpectedHours($workingDays, $includeGraceTime = false)
     {
         if (!$this->employeeShift) {
             // Default to 8 hours per day if no shift assigned
-            return sprintf('%d:%02d', $workingDays * 8, 0);
+            $defaultHours = $workingDays * 8;
+            if ($includeGraceTime) {
+                // Deduct grace time (default 60 minutes = 1 hour per day)
+                $graceTimeHours = $workingDays * 1; // 30 + 30 = 60 minutes = 1 hour
+                $defaultHours -= $graceTimeHours; // Deduct, not add
+            }
+            return sprintf('%d:%02d', $defaultHours, 0);
         }
 
         $shift = $this->employeeShift;
@@ -1546,6 +1565,14 @@ class Index extends Component
         
         $shiftMinutes = $timeFrom->diffInMinutes($timeToCopy);
         $totalExpectedMinutes = $workingDays * $shiftMinutes;
+        
+        // Deduct grace time if requested (grace time reduces expected hours)
+        if ($includeGraceTime) {
+            $graceTimePerDay = $this->getGraceTimePerDay($shift);
+            $totalGraceMinutes = $workingDays * $graceTimePerDay;
+            $totalExpectedMinutes -= $totalGraceMinutes; // Deduct, not add
+        }
+        
         $expectedHours = floor($totalExpectedMinutes / 60);
         $expectedMins = $totalExpectedMinutes % 60;
         
@@ -1579,7 +1606,8 @@ class Index extends Component
                 $current->addDay();
             }
             
-            return $this->calculateExpectedHours($workingDays);
+            // For past months, return expected hours with grace time
+            return $this->calculateExpectedHours($workingDays, true);
         }
 
         // For current month, calculate working days from start of month till today (including today)
@@ -1596,7 +1624,8 @@ class Index extends Component
             $current->addDay();
         }
 
-        return $this->calculateExpectedHours($workingDaysTillToday);
+        // Return expected hours with grace time included
+        return $this->calculateExpectedHours($workingDaysTillToday, true);
     }
 
     private function calculateAttendanceStats($records, $processedData = null)
@@ -1747,12 +1776,65 @@ class Index extends Component
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
 
-        // Calculate original expected hours (full month)
-        $expectedHours = $this->calculateExpectedHours($workingDays);
+        // Calculate original expected hours (full month) - without grace time for display
+        $expectedHours = $this->calculateExpectedHours($workingDays, false);
         
-        // Calculate adjusted expected hours (after accounting for approved leaves)
+        // Calculate adjusted expected hours (after accounting for approved leaves) - without grace time
         $adjustedWorkingDays = $workingDays - $onLeaveDays;
-        $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays);
+        $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays, false);
+        
+        // Calculate expected hours with grace time for full month (for "Monthly Expected Hours (Including Grace Time)")
+        // This deducts grace time from the expected hours
+        $expectedHoursWithGraceTime = $this->calculateExpectedHours($workingDays, true);
+        
+        // Calculate adjusted expected hours with grace time (after accounting for approved leaves)
+        // For leaves, deduct (shift duration - grace time) per leave day from the expected hours with grace time
+        if ($onLeaveDays > 0 && $this->employeeShift) {
+            // Get shift duration in minutes
+            $shift = $this->employeeShift;
+            $timeFromStr = $shift->time_from;
+            $timeToStr = $shift->time_to;
+            $timeFromParts = explode(':', $timeFromStr);
+            $timeToParts = explode(':', $timeToStr);
+            
+            $timeFrom = Carbon::createFromTime(
+                (int)($timeFromParts[0] ?? 0),
+                (int)($timeFromParts[1] ?? 0),
+                (int)($timeFromParts[2] ?? 0)
+            );
+            
+            $timeTo = Carbon::createFromTime(
+                (int)($timeToParts[0] ?? 0),
+                (int)($timeToParts[1] ?? 0),
+                (int)($timeToParts[2] ?? 0)
+            );
+            
+            $timeToCopy = $timeTo->copy();
+            if ($timeFrom->gt($timeTo)) {
+                $timeToCopy->addDay();
+            }
+            
+            $shiftMinutes = $timeFrom->diffInMinutes($timeToCopy);
+            $graceTimePerDay = $this->getGraceTimePerDay($shift);
+            
+            // Deduct (shift duration - grace time) per leave day
+            $deductionPerLeaveDay = $shiftMinutes - $graceTimePerDay;
+            $totalDeductionMinutes = $onLeaveDays * $deductionPerLeaveDay;
+            
+            // Parse expected hours with grace time and subtract deduction
+            $expectedHoursWithGraceTimeParts = explode(':', $expectedHoursWithGraceTime);
+            $expectedHoursInt = (int)($expectedHoursWithGraceTimeParts[0] ?? 0);
+            $expectedMinsInt = (int)($expectedHoursWithGraceTimeParts[1] ?? 0);
+            $expectedTotalMinutes = ($expectedHoursInt * 60) + $expectedMinsInt;
+            
+            $adjustedTotalMinutes = $expectedTotalMinutes - $totalDeductionMinutes;
+            $adjustedHours = floor($adjustedTotalMinutes / 60);
+            $adjustedMins = $adjustedTotalMinutes % 60;
+            $expectedHoursAdjustedWithGraceTime = sprintf('%d:%02d', $adjustedHours, $adjustedMins);
+        } else {
+            // No leaves, so adjusted = expected with grace time
+            $expectedHoursAdjustedWithGraceTime = $expectedHoursWithGraceTime;
+        }
 
         return [
             'working_days' => $workingDays,
@@ -1761,9 +1843,11 @@ class Index extends Component
             'on_leave_days' => $onLeaveDays,
             'attendance_percentage' => $workingDaysForPercentage > 0 ? round(($attendedDays / $workingDaysForPercentage) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
-            'expected_hours' => $expectedHours, // Original expected hours (full month)
-            'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves)
-            'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including today)
+            'expected_hours' => $expectedHours, // Original expected hours (full month, without grace time)
+            'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves, without grace time)
+            'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including grace time)
+            'expected_hours_with_grace_time' => $expectedHoursWithGraceTime, // Full month expected hours with grace time (deducted)
+            'expected_hours_adjusted_with_grace_time' => $expectedHoursAdjustedWithGraceTime, // Adjusted expected hours with grace time (after leaves)
             'late_days' => $lateDays,
         ];
     }
