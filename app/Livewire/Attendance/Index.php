@@ -18,6 +18,7 @@ use App\Models\Shift;
 use App\Models\Constant;
 use App\Models\AttendanceBreakSetting;
 use App\Models\LeaveType;
+use App\Models\Holiday;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -487,12 +488,92 @@ class Index extends Component
         return $exemptions;
     }
 
+    private function loadHolidaysForMonth($startOfMonth, $endOfMonth)
+    {
+        if (!$this->employee) {
+            return [];
+        }
+
+        $holidaysMap = [];
+        $employeeId = $this->employee->id;
+        $departmentId = $this->employee->department_id;
+        $userRoles = Auth::user()->roles->pluck('id')->toArray();
+
+        // Load active holidays that fall within the month range
+        $holidays = Holiday::where('status', 'active')
+            ->where(function($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('from_date', [$startOfMonth->format('Y-m-d'), $endOfMonth->format('Y-m-d')])
+                      ->orWhereBetween('to_date', [$startOfMonth->format('Y-m-d'), $endOfMonth->format('Y-m-d')])
+                      ->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
+                          $q->where('from_date', '<=', $startOfMonth->format('Y-m-d'))
+                            ->where('to_date', '>=', $endOfMonth->format('Y-m-d'));
+                      });
+            })
+            ->with(['departments', 'roles', 'employees'])
+            ->get();
+
+        foreach ($holidays as $holiday) {
+            // Check if this holiday applies to the employee
+            $appliesToEmployee = false;
+
+            if ($holiday->scope_type === 'all_employees') {
+                $appliesToEmployee = true;
+            } elseif ($holiday->scope_type === 'department') {
+                // Check if employee's department is in the holiday's departments
+                if ($departmentId && $holiday->departments->contains('id', $departmentId)) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'role') {
+                // Check if employee's role is in the holiday's roles
+                if (!empty(array_intersect($userRoles, $holiday->roles->pluck('id')->toArray()))) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'employee') {
+                // Check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            }
+
+            if ($appliesToEmployee) {
+                // Generate all dates for this holiday
+                $currentDate = Carbon::parse($holiday->from_date);
+                $endDate = Carbon::parse($holiday->to_date ?: $holiday->from_date);
+
+                while ($currentDate->lte($endDate)) {
+                    $dateKey = $currentDate->format('Y-m-d');
+                    // Only add if within the month range
+                    if ($currentDate->gte($startOfMonth) && $currentDate->lte($endOfMonth)) {
+                        $holidaysMap[$dateKey] = [
+                            'name' => $holiday->name,
+                            'id' => $holiday->id,
+                        ];
+                    }
+                    $currentDate->addDay();
+                }
+            }
+        }
+
+        return $holidaysMap;
+    }
+
     private function processAttendanceData($records)
     {
         // Determine which month to process
         $targetMonth = $this->selectedMonth ?: Carbon::now()->format('Y-m');
         $startOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
+        
+        // Load holidays for this month
+        $holidaysMap = $this->loadHolidaysForMonth($startOfMonth, $endOfMonth);
         
         $processedData = [];
         
@@ -672,9 +753,15 @@ class Index extends Component
             // Check if this date is exempted
             $isExempted = $this->isDateExempted($date);
             
+            // Check if this date is a holiday
+            $holiday = $holidaysMap[$date] ?? null;
+            $isHoliday = $holiday !== null;
+            
             // Determine day status
             $status = 'absent'; // Default
-            if ($current->isWeekend()) {
+            if ($isHoliday) {
+                $status = 'holiday';
+            } elseif ($current->isWeekend()) {
                 $status = 'off';
             } elseif ($hasValidAttendance) {
                 $status = 'present';
@@ -693,6 +780,7 @@ class Index extends Component
                 'total_hours' => null,
                 'breaks' => '0 (0h 0m total)',
                 'status' => $status,
+                'holiday_name' => $isHoliday ? $holiday['name'] : null,
                 'shift_name' => $dayShift ? $dayShift->shift_name : null,
                 'expected_check_in' => null,
                 'expected_check_out' => null,
@@ -704,6 +792,12 @@ class Index extends Component
                 'expected_hours' => null,
                 'has_manual_entries' => false,
             ];
+            
+            // Skip processing attendance records if it's a holiday
+            if ($isHoliday) {
+                $current->addDay();
+                continue;
+            }
             
             // Process attendance records for this day if they exist
             if (!empty($dayRecords)) {
@@ -1757,56 +1851,71 @@ class Index extends Component
         // Calculate expected hours till today (including today) for current month
         $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
 
-        // Count on_leave days (exclude from absent calculation)
+        // Count on_leave days, holidays, and exempted days (exclude from absent calculation)
         $onLeaveDays = 0;
+        $holidayDays = 0;
         $exemptedDays = 0;
         $totalNonAllowedBreakMinutes = 0;
+        $totalBreakMinutes = 0;
         
         if (!empty($processedData) && is_array($processedData)) {
             foreach ($processedData as $record) {
                 if (isset($record['status']) && $record['status'] === 'on_leave') {
                     $onLeaveDays++;
+                } elseif (isset($record['status']) && $record['status'] === 'holiday') {
+                    $holidayDays++;
                 } elseif (isset($record['status']) && $record['status'] === 'exempted') {
                     $exemptedDays++;
                 }
                 
-                // Calculate non-allowed break time for this day
-                if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0 && isset($record['breaks'])) {
+                // Calculate break time for this day
+                if (isset($record['breaks'])) {
                     // Parse break time from format like "2 (1h 15m total)" or "0 (0h 0m total)"
                     $breaksString = $record['breaks'];
                     if (preg_match('/(\d+)h\s+(\d+)m\s+total/', $breaksString, $matches)) {
                         $breakHours = (int)$matches[1];
                         $breakMinutes = (int)$matches[2];
-                        $totalBreakMinutes = ($breakHours * 60) + $breakMinutes;
+                        $dayBreakMinutes = ($breakHours * 60) + $breakMinutes;
+                        $totalBreakMinutes += $dayBreakMinutes;
                         
                         // Calculate excess break time (non-allowed)
-                        $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
-                        $totalNonAllowedBreakMinutes += $excessBreakMinutes;
+                        // If allowedBreakTime is null or 0, all break time is non-allowed
+                        if ($this->allowedBreakTime === null || $this->allowedBreakTime <= 0) {
+                            // All break time is non-allowed when no allowed break time is set
+                            $totalNonAllowedBreakMinutes += $dayBreakMinutes;
+                        } else {
+                            // Only break time exceeding allowed time is non-allowed
+                            $excessBreakMinutes = max(0, $dayBreakMinutes - $this->allowedBreakTime);
+                            $totalNonAllowedBreakMinutes += $excessBreakMinutes;
+                        }
                     }
                 }
             }
         }
 
-        // Calculate absent days: working days - attended days - on_leave days - exempted days
-        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays - $exemptedDays;
+        // Calculate absent days: working days - attended days - on_leave days - holiday days - exempted days
+        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays - $holidayDays - $exemptedDays;
         
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
 
         // Calculate original expected hours (full month) - without grace time for display
-        $expectedHours = $this->calculateExpectedHours($workingDays, false);
+        // Subtract holidays from working days
+        $workingDaysMinusHolidays = $workingDays - $holidayDays;
+        $expectedHours = $this->calculateExpectedHours($workingDaysMinusHolidays, false);
         
-        // Calculate adjusted expected hours (after accounting for approved leaves) - without grace time
-        $adjustedWorkingDays = $workingDays - $onLeaveDays;
+        // Calculate adjusted expected hours (after accounting for approved leaves and holidays) - without grace time
+        $adjustedWorkingDays = $workingDays - $onLeaveDays - $holidayDays;
         $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays, false);
         
-        // Calculate expected hours with grace time for full month (for "Monthly Expected Hours (Including Grace Time)")
-        // This deducts grace time from the expected hours
-        $expectedHoursWithGraceTime = $this->calculateExpectedHours($workingDays, true);
+        // Calculate expected hours with grace time for full month (for "Monthly Expected Working Hours")
+        // This deducts grace time from the expected hours and also subtracts holidays
+        $expectedHoursWithGraceTime = $this->calculateExpectedHours($workingDaysMinusHolidays, true);
         
-        // Calculate adjusted expected hours with grace time (after accounting for approved leaves)
-        // For leaves, deduct (shift duration - grace time) per leave day from the expected hours with grace time
-        if ($onLeaveDays > 0 && $this->employeeShift) {
+        // Calculate adjusted expected hours with grace time (after accounting for approved leaves and holidays)
+        // For leaves and holidays, deduct (shift duration - grace time) per day from the expected hours with grace time
+        $totalDaysToDeduct = $onLeaveDays + $holidayDays;
+        if ($totalDaysToDeduct > 0 && $this->employeeShift) {
             // Get shift duration in minutes
             $shift = $this->employeeShift;
             $timeFromStr = $shift->time_from;
@@ -1834,9 +1943,9 @@ class Index extends Component
             $shiftMinutes = $timeFrom->diffInMinutes($timeToCopy);
             $graceTimePerDay = $this->getGraceTimePerDay($shift);
             
-            // Deduct (shift duration - grace time) per leave day
-            $deductionPerLeaveDay = $shiftMinutes - $graceTimePerDay;
-            $totalDeductionMinutes = $onLeaveDays * $deductionPerLeaveDay;
+            // Deduct (shift duration - grace time) per leave/holiday day
+            $deductionPerDay = $shiftMinutes - $graceTimePerDay;
+            $totalDeductionMinutes = $totalDaysToDeduct * $deductionPerDay;
             
             // Parse expected hours with grace time and subtract deduction
             $expectedHoursWithGraceTimeParts = explode(':', $expectedHoursWithGraceTime);
@@ -1854,18 +1963,20 @@ class Index extends Component
         }
 
         return [
-            'working_days' => $workingDays,
+            'working_days' => $workingDaysMinusHolidays, // Working days minus holidays
             'attended_days' => $attendedDays,
             'absent_days' => max(0, $absentDays), // Ensure non-negative
             'on_leave_days' => $onLeaveDays,
+            'holiday_days' => $holidayDays,
             'attendance_percentage' => $workingDaysForPercentage > 0 ? round(($attendedDays / $workingDaysForPercentage) * 100, 1) : 0,
             'total_hours' => sprintf('%d:%02d', $totalHours, $remainingMinutes),
-            'expected_hours' => $expectedHours, // Original expected hours (full month, without grace time)
-            'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves, without grace time)
+            'expected_hours' => $expectedHours, // Original expected hours (full month, without grace time, minus holidays)
+            'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves and holidays, without grace time)
             'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including grace time)
-            'expected_hours_with_grace_time' => $expectedHoursWithGraceTime, // Full month expected hours with grace time (deducted)
-            'expected_hours_adjusted_with_grace_time' => $expectedHoursAdjustedWithGraceTime, // Adjusted expected hours with grace time (after leaves)
+            'expected_hours_with_grace_time' => $expectedHoursWithGraceTime, // Full month expected hours with grace time (deducted, minus holidays)
+            'expected_hours_adjusted_with_grace_time' => $expectedHoursAdjustedWithGraceTime, // Adjusted expected hours with grace time (after leaves and holidays)
             'late_days' => $lateDays,
+            'total_break_time' => sprintf('%d:%02d', floor($totalBreakMinutes / 60), $totalBreakMinutes % 60), // Total break time in HH:MM format
             'total_non_allowed_break_time' => sprintf('%d:%02d', floor($totalNonAllowedBreakMinutes / 60), $totalNonAllowedBreakMinutes % 60), // Total non-allowed break time in HH:MM format
         ];
     }

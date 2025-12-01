@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Holiday extends Model
 {
@@ -12,27 +14,41 @@ class Holiday extends Model
 
     protected $fillable = [
         'name',
-        'date',
-        'type',
-        'country_id',
-        'province_id',
-        'is_recurring',
+        'from_date',
+        'to_date',
+        'scope_type',
+        'created_by',
         'status',
     ];
 
     protected $casts = [
-        'date' => 'date',
-        'is_recurring' => 'boolean',
+        'from_date' => 'date',
+        'to_date' => 'date',
         'status' => 'string',
     ];
 
-    public function country(): BelongsTo
+    public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(Country::class);
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function province(): BelongsTo
+    public function departments(): BelongsToMany
     {
-        return $this->belongsTo(Province::class);
+        return $this->belongsToMany(Department::class, 'holiday_departments');
+    }
+
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(\Spatie\Permission\Models\Role::class, 'holiday_roles', 'holiday_id', 'role_id');
+    }
+
+    public function employees(): BelongsToMany
+    {
+        return $this->belongsToMany(Employee::class, 'holiday_employees');
+    }
+
+    public function holidayDays(): HasMany
+    {
+        return $this->hasMany(HolidayDay::class);
     }
 }

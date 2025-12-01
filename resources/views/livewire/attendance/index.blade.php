@@ -17,8 +17,8 @@
 
             @if($employee && $punchCode)
                 <!-- Attendance Statistics Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <!-- Total Working Days -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Working Days -->
                     <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
                             <div>
@@ -77,8 +77,21 @@
                                 <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Late Days</flux:text>
                                 <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100 mt-1">{{ $attendanceStats['late_days'] ?? 0 }}</flux:heading>
                             </div>
-                            <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                            <div class="w-10 h-10 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
                                 <flux:icon name="clock" class="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Break Time -->
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Total Break Time</flux:text>
+                                <flux:heading size="lg" class="text-orange-600 dark:text-orange-400 mt-1">{{ $attendanceStats['total_break_time'] ?? '0:00' }}</flux:heading>
+                            </div>
+                            <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="clock" class="w-5 h-5 text-orange-600 dark:text-orange-400" />
                             </div>
                         </div>
                     </div>
@@ -88,10 +101,23 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Total Non-Allowed Break Time</flux:text>
-                                <flux:heading size="lg" class="text-orange-600 dark:text-orange-400 mt-1">{{ $attendanceStats['total_non_allowed_break_time'] ?? '0:00' }}</flux:heading>
+                                <flux:heading size="lg" class="text-red-600 dark:text-red-400 mt-1">{{ $attendanceStats['total_non_allowed_break_time'] ?? '0:00' }}</flux:heading>
                             </div>
-                            <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                                <flux:icon name="clock" class="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="clock" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Holidays -->
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Holidays</flux:text>
+                                <flux:heading size="lg" class="text-blue-600 dark:text-blue-400 mt-1">{{ $attendanceStats['holiday_days'] ?? 0 }}</flux:heading>
+                            </div>
+                            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="calendar" class="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
                         </div>
                     </div>
@@ -114,14 +140,14 @@
                             <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Monthly Expected Working Hours') }}</flux:text>
-                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0)
-                                        {{-- Show adjusted hours prominently with original strikethrough beneath when there are leaves --}}
+                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0)
+                                        {{-- Show adjusted hours prominently with original strikethrough beneath when there are leaves or holidays --}}
                                         <div class="flex flex-col">
                                             <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_adjusted_with_grace_time'] ?? '0:00' }}</flux:heading>
                                             <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 line-through"><s>{{ $attendanceStats['expected_hours_with_grace_time'] ?? '0:00' }}</s></flux:text>
                                         </div>
                                     @else
-                                        {{-- Show only original when no leaves --}}
+                                        {{-- Show only original when no leaves or holidays --}}
                                         <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_with_grace_time'] ?? '0:00' }}</flux:heading>
                                     @endif
                                 </div>
@@ -130,7 +156,7 @@
                             <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Expected Hours</flux:text>
-                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0)
+                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0)
                                         <div class="flex flex-col">
                                             <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours_adjusted'] ?? '0:00' }}</flux:heading>
                                             <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 line-through"><s>{{ $attendanceStats['expected_hours'] ?? '0:00' }}</s></flux:text>
@@ -397,6 +423,7 @@
                                                             'off' => 'zinc',
                                                             'absent' => 'red',
                                                             'on_leave' => 'blue',
+                                                            'holiday' => 'blue',
                                                             default => 'zinc'
                                                         };
                                                         
@@ -408,13 +435,20 @@
                                                             'off' => 'Off Day',
                                                             'absent' => 'Absent',
                                                             'on_leave' => 'On Leave',
+                                                            'holiday' => 'Holiday',
                                                             default => ucfirst($record['status'])
                                                         };
                                                     @endphp
                                                     <div class="flex flex-col gap-1">
-                                                        <flux:badge color="{{ $statusColor }}" size="sm">
-                                                            {{ $statusLabel }}
-                                                        </flux:badge>
+                                                        @if($record['status'] === 'holiday')
+                                                            <flux:badge color="blue" size="sm" class="bg-blue-700 dark:bg-blue-800 text-white">
+                                                                {{ $statusLabel }}
+                                                            </flux:badge>
+                                                        @else
+                                                            <flux:badge color="{{ $statusColor }}" size="sm">
+                                                                {{ $statusLabel }}
+                                                            </flux:badge>
+                                                        @endif
                                                         @if(isset($record['shift_name']) && $record['shift_name'])
                                                             <div class="text-xs text-zinc-500 dark:text-zinc-400">
                                                                 Shift: {{ $record['shift_name'] }}
@@ -435,10 +469,16 @@
                                             $isAbsent = $record['status'] === 'absent';
                                             $hasLeaveRequest = isset($record['leave_request']);
                                             $leaveRequest = $hasLeaveRequest ? $record['leave_request'] : null;
+                                            $isHoliday = $record['status'] === 'holiday';
+                                            $holidayName = $isHoliday ? ($record['holiday_name'] ?? null) : null;
                                             $shouldShowMenu = ($canManageMissing || $hasManualEntries || ($isAbsent && !$hasLeaveRequest));
                                         @endphp
 
-                                        @if($hasLeaveRequest)
+                                        @if($isHoliday && $holidayName)
+                                            <div class="text-sm font-medium text-blue-700 dark:text-blue-400">
+                                                {{ $holidayName }}
+                                            </div>
+                                        @elseif($hasLeaveRequest)
                                             @php
                                                 $statusColor = match($leaveRequest['status']) {
                                                     'pending' => 'yellow',
