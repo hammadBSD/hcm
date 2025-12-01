@@ -76,6 +76,7 @@ class Index extends Component
 
     public bool $isBreakTrackingExcluded = false;
     public bool $showBreaksInGrid = true;
+    public $allowedBreakTime = null; // Allowed break time in minutes
 
     public function mount()
     {
@@ -303,7 +304,9 @@ class Index extends Component
 
         // Determine if break tracking is excluded for this employee or their roles
         $this->isBreakTrackingExcluded = $this->determineBreakExclusionStatus();
-        $this->showBreaksInGrid = AttendanceBreakSetting::current()->show_in_attendance_grid;
+        $breakSettings = AttendanceBreakSetting::current();
+        $this->showBreaksInGrid = $breakSettings->show_in_attendance_grid;
+        $this->allowedBreakTime = $breakSettings->allowed_break_time; // Load allowed break time
 
         // Get the punch code
         $this->punchCode = $this->employee->punch_code;
@@ -1107,6 +1110,12 @@ class Index extends Component
                     if ($isExempted && $firstCheckIn && $lastCheckOut) {
                         $exemptedMinutes = $firstCheckIn->diffInMinutes($lastCheckOut);
                         if ($exemptedMinutes > 0) {
+                            // For exempted days, apply allowed break time logic if set
+                            if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0 && $totalBreakMinutes > 0) {
+                                $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                                $exemptedMinutes = $exemptedMinutes - $excessBreakMinutes;
+                            }
+                            
                             $hours = floor($exemptedMinutes / 60);
                             $minutes = $exemptedMinutes % 60;
                             $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
@@ -1158,6 +1167,12 @@ class Index extends Component
                             }
 
                             if ($calculatedMinutes !== null) {
+                                // Apply allowed break time logic if set
+                                if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0 && $totalBreakMinutes > 0) {
+                                    $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                                    $calculatedMinutes = $calculatedMinutes - $excessBreakMinutes;
+                                }
+                                
                                 $hours = floor($calculatedMinutes / 60);
                                 $minutes = $calculatedMinutes % 60;
                                 $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
@@ -1167,8 +1182,31 @@ class Index extends Component
                                 $processedData[$date]['actual_hours'] = null;
                             }
                         } elseif ($dayTotalMinutes > 0) {
-                            $hours = floor($dayTotalMinutes / 60);
-                            $minutes = $dayTotalMinutes % 60;
+                            // Calculate working hours considering allowed break time
+                            // dayTotalMinutes is the working time (breaks already excluded)
+                            // totalBreakMinutes is the total break time
+                            // Total time = working time + break time
+                            
+                            $workingMinutes = $dayTotalMinutes;
+                            
+                            // If allowed break time is set, only deduct break time exceeding the allowed time
+                            if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0 && $totalBreakMinutes > 0) {
+                                // Calculate excess break time (break time exceeding allowed)
+                                $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                                // Total time = working time + break time
+                                // Working hours = Total time - excess break time
+                                // = (working time + break time) - excess break time
+                                // = working time + break time - max(0, break time - allowed)
+                                // = working time + min(break time, allowed)
+                                $totalTimeMinutes = $dayTotalMinutes + $totalBreakMinutes;
+                                $workingMinutes = $totalTimeMinutes - $excessBreakMinutes;
+                            } else {
+                                // If no allowed break time is set, use current logic (working time already excludes breaks)
+                                $workingMinutes = $dayTotalMinutes;
+                            }
+                            
+                            $hours = floor($workingMinutes / 60);
+                            $minutes = $workingMinutes % 60;
                             $processedData[$date]['total_hours'] = sprintf('%d:%02d', $hours, $minutes);
                             $processedData[$date]['actual_hours'] = sprintf('%d:%02d', $hours, $minutes);
                         }
