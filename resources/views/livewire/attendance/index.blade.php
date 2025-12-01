@@ -17,7 +17,7 @@
 
             @if($employee && $punchCode)
                 <!-- Attendance Statistics Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <!-- Total Working Days -->
                     <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <div class="flex items-center justify-between">
@@ -82,6 +82,19 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Total Non-Allowed Break Time -->
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Total Non-Allowed Break Time</flux:text>
+                                <flux:heading size="lg" class="text-orange-600 dark:text-orange-400 mt-1">{{ $attendanceStats['total_non_allowed_break_time'] ?? '0:00' }}</flux:heading>
+                            </div>
+                            <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                                <flux:icon name="clock" class="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Working Hours Summary -->
@@ -100,7 +113,7 @@
                             </div>
                             <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                                 <div>
-                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Monthly Expected Hours (Including Grace Time)') }}</flux:text>
+                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Monthly Expected Working Hours') }}</flux:text>
                                     @if(($attendanceStats['on_leave_days'] ?? 0) > 0)
                                         {{-- Show adjusted hours prominently with original strikethrough beneath when there are leaves --}}
                                         <div class="flex flex-col">

@@ -1760,12 +1760,29 @@ class Index extends Component
         // Count on_leave days (exclude from absent calculation)
         $onLeaveDays = 0;
         $exemptedDays = 0;
+        $totalNonAllowedBreakMinutes = 0;
+        
         if (!empty($processedData) && is_array($processedData)) {
             foreach ($processedData as $record) {
                 if (isset($record['status']) && $record['status'] === 'on_leave') {
                     $onLeaveDays++;
                 } elseif (isset($record['status']) && $record['status'] === 'exempted') {
                     $exemptedDays++;
+                }
+                
+                // Calculate non-allowed break time for this day
+                if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0 && isset($record['breaks'])) {
+                    // Parse break time from format like "2 (1h 15m total)" or "0 (0h 0m total)"
+                    $breaksString = $record['breaks'];
+                    if (preg_match('/(\d+)h\s+(\d+)m\s+total/', $breaksString, $matches)) {
+                        $breakHours = (int)$matches[1];
+                        $breakMinutes = (int)$matches[2];
+                        $totalBreakMinutes = ($breakHours * 60) + $breakMinutes;
+                        
+                        // Calculate excess break time (non-allowed)
+                        $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                        $totalNonAllowedBreakMinutes += $excessBreakMinutes;
+                    }
                 }
             }
         }
@@ -1849,6 +1866,7 @@ class Index extends Component
             'expected_hours_with_grace_time' => $expectedHoursWithGraceTime, // Full month expected hours with grace time (deducted)
             'expected_hours_adjusted_with_grace_time' => $expectedHoursAdjustedWithGraceTime, // Adjusted expected hours with grace time (after leaves)
             'late_days' => $lateDays,
+            'total_non_allowed_break_time' => sprintf('%d:%02d', floor($totalNonAllowedBreakMinutes / 60), $totalNonAllowedBreakMinutes % 60), // Total non-allowed break time in HH:MM format
         ];
     }
 
