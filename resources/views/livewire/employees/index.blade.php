@@ -234,7 +234,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Employee Group</label>
-                                    <p class="text-sm text-zinc-900 dark:text-zinc-100">{{ $organizationalInfo->employee_group ?? '-' }}</p>
+                                    <p class="text-sm text-zinc-900 dark:text-zinc-100">{{ $employee->group->name ?? '-' }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cost Center</label>

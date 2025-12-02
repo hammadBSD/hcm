@@ -20,7 +20,7 @@ class Show extends Component
         
         // Find the employee record by user_id (since the URL uses user_id)
         $this->employee = Employee::where('user_id', $this->employeeId)
-            ->with(['user', 'additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
+            ->with(['user', 'group', 'additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
             ->first();
             
         if ($this->employee) {

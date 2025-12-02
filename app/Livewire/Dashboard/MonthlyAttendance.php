@@ -122,6 +122,7 @@ class MonthlyAttendance extends Component
         $holidaysMap = [];
         $employeeId = $employee->id;
         $departmentId = $employee->department_id;
+        $groupId = $employee->group_id;
         $user = $employee->user;
         $userRoles = $user ? $user->roles->pluck('id')->toArray() : [];
 
@@ -135,7 +136,7 @@ class MonthlyAttendance extends Component
                             ->where('to_date', '>=', $endOfMonth->format('Y-m-d'));
                       });
             })
-            ->with(['departments', 'roles', 'employees'])
+            ->with(['departments', 'roles', 'groups', 'employees'])
             ->get();
 
         foreach ($holidays as $holiday) {
@@ -156,6 +157,15 @@ class MonthlyAttendance extends Component
             } elseif ($holiday->scope_type === 'role') {
                 // Check if employee's role is in the holiday's roles
                 if (!empty(array_intersect($userRoles, $holiday->roles->pluck('id')->toArray()))) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'group') {
+                // Check if employee's group is in the holiday's groups
+                if ($groupId && $holiday->groups->contains('id', $groupId)) {
                     $appliesToEmployee = true;
                 }
                 // Also check if employee is specifically included

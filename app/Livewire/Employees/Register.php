@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeAdditionalInfo;
 use App\Models\EmployeeOrganizationalInfo;
 use App\Models\EmployeeSalaryLegalCompliance;
+use App\Models\Group;
 use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class Register extends Component
     public $designationOptions = [];
     public $reportsToOptions = [];
     public $shiftOptions = [];
+    public $groupOptions = [];
 
     // General Info form properties
     public $prefix = '';
@@ -44,6 +46,7 @@ class Register extends Component
     public $designation = '';
     public $password = '';
     public $shift = '';
+    public $group_id = '';
     public $allowEmployeeLogin = false;
     public $profilePicture;
     public $emergencyContactName = '';
@@ -152,6 +155,17 @@ class Register extends Component
                     'time_to' => $shift->time_to,
                 ];
             })->toArray();
+
+        // Load groups (active only)
+        $this->groupOptions = Group::where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($group) {
+                return [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                ];
+            })->toArray();
     }
 
     public function render()
@@ -162,6 +176,7 @@ class Register extends Component
             'designationOptions' => $this->designationOptions,
             'reportsToOptions' => $this->reportsToOptions,
             'shiftOptions' => $this->shiftOptions,
+            'groupOptions' => $this->groupOptions,
         ])->layout('components.layouts.app');
     }
 
@@ -207,6 +222,7 @@ class Register extends Component
             'password' => 'required|string|min:8',
             'department' => 'nullable|exists:departments,id',
             'designation' => 'nullable|exists:designations,id',
+            'group_id' => 'nullable|exists:groups,id',
             'reportsTo' => 'nullable|exists:employees,id',
             'shift' => 'nullable|exists:shifts,id',
             'role' => 'nullable|exists:roles,id',
@@ -244,6 +260,7 @@ class Register extends Component
                     'status' => $this->status,
                     'department_id' => $this->department ?: null,
                     'designation_id' => $this->designation ?: null,
+                    'group_id' => $this->group_id ?: null,
                     'shift_id' => $this->shift ?: null,
                     'document_type' => $this->documentType ?: null,
                     'document_number' => $this->documentNumber ?: null,

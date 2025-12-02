@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeAdditionalInfo;
 use App\Models\EmployeeOrganizationalInfo;
 use App\Models\EmployeeSalaryLegalCompliance;
+use App\Models\Group;
 use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ class Edit extends Component
     public $designationOptions = [];
     public $reportsToOptions = [];
     public $shiftOptions = [];
+    public $groupOptions = [];
 
     // General Info form properties
     public $prefix = '';
@@ -100,7 +102,7 @@ class Edit extends Component
     public $vendor = '';
     public $division = '';
     public $employee_status = '';
-    public $employee_group = '';
+    public $group_id = '';
     public $cost_center = '';
     public $region = '';
     public $gl_class = '';
@@ -164,6 +166,7 @@ class Edit extends Component
         $this->status = $employee->status ?? 'active';
         $this->department = $employee->department_id ?? '';
         $this->designation = $employee->designation_id ?? '';
+        $this->group_id = $employee->group_id ?? '';
         $this->shift = $employee->shift_id ?? '';
         $this->allow_employee_login = $employee->allow_employee_login ?? false;
         $this->profile_picture = $employee->profile_picture ?? '';
@@ -223,7 +226,6 @@ class Edit extends Component
             $this->vendor = $org->vendor ?? '';
             $this->division = $org->division ?? '';
             $this->employee_status = $org->employee_status ?? '';
-            $this->employee_group = $org->employee_group ?? '';
             $this->cost_center = $org->cost_center ?? '';
             $this->region = $org->region ?? '';
             $this->gl_class = $org->gl_class ?? '';
@@ -314,6 +316,17 @@ class Edit extends Component
                     'time_to' => $shift->time_to,
                 ];
             })->toArray();
+
+        // Load groups (active only)
+        $this->groupOptions = Group::where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($group) {
+                return [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                ];
+            })->toArray();
     }
 
     public function render()
@@ -324,6 +337,7 @@ class Edit extends Component
             'designationOptions' => $this->designationOptions,
             'reportsToOptions' => $this->reportsToOptions,
             'shiftOptions' => $this->shiftOptions,
+            'groupOptions' => $this->groupOptions,
         ])->layout('components.layouts.app');
     }
 
@@ -357,6 +371,7 @@ class Edit extends Component
             'mobile' => 'required|string|max:20',
             'department' => 'nullable|exists:departments,id',
             'designation' => 'nullable|exists:designations,id',
+            'group_id' => 'nullable|exists:groups,id',
             'reportsTo' => 'nullable|exists:employees,id',
             'shift' => 'nullable|exists:shifts,id',
             'role' => 'nullable|exists:roles,id',
@@ -401,6 +416,7 @@ class Edit extends Component
                 $employee->status = $this->status;
                 $employee->department_id = $this->department ?: null;
                 $employee->designation_id = $this->designation ?: null;
+                $employee->group_id = $this->group_id ?: null;
                 $employee->shift_id = $this->shift ?: null;
                 $employee->document_type = $this->document_type ?: null;
                 $employee->document_number = $this->document_number ?: null;
@@ -480,7 +496,6 @@ class Edit extends Component
                 $orgInfo->vendor = $this->vendor ?: null;
                 $orgInfo->division = $this->division ?: null;
                 $orgInfo->employee_status = $this->employee_status ?: null;
-                $orgInfo->employee_group = $this->employee_group ?: null;
                 $orgInfo->cost_center = $this->cost_center ?: null;
                 $orgInfo->region = $this->region ?: null;
                 $orgInfo->gl_class = $this->gl_class ?: null;

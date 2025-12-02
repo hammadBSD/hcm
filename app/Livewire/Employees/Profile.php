@@ -21,7 +21,7 @@ class Profile extends Component
         
         // Find the employee record for the current user
         $this->employee = Employee::where('user_id', $this->user->id)
-            ->with(['additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
+            ->with(['group', 'additionalInfo', 'organizationalInfo', 'salaryLegalCompliance'])
             ->first();
             
         if ($this->employee) {

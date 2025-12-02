@@ -139,17 +139,8 @@
                             </div>
                             <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                                 <div>
-                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Monthly Expected Working Hours') }}</flux:text>
-                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0)
-                                        {{-- Show adjusted hours prominently with original strikethrough beneath when there are leaves or holidays --}}
-                                        <div class="flex flex-col">
-                                            <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_adjusted_with_grace_time'] ?? '0:00' }}</flux:heading>
-                                            <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 line-through"><s>{{ $attendanceStats['expected_hours_with_grace_time'] ?? '0:00' }}</s></flux:text>
-                                        </div>
-                                    @else
-                                        {{-- Show only original when no leaves or holidays --}}
-                                        <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_with_grace_time'] ?? '0:00' }}</flux:heading>
-                                    @endif
+                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Hours Completed So Far') }}</flux:text>
+                                    <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_till_today_without_grace'] ?? '0:00' }}</flux:heading>
                                 </div>
                                 <flux:icon name="calendar-days" class="w-8 h-8 text-purple-600 dark:text-purple-400" />
                             </div>
@@ -159,7 +150,6 @@
                                     @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0)
                                         <div class="flex flex-col">
                                             <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours_adjusted'] ?? '0:00' }}</flux:heading>
-                                            <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 line-through"><s>{{ $attendanceStats['expected_hours'] ?? '0:00' }}</s></flux:text>
                                         </div>
                                     @else
                                         <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours'] ?? '0:00' }}</flux:heading>

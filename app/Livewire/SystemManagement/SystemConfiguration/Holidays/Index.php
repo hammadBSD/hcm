@@ -8,6 +8,7 @@ use App\Models\Holiday;
 use App\Models\HolidayDay;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Group;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -31,18 +32,21 @@ class Index extends Component
     public $scopeType = 'all_employees';
     public $selectedDepartmentIds = [];
     public $selectedRoleIds = [];
+    public $selectedGroupIds = [];
     public $selectedEmployeeIds = [];
     public $additionalEmployeeIds = []; // For employees not in selected department/role
     
     // Data properties
     public $departments = [];
     public $roles = [];
+    public $groups = [];
     public $employees = [];
     public $additionalEmployees = []; // Employees not in selected department/role
     
     // Search terms
     public $departmentSearchTerm = '';
     public $roleSearchTerm = '';
+    public $groupSearchTerm = '';
     public $employeeSearchTerm = '';
     public $additionalEmployeeSearchTerm = '';
 
@@ -52,6 +56,7 @@ class Index extends Component
     {
         $this->loadDepartments();
         $this->loadRoles();
+        $this->loadGroups();
         $this->loadEmployees();
     }
 
@@ -65,15 +70,17 @@ class Index extends Component
         // Reset selections when scope type changes
         $this->selectedDepartmentIds = [];
         $this->selectedRoleIds = [];
+        $this->selectedGroupIds = [];
         $this->selectedEmployeeIds = [];
         $this->additionalEmployeeIds = [];
         $this->departmentSearchTerm = '';
         $this->roleSearchTerm = '';
+        $this->groupSearchTerm = '';
         $this->employeeSearchTerm = '';
         $this->additionalEmployeeSearchTerm = '';
         
         // Reload additional employees if needed
-        if (in_array($this->scopeType, ['department', 'role'])) {
+        if (in_array($this->scopeType, ['department', 'role', 'group'])) {
             $this->loadAdditionalEmployees();
         }
     }
@@ -84,6 +91,11 @@ class Index extends Component
     }
 
     public function updatedSelectedRoleIds()
+    {
+        $this->loadAdditionalEmployees();
+    }
+
+    public function updatedSelectedGroupIds()
     {
         $this->loadAdditionalEmployees();
     }
@@ -118,7 +130,7 @@ class Index extends Component
             'holidayName' => 'required|string|max:255',
             'fromDate' => 'required|date',
             'toDate' => 'nullable|date|after_or_equal:fromDate',
-            'scopeType' => 'required|in:all_employees,department,role,employee',
+            'scopeType' => 'required|in:all_employees,department,role,group,employee',
         ];
 
         if ($this->scopeType === 'department') {
@@ -127,12 +139,15 @@ class Index extends Component
         } elseif ($this->scopeType === 'role') {
             $rules['selectedRoleIds'] = 'required|array|min:1';
             $rules['selectedRoleIds.*'] = 'exists:roles,id';
+        } elseif ($this->scopeType === 'group') {
+            $rules['selectedGroupIds'] = 'required|array|min:1';
+            $rules['selectedGroupIds.*'] = 'exists:groups,id';
         } elseif ($this->scopeType === 'employee') {
             $rules['selectedEmployeeIds'] = 'required|array|min:1';
             $rules['selectedEmployeeIds.*'] = 'exists:employees,id';
         }
 
-        if (in_array($this->scopeType, ['department', 'role'])) {
+        if (in_array($this->scopeType, ['department', 'role', 'group'])) {
             $rules['additionalEmployeeIds'] = 'nullable|array';
             $rules['additionalEmployeeIds.*'] = 'exists:employees,id';
         }
@@ -161,6 +176,7 @@ class Index extends Component
                 // Sync relationships
                 $holiday->departments()->sync($this->selectedDepartmentIds);
                 $holiday->roles()->sync($this->selectedRoleIds);
+                $holiday->groups()->sync($this->selectedGroupIds);
                 $holiday->employees()->sync(array_merge($this->selectedEmployeeIds, $this->additionalEmployeeIds));
                 
                 // Delete old holiday days and create new ones
@@ -174,6 +190,9 @@ class Index extends Component
                 }
                 if (!empty($this->selectedRoleIds)) {
                     $holiday->roles()->attach($this->selectedRoleIds);
+                }
+                if (!empty($this->selectedGroupIds)) {
+                    $holiday->groups()->attach($this->selectedGroupIds);
                 }
                 if (!empty($this->selectedEmployeeIds) || !empty($this->additionalEmployeeIds)) {
                     $holiday->employees()->attach(array_merge($this->selectedEmployeeIds, $this->additionalEmployeeIds));
@@ -208,17 +227,19 @@ class Index extends Component
         $this->scopeType = 'all_employees';
         $this->selectedDepartmentIds = [];
         $this->selectedRoleIds = [];
+        $this->selectedGroupIds = [];
         $this->selectedEmployeeIds = [];
         $this->additionalEmployeeIds = [];
         $this->departmentSearchTerm = '';
         $this->roleSearchTerm = '';
+        $this->groupSearchTerm = '';
         $this->employeeSearchTerm = '';
         $this->additionalEmployeeSearchTerm = '';
     }
 
     public function editHoliday($id)
     {
-        $holiday = Holiday::with(['departments', 'roles', 'employees'])->findOrFail($id);
+        $holiday = Holiday::with(['departments', 'roles', 'groups', 'employees'])->findOrFail($id);
         $this->editingId = $holiday->id;
         $this->holidayName = $holiday->name;
         $this->fromDate = $holiday->from_date->format('Y-m-d');
@@ -227,10 +248,11 @@ class Index extends Component
         $this->scopeType = $holiday->scope_type;
         $this->selectedDepartmentIds = $holiday->departments->pluck('id')->toArray();
         $this->selectedRoleIds = $holiday->roles->pluck('id')->toArray();
+        $this->selectedGroupIds = $holiday->groups->pluck('id')->toArray();
         $this->selectedEmployeeIds = $holiday->employees->pluck('id')->toArray();
         
         // Load additional employees if needed
-        if (in_array($this->scopeType, ['department', 'role'])) {
+        if (in_array($this->scopeType, ['department', 'role', 'group'])) {
             $this->loadAdditionalEmployees();
             // Separate additional employees from selected employees
             $this->additionalEmployeeIds = array_diff($this->selectedEmployeeIds, $this->getEmployeesInScope());
@@ -274,6 +296,20 @@ class Index extends Component
             ->toArray();
     }
 
+    public function loadGroups()
+    {
+        $this->groups = Group::where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($group) {
+                return [
+                    'value' => $group->id,
+                    'label' => $group->name,
+                ];
+            })
+            ->toArray();
+    }
+
     public function loadEmployees()
     {
         $this->employees = Employee::select('id', 'first_name', 'last_name', 'employee_code', 'department_id')
@@ -294,7 +330,7 @@ class Index extends Component
 
     public function loadAdditionalEmployees()
     {
-        // Get employees that are NOT in the selected departments or roles
+        // Get employees that are NOT in the selected departments, roles, or groups
         $excludedEmployeeIds = $this->getEmployeesInScope();
         
         $this->additionalEmployees = Employee::select('id', 'first_name', 'last_name', 'employee_code')
@@ -335,6 +371,12 @@ class Index extends Component
                 ->where('status', 'active')
                 ->pluck('id')
                 ->toArray();
+        } elseif ($this->scopeType === 'group' && !empty($this->selectedGroupIds)) {
+            // Get employees in the selected groups
+            $employeeIds = Employee::whereIn('group_id', $this->selectedGroupIds)
+                ->where('status', 'active')
+                ->pluck('id')
+                ->toArray();
         }
         
         return $employeeIds;
@@ -362,6 +404,17 @@ class Index extends Component
         })->values()->toArray();
     }
 
+    public function getFilteredGroupsProperty()
+    {
+        if (empty($this->groupSearchTerm)) {
+            return $this->groups;
+        }
+        
+        return collect($this->groups)->filter(function ($group) {
+            return stripos($group['label'], $this->groupSearchTerm) !== false;
+        })->values()->toArray();
+    }
+
     public function getFilteredEmployeesProperty()
     {
         if (empty($this->employeeSearchTerm)) {
@@ -386,7 +439,7 @@ class Index extends Component
 
     public function render()
     {
-        $query = Holiday::with(['createdBy', 'departments', 'roles', 'employees']);
+        $query = Holiday::with(['createdBy', 'departments', 'roles', 'groups', 'employees']);
 
         if (!empty($this->search)) {
             $query->where(function($q) {
@@ -405,6 +458,7 @@ class Index extends Component
             'holidays' => $holidays,
             'filteredDepartments' => $this->filteredDepartments,
             'filteredRoles' => $this->filteredRoles,
+            'filteredGroups' => $this->filteredGroups,
             'filteredEmployees' => $this->filteredEmployees,
             'filteredAdditionalEmployees' => $this->filteredAdditionalEmployees,
         ])

@@ -25,4 +25,9 @@ class Group extends Model
     {
         return $this->hasMany(Department::class);
     }
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
 }

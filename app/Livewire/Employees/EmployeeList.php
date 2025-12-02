@@ -10,6 +10,7 @@ use App\Models\Shift;
 use App\Models\EmployeeShift;
 use App\Models\Department;
 use App\Models\EmployeeDepartmentChange;
+use App\Models\Group;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Spatie\Permission\Models\Role;
@@ -381,7 +382,7 @@ class EmployeeList extends Component
         // Start with base query - join employees table directly for proper sorting
         $query = User::select('users.*')
             ->join('employees', 'users.id', '=', 'employees.user_id')
-            ->with(['employee.shift', 'employee.department']);
+            ->with(['employee.shift', 'employee.department', 'employee.group']);
 
         // Apply search filter
         if ($this->search) {

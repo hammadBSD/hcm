@@ -497,6 +497,7 @@ class Index extends Component
         $holidaysMap = [];
         $employeeId = $this->employee->id;
         $departmentId = $this->employee->department_id;
+        $groupId = $this->employee->group_id;
         $userRoles = Auth::user()->roles->pluck('id')->toArray();
 
         // Load active holidays that fall within the month range
@@ -509,7 +510,7 @@ class Index extends Component
                             ->where('to_date', '>=', $endOfMonth->format('Y-m-d'));
                       });
             })
-            ->with(['departments', 'roles', 'employees'])
+            ->with(['departments', 'roles', 'groups', 'employees'])
             ->get();
 
         foreach ($holidays as $holiday) {
@@ -530,6 +531,15 @@ class Index extends Component
             } elseif ($holiday->scope_type === 'role') {
                 // Check if employee's role is in the holiday's roles
                 if (!empty(array_intersect($userRoles, $holiday->roles->pluck('id')->toArray()))) {
+                    $appliesToEmployee = true;
+                }
+                // Also check if employee is specifically included
+                if ($holiday->employees->contains('id', $employeeId)) {
+                    $appliesToEmployee = true;
+                }
+            } elseif ($holiday->scope_type === 'group') {
+                // Check if employee's group is in the holiday's groups
+                if ($groupId && $holiday->groups->contains('id', $groupId)) {
                     $appliesToEmployee = true;
                 }
                 // Also check if employee is specifically included
@@ -1729,6 +1739,9 @@ class Index extends Component
         $startOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $targetMonth)->endOfMonth();
         
+        // Load holidays for this month
+        $holidaysMap = $this->loadHolidaysForMonth($startOfMonth, $endOfMonth);
+        
         // Get all working days in the month (excluding weekends)
         $workingDays = 0;
         $current = $startOfMonth->copy();
@@ -1850,6 +1863,30 @@ class Index extends Component
 
         // Calculate expected hours till today (including today) for current month
         $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
+        
+        // Calculate expected hours till today WITHOUT grace time and excluding holidays (for "Hours Completed So Far")
+        $workingDaysTillTodayExcludingHolidays = 0;
+        $currentMonth = Carbon::now()->format('Y-m');
+        if ($targetMonth === $currentMonth) {
+            $startOfMonth = Carbon::now()->startOfMonth();
+            $today = Carbon::now();
+            $current = $startOfMonth->copy();
+            
+            while ($current->lte($today)) {
+                if ($current->isWeekday()) {
+                    $dateStr = $current->format('Y-m-d');
+                    // Exclude holidays
+                    if (!isset($holidaysMap[$dateStr])) {
+                        $workingDaysTillTodayExcludingHolidays++;
+                    }
+                }
+                $current->addDay();
+            }
+        } else {
+            // For past/future months, use the full working days minus holidays
+            $workingDaysTillTodayExcludingHolidays = $workingDaysMinusHolidays;
+        }
+        $expectedHoursTillTodayWithoutGrace = $this->calculateExpectedHours($workingDaysTillTodayExcludingHolidays, false);
 
         // Count on_leave days, holidays, and exempted days (exclude from absent calculation)
         $onLeaveDays = 0;
@@ -1973,6 +2010,7 @@ class Index extends Component
             'expected_hours' => $expectedHours, // Original expected hours (full month, without grace time, minus holidays)
             'expected_hours_adjusted' => $expectedHoursAdjusted, // Adjusted expected hours (after leaves and holidays, without grace time)
             'expected_hours_till_today' => $expectedHoursTillToday, // Expected hours till today (including grace time)
+            'expected_hours_till_today_without_grace' => $expectedHoursTillTodayWithoutGrace, // Expected hours till today (without grace time, excluding holidays)
             'expected_hours_with_grace_time' => $expectedHoursWithGraceTime, // Full month expected hours with grace time (deducted, minus holidays)
             'expected_hours_adjusted_with_grace_time' => $expectedHoursAdjustedWithGraceTime, // Adjusted expected hours with grace time (after leaves and holidays)
             'late_days' => $lateDays,

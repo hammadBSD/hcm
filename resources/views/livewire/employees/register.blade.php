@@ -753,7 +753,12 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Employee Group') }}</flux:label>
-                                        <flux:input wire:model="employee_group" placeholder="Employee group" />
+                                        <flux:select wire:model="group_id">
+                                            <option value="">{{ __('Select Group') }}</option>
+                                            @foreach($groupOptions as $group)
+                                                <option value="{{ $group['id'] }}">{{ $group['name'] }}</option>
+                                            @endforeach
+                                        </flux:select>
                                     </flux:field>
                                 </div>
 

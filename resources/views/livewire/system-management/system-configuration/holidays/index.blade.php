@@ -139,6 +139,17 @@
                                                         </span>
                                                     @endif
                                                 </div>
+                                            @elseif($holiday->scope_type === 'group')
+                                                <div class="flex flex-col gap-1">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                                                        Group
+                                                    </span>
+                                                    @if($holiday->groups->count() > 0)
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {{ $holiday->groups->pluck('name')->join(', ') }}
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             @elseif($holiday->scope_type === 'employee')
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
                                                     Employee ({{ $holiday->employees->count() }})
@@ -259,6 +270,7 @@
                             <option value="all_employees">All Employees</option>
                             <option value="department">Department</option>
                             <option value="role">Role</option>
+                            <option value="group">Group</option>
                             <option value="employee">Employee</option>
                         </flux:select>
                         <flux:error name="scopeType" />
@@ -372,6 +384,75 @@
                         <flux:field>
                             <flux:label>Additional Employees (Optional)</flux:label>
                             <flux:description>{{ __('Select employees with other roles to include in this holiday') }}</flux:description>
+                            
+                            <!-- Search Input for Additional Employees -->
+                            <div class="mb-3">
+                                <flux:input 
+                                    wire:model.live.debounce.300ms="additionalEmployeeSearchTerm"
+                                    placeholder="Search employees..."
+                                    icon="magnifying-glass"
+                                />
+                            </div>
+                            
+                            <div class="relative">
+                                <select 
+                                    wire:model.live="additionalEmployeeIds" 
+                                    multiple 
+                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                    size="6"
+                                    style="min-height: 150px;"
+                                >
+                                    @foreach($filteredAdditionalEmployees as $employee)
+                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                                            {{ $employee['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <flux:description>{{ __('Search and select additional employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
+                            <flux:error name="additionalEmployeeIds" />
+                        </flux:field>
+                    </div>
+                @endif
+                
+                <!-- Group Selection (if scope is group) -->
+                @if($scopeType === 'group')
+                    <div class="grid grid-cols-1 gap-6">
+                        <flux:field>
+                            <flux:label>Select Groups <span class="text-red-500">*</span></flux:label>
+                            
+                            <!-- Search Input for Groups -->
+                            <div class="mb-3">
+                                <flux:input 
+                                    wire:model.live.debounce.300ms="groupSearchTerm"
+                                    placeholder="Search groups..."
+                                    icon="magnifying-glass"
+                                />
+                            </div>
+                            
+                            <div class="relative">
+                                <select 
+                                    wire:model.live="selectedGroupIds" 
+                                    multiple 
+                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                    size="6"
+                                    style="min-height: 150px;"
+                                >
+                                    @foreach($filteredGroups as $group)
+                                        <option value="{{ $group['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                                            {{ $group['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <flux:description>{{ __('Search and select groups. Hold Ctrl/Cmd to select multiple groups.') }}</flux:description>
+                            <flux:error name="selectedGroupIds" />
+                        </flux:field>
+                        
+                        <!-- Additional Employees (not in selected groups) -->
+                        <flux:field>
+                            <flux:label>Additional Employees (Optional)</flux:label>
+                            <flux:description>{{ __('Select employees from other groups to include in this holiday') }}</flux:description>
                             
                             <!-- Search Input for Additional Employees -->
                             <div class="mb-3">

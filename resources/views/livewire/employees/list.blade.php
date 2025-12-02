@@ -388,6 +388,14 @@
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button wire:click="sort('group')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Group') }}
+                                            @if($sortBy === 'group')
+                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                            @endif
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         <button wire:click="sort('role')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Role') }}
                                             @if($sortBy === 'role')
@@ -464,6 +472,39 @@
                                                     <flux:icon name="building-office" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                                                     <span class="text-sm text-zinc-900 dark:text-zinc-100">
                                                         {{ $department->title }}
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <span class="text-sm text-zinc-500 dark:text-zinc-400">N/A</span>
+                                            @endif
+                                        </td>
+                                        
+                                        <td class="px-6 py-6 whitespace-nowrap">
+                                            @php
+                                                $employeeModel = $employee->employee ?? null;
+                                                $group = null;
+                                                
+                                                if ($employeeModel && $employeeModel->group_id) {
+                                                    // Check if relationship is loaded
+                                                    if ($employeeModel->relationLoaded('group')) {
+                                                        $grp = $employeeModel->getRelation('group');
+                                                        if ($grp && is_object($grp)) {
+                                                            $group = $grp;
+                                                        }
+                                                    }
+                                                    
+                                                    // If not loaded, fetch it via relationship
+                                                    if (!$group) {
+                                                        $group = $employeeModel->group()->first();
+                                                    }
+                                                }
+                                            @endphp
+                                            
+                                            @if($group)
+                                                <div class="flex items-center gap-2">
+                                                    <flux:icon name="user-group" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                                    <span class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                        {{ $group->name }}
                                                     </span>
                                                 </div>
                                             @else
