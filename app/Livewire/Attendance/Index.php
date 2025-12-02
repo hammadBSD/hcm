@@ -1883,8 +1883,19 @@ class Index extends Component
                 $current->addDay();
             }
         } else {
-            // For past/future months, use the full working days minus holidays
-            $workingDaysTillTodayExcludingHolidays = $workingDaysMinusHolidays;
+            // For past/future months, calculate working days minus holidays for the entire month
+            $holidayDaysCount = 0;
+            $current = $startOfMonth->copy();
+            while ($current->lte($endOfMonth)) {
+                if ($current->isWeekday()) {
+                    $dateStr = $current->format('Y-m-d');
+                    if (isset($holidaysMap[$dateStr])) {
+                        $holidayDaysCount++;
+                    }
+                }
+                $current->addDay();
+            }
+            $workingDaysTillTodayExcludingHolidays = $workingDays - $holidayDaysCount;
         }
         $expectedHoursTillTodayWithoutGrace = $this->calculateExpectedHours($workingDaysTillTodayExcludingHolidays, false);
 
