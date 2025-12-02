@@ -1773,25 +1773,79 @@ class Index extends Component
 
         // Count unique working days with attendance (excluding weekends)
         $today = Carbon::now();
-        $attendedDays = $records->groupBy(function ($record) {
-            return Carbon::parse($record->punch_time)->format('Y-m-d');
-        })->filter(function ($dayRecords, $date) use ($targetMonth, $currentMonth) {
-            // Only count working days (exclude weekends)
-            $dateCarbon = Carbon::parse($date);
-            
-            // For current month, only count days up to today (don't count future days)
-            if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
-                return false; // Don't count future days
+        $attendedDays = 0;
+        
+        // If we have processed data, count days with "present" status from it
+        if (!empty($processedData) && is_array($processedData)) {
+            foreach ($processedData as $key => $record) {
+                // Get date from record - try 'date' field first, then use key if it looks like a date
+                $date = null;
+                if (is_array($record) && isset($record['date'])) {
+                    $date = $record['date'];
+                } elseif (is_string($key) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $key)) {
+                    $date = $key;
+                }
+                
+                if (!$date) {
+                    continue;
+                }
+                
+                try {
+                    $dateCarbon = Carbon::parse($date);
+                } catch (\Exception $e) {
+                    continue;
+                }
+                
+                // Only count working days (exclude weekends)
+                if ($dateCarbon->isWeekend()) {
+                    continue;
+                }
+                
+                // For current month, only count days up to today (don't count future days)
+                if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
+                    continue;
+                }
+                
+                // Only count if the date is within the target month
+                $recordMonth = $dateCarbon->format('Y-m');
+                if ($recordMonth !== $targetMonth) {
+                    continue;
+                }
+                
+                // Count days with "present" status (including present_late, present_early, etc.)
+                $status = is_array($record) ? ($record['status'] ?? '') : '';
+                // Check for present status (case-insensitive, including variations like present_late, present_early, etc.)
+                if (!empty($status)) {
+                    $statusLower = strtolower(trim($status));
+                    if ($statusLower === 'present' || 
+                        str_starts_with($statusLower, 'present_') || 
+                        str_starts_with($statusLower, 'present ')) {
+                        $attendedDays++;
+                    }
+                }
             }
-            
-            // Only count if the date is within the target month
-            $recordMonth = $dateCarbon->format('Y-m');
-            if ($recordMonth !== $targetMonth) {
-                return false;
-            }
-            
-            return !$dateCarbon->isWeekend();
-        })->count();
+        } else {
+            // Fallback to counting from raw records
+            $attendedDays = $records->groupBy(function ($record) {
+                return Carbon::parse($record->punch_time)->format('Y-m-d');
+            })->filter(function ($dayRecords, $date) use ($targetMonth, $currentMonth) {
+                // Only count working days (exclude weekends)
+                $dateCarbon = Carbon::parse($date);
+                
+                // For current month, only count days up to today (don't count future days)
+                if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
+                    return false; // Don't count future days
+                }
+                
+                // Only count if the date is within the target month
+                $recordMonth = $dateCarbon->format('Y-m');
+                if ($recordMonth !== $targetMonth) {
+                    return false;
+                }
+                
+                return !$dateCarbon->isWeekend();
+            })->count();
+        }
 
         // Calculate total working hours using processed attendance data when available
         $totalMinutes = 0;
@@ -1864,41 +1918,6 @@ class Index extends Component
         // Calculate expected hours till today (including today) for current month
         $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
         
-        // Calculate expected hours till today WITHOUT grace time and excluding holidays (for "Hours Completed So Far")
-        $workingDaysTillTodayExcludingHolidays = 0;
-        $currentMonth = Carbon::now()->format('Y-m');
-        if ($targetMonth === $currentMonth) {
-            $startOfMonth = Carbon::now()->startOfMonth();
-            $today = Carbon::now();
-            $current = $startOfMonth->copy();
-            
-            while ($current->lte($today)) {
-                if ($current->isWeekday()) {
-                    $dateStr = $current->format('Y-m-d');
-                    // Exclude holidays
-                    if (!isset($holidaysMap[$dateStr])) {
-                        $workingDaysTillTodayExcludingHolidays++;
-                    }
-                }
-                $current->addDay();
-            }
-        } else {
-            // For past/future months, calculate working days minus holidays for the entire month
-            $holidayDaysCount = 0;
-            $current = $startOfMonth->copy();
-            while ($current->lte($endOfMonth)) {
-                if ($current->isWeekday()) {
-                    $dateStr = $current->format('Y-m-d');
-                    if (isset($holidaysMap[$dateStr])) {
-                        $holidayDaysCount++;
-                    }
-                }
-                $current->addDay();
-            }
-            $workingDaysTillTodayExcludingHolidays = $workingDays - $holidayDaysCount;
-        }
-        $expectedHoursTillTodayWithoutGrace = $this->calculateExpectedHours($workingDaysTillTodayExcludingHolidays, false);
-
         // Count on_leave days, holidays, and exempted days (exclude from absent calculation)
         $onLeaveDays = 0;
         $holidayDays = 0;
@@ -1941,8 +1960,23 @@ class Index extends Component
             }
         }
 
-        // Calculate absent days: working days - attended days - on_leave days - holiday days - exempted days
-        $absentDays = $workingDaysTillToday - $attendedDays - $onLeaveDays - $holidayDays - $exemptedDays;
+        // Calculate absent days: (working days - holidays) - attended days - on_leave days - exempted days
+        // Note: Holidays are not working days for absent calculation, so exclude them from working days
+        $workingDaysExcludingHolidays = $workingDaysTillToday;
+        $current = $startOfMonth->copy();
+        $today = Carbon::now();
+        $endDate = ($targetMonth === $currentMonth) ? $today : $endOfMonth;
+        while ($current->lte($endDate)) {
+            if ($current->isWeekday()) {
+                $dateStr = $current->format('Y-m-d');
+                if (isset($holidaysMap[$dateStr])) {
+                    $workingDaysExcludingHolidays--;
+                }
+            }
+            $current->addDay();
+        }
+        
+        $absentDays = $workingDaysExcludingHolidays - $attendedDays - $onLeaveDays - $exemptedDays;
         
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;
@@ -1955,6 +1989,44 @@ class Index extends Component
         // Calculate adjusted expected hours (after accounting for approved leaves and holidays) - without grace time
         $adjustedWorkingDays = $workingDays - $onLeaveDays - $holidayDays;
         $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays, false);
+        
+        // Calculate expected hours till today WITHOUT grace time, excluding holidays and leaves (for "Hours Completed So Far")
+        // This should match the logic for "Monthly Expected Hours" but only for days up to today
+        $workingDaysTillTodayExcludingHolidaysAndLeaves = 0;
+        $currentMonth = Carbon::now()->format('Y-m');
+        
+        // Load leave dates from processed data for current month calculation
+        $onLeaveDates = [];
+        if (!empty($processedData) && is_array($processedData)) {
+            foreach ($processedData as $record) {
+                $date = is_array($record) && isset($record['date']) ? $record['date'] : null;
+                if ($date && isset($record['status']) && $record['status'] === 'on_leave') {
+                    $onLeaveDates[$date] = true;
+                }
+            }
+        }
+        
+        if ($targetMonth === $currentMonth) {
+            $startOfMonth = Carbon::now()->startOfMonth();
+            $today = Carbon::now();
+            $current = $startOfMonth->copy();
+            
+            while ($current->lte($today)) {
+                if ($current->isWeekday()) {
+                    $dateStr = $current->format('Y-m-d');
+                    // Exclude holidays and leave days
+                    if (!isset($holidaysMap[$dateStr]) && !isset($onLeaveDates[$dateStr])) {
+                        $workingDaysTillTodayExcludingHolidaysAndLeaves++;
+                    }
+                }
+                $current->addDay();
+            }
+        } else {
+            // For past/future months, use the same calculation as expected_hours_adjusted
+            // (working days minus holidays and leaves for the entire month)
+            $workingDaysTillTodayExcludingHolidaysAndLeaves = $adjustedWorkingDays;
+        }
+        $expectedHoursTillTodayWithoutGrace = $this->calculateExpectedHours($workingDaysTillTodayExcludingHolidaysAndLeaves, false);
         
         // Calculate expected hours with grace time for full month (for "Monthly Expected Working Hours")
         // This deducts grace time from the expected hours and also subtracts holidays
