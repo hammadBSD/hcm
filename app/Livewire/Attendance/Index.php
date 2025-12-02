@@ -1925,12 +1925,23 @@ class Index extends Component
         $totalNonAllowedBreakMinutes = 0;
         $totalBreakMinutes = 0;
         
+        // Count holidays from holidaysMap for the entire month (including future holidays)
+        // This ensures upcoming holidays are also counted, not just past ones from processedData
+        $current = $startOfMonth->copy();
+        while ($current->lte($endOfMonth)) {
+            if ($current->isWeekday()) {
+                $dateStr = $current->format('Y-m-d');
+                if (isset($holidaysMap[$dateStr])) {
+                    $holidayDays++;
+                }
+            }
+            $current->addDay();
+        }
+        
         if (!empty($processedData) && is_array($processedData)) {
             foreach ($processedData as $record) {
                 if (isset($record['status']) && $record['status'] === 'on_leave') {
                     $onLeaveDays++;
-                } elseif (isset($record['status']) && $record['status'] === 'holiday') {
-                    $holidayDays++;
                 } elseif (isset($record['status']) && $record['status'] === 'exempted') {
                     $exemptedDays++;
                 }
