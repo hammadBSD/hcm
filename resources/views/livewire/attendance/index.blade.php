@@ -137,13 +137,13 @@
                                 </div>
                                 <flux:icon name="clock" class="w-8 h-8 text-blue-600 dark:text-blue-400" />
                             </div>
-                            <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                            {{-- <div class="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Hours Completed So Far') }}</flux:text>
                                     <flux:heading size="xl" class="text-purple-600 dark:text-purple-400">{{ $attendanceStats['expected_hours_till_today_without_grace'] ?? '0:00' }}</flux:heading>
                                 </div>
                                 <flux:icon name="calendar-days" class="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                            </div>
+                            </div> --}}
                             <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Expected Hours</flux:text>
@@ -156,6 +156,15 @@
                                     @endif
                                 </div>
                                 <flux:icon name="check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div class="flex items-center justify-between p-4 rounded-lg {{ ($attendanceStats['short_excess_minutes'] ?? 0) < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20' }}">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Short/Excess Hours</flux:text>
+                                    <flux:heading size="xl" class="{{ ($attendanceStats['short_excess_minutes'] ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
+                                        {{ $attendanceStats['short_excess_hours'] ?? '0:00' }}
+                                    </flux:heading>
+                                </div>
+                                <flux:icon name="{{ ($attendanceStats['short_excess_minutes'] ?? 0) < 0 ? 'arrow-down' : 'arrow-up' }}" class="w-8 h-8 {{ ($attendanceStats['short_excess_minutes'] ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}" />
                             </div>
                         </div>
                     </div>

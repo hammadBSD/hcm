@@ -58,6 +58,8 @@
                                             {{ $exemption->department->title }}
                                         @elseif($exemption->scope_type === 'role' && $exemption->role)
                                             {{ $exemption->role->name }}
+                                        @elseif($exemption->scope_type === 'group' && $exemption->group)
+                                            {{ $exemption->group->name }}
                                         @elseif($exemption->scope_type === 'user' && $exemption->user)
                                             {{ $exemption->user->name }}
                                         @else
@@ -123,7 +125,7 @@
             <div class="px-6 pt-6 pb-4 border-b border-zinc-200 dark:border-zinc-700">
                 <flux:heading size="lg">{{ __('Create Exemption Days') }}</flux:heading>
                 <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
-                    {{ __('Create exemption days for all employees, a department, role, or specific employees.') }}
+                    {{ __('Create exemption days for all employees, a department, role, group, or specific employees.') }}
                 </flux:text>
             </div>
 
@@ -136,6 +138,7 @@
                             <option value="all">{{ __('All Employees') }}</option>
                             <option value="department">{{ __('Department') }}</option>
                             <option value="role">{{ __('Role') }}</option>
+                            <option value="group">{{ __('Group') }}</option>
                             <option value="user">{{ __('Employee') }}</option>
                         </flux:select>
                         <flux:error name="form.scope_type" />
@@ -166,6 +169,20 @@
                                 @endforeach
                             </flux:select>
                             <flux:error name="form.role_id" />
+                        </flux:field>
+                    @endif
+
+                    <!-- Group (conditional) -->
+                    @if($form['scope_type'] === 'group')
+                        <flux:field>
+                            <flux:label>{{ __('Group') }} <span class="text-red-500">*</span></flux:label>
+                            <flux:select wire:model="form.group_id" placeholder="{{ __('Select Group') }}">
+                                <option value="">{{ __('Select Group') }}</option>
+                                @foreach($groupOptions as $group)
+                                    <option value="{{ $group['id'] }}">{{ $group['name'] }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="form.group_id" />
                         </flux:field>
                     @endif
 

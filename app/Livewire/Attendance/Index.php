@@ -2093,6 +2093,24 @@ class Index extends Component
             $expectedHoursAdjustedWithGraceTime = $expectedHoursWithGraceTime;
         }
 
+        // Calculate short/excess hours: Total Hours Worked - Monthly Expected Hours (adjusted)
+        // Use expected_hours_adjusted for comparison (after leaves and holidays, without grace time)
+        $totalHoursWorkedMinutes = ($totalHours * 60) + $remainingMinutes;
+        
+        // Parse expected_hours_adjusted to get minutes
+        $expectedHoursAdjustedParts = explode(':', $expectedHoursAdjusted);
+        $expectedHoursAdjustedInt = (int)($expectedHoursAdjustedParts[0] ?? 0);
+        $expectedMinsAdjustedInt = (int)($expectedHoursAdjustedParts[1] ?? 0);
+        $expectedHoursAdjustedMinutes = ($expectedHoursAdjustedInt * 60) + $expectedMinsAdjustedInt;
+        
+        // Calculate difference (positive = excess, negative = short)
+        $shortExcessMinutes = $totalHoursWorkedMinutes - $expectedHoursAdjustedMinutes;
+        $shortExcessHours = floor(abs($shortExcessMinutes) / 60);
+        $shortExcessMins = abs($shortExcessMinutes) % 60;
+        
+        // Format: negative values show with minus sign, positive values show without sign
+        $shortExcessHoursFormatted = sprintf('%s%d:%02d', $shortExcessMinutes < 0 ? '-' : '', $shortExcessHours, $shortExcessMins);
+
         return [
             'working_days' => $workingDaysMinusHolidays, // Working days minus holidays
             'attended_days' => $attendedDays,
@@ -2110,6 +2128,8 @@ class Index extends Component
             'late_days' => $lateDays,
             'total_break_time' => sprintf('%d:%02d', floor($totalBreakMinutes / 60), $totalBreakMinutes % 60), // Total break time in HH:MM format
             'total_non_allowed_break_time' => sprintf('%d:%02d', floor($totalNonAllowedBreakMinutes / 60), $totalNonAllowedBreakMinutes % 60), // Total non-allowed break time in HH:MM format
+            'short_excess_hours' => $shortExcessHoursFormatted, // Short/excess hours (negative = short, positive = excess)
+            'short_excess_minutes' => $shortExcessMinutes, // Raw minutes for conditional styling
         ];
     }
 
@@ -2120,8 +2140,7 @@ class Index extends Component
             return;
         }
 
-        // Reset month to current month when user changes
-        $this->selectedMonth = '';
+        // Keep the selected month when user changes (don't reset to current month)
         // Reload attendance data when user filter changes
         $this->loadUserAttendance();
         // Reload leave summary for the selected employee
