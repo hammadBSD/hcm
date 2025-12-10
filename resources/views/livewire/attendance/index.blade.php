@@ -469,11 +469,12 @@
                                             $hasLeaveRequest = isset($record['leave_request']);
                                             $leaveRequest = $hasLeaveRequest ? $record['leave_request'] : null;
                                             $isHoliday = $record['status'] === 'holiday';
-                                            $holidayName = $isHoliday ? ($record['holiday_name'] ?? null) : null;
+                                            $holidayName = isset($record['holiday_name']) && !empty($record['holiday_name']) ? $record['holiday_name'] : null;
+                                            $hasHoliday = $holidayName !== null;
                                             $shouldShowMenu = ($canManageMissing || $hasManualEntries || ($isAbsent && !$hasLeaveRequest));
                                         @endphp
 
-                                        @if($isHoliday && $holidayName)
+                                        @if($hasHoliday)
                                             <div class="text-sm font-medium text-blue-700 dark:text-blue-400">
                                                 {{ $holidayName }}
                                             </div>
@@ -601,32 +602,66 @@
                 <!-- Entry Type -->
                 <flux:field>
                     <flux:label>Entry Type <span class="text-red-500">*</span></flux:label>
-                    <flux:select wire:model="missingEntryType" placeholder="Select Entry Type">
+                    <flux:select wire:model.live="missingEntryType" placeholder="Select Entry Type">
                         <option value="">Select Entry Type</option>
                         <option value="IN">Check-in</option>
                         <option value="OUT">Check-out</option>
+                        <option value="edit_checkin_checkout">Edit checkin and checkout</option>
+                        <option value="edit_checkin_checkout_exclude_breaks">Edit checkin & checkout + exclude breaks</option>
                     </flux:select>
                     <flux:error name="missingEntryType" />
                 </flux:field>
 
-                <!-- Date -->
-                <flux:field>
-                    <flux:label>Date <span class="text-red-500">*</span></flux:label>
-                    <flux:input wire:model="missingEntryDate" type="date" />
-                    <flux:error name="missingEntryDate" />
-                    @if($dateAdjusted)
-                        <flux:callout color="blue" icon="information-circle" class="mt-2">
-                            Date automatically adjusted to next day because your shift starts in PM and you entered an AM time.
-                        </flux:callout>
-                    @endif
-                </flux:field>
+                @if(in_array($missingEntryType, ['IN', 'OUT']))
+                    <!-- Single Entry Fields -->
+                    <!-- Date -->
+                    <flux:field>
+                        <flux:label>Date <span class="text-red-500">*</span></flux:label>
+                        <flux:input wire:model="missingEntryDate" type="date" />
+                        <flux:error name="missingEntryDate" />
+                        @if($dateAdjusted)
+                            <flux:callout color="blue" icon="information-circle" class="mt-2">
+                                Date automatically adjusted to next day because your shift starts in PM and you entered an AM time.
+                            </flux:callout>
+                        @endif
+                    </flux:field>
 
-                <!-- Time -->
-                <flux:field>
-                    <flux:label>Time <span class="text-red-500">*</span></flux:label>
-                    <flux:input wire:model.live="missingEntryTime" type="time" step="1" />
-                    <flux:error name="missingEntryTime" />
-                </flux:field>
+                    <!-- Time -->
+                    <flux:field>
+                        <flux:label>Time <span class="text-red-500">*</span></flux:label>
+                        <flux:input wire:model.live="missingEntryTime" type="time" step="1" />
+                        <flux:error name="missingEntryTime" />
+                    </flux:field>
+                @elseif(in_array($missingEntryType, ['edit_checkin_checkout', 'edit_checkin_checkout_exclude_breaks']))
+                    <!-- Date Range and Checkin/Checkout Fields -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <flux:field>
+                            <flux:label>Date From <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model="missingEntryDateFrom" type="date" />
+                            <flux:error name="missingEntryDateFrom" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Date To <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model="missingEntryDateTo" type="date" />
+                            <flux:error name="missingEntryDateTo" />
+                        </flux:field>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <flux:field>
+                            <flux:label>Checkin Time <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model="missingEntryCheckinTime" type="time" step="1" />
+                            <flux:error name="missingEntryCheckinTime" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Checkout Time <span class="text-red-500">*</span></flux:label>
+                            <flux:input wire:model="missingEntryCheckoutTime" type="time" step="1" />
+                            <flux:error name="missingEntryCheckoutTime" />
+                        </flux:field>
+                    </div>
+                @endif
 
                 <!-- Notes -->
                 <flux:field>

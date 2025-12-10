@@ -333,10 +333,15 @@ class Index extends Component
         // Get employees that are NOT in the selected departments, roles, or groups
         $excludedEmployeeIds = $this->getEmployeesInScope();
         
-        $this->additionalEmployees = Employee::select('id', 'first_name', 'last_name', 'employee_code')
-            ->where('status', 'active')
-            ->whereNotIn('id', $excludedEmployeeIds)
-            ->orderBy('first_name')
+        $query = Employee::select('id', 'first_name', 'last_name', 'employee_code')
+            ->where('status', 'active');
+        
+        // Only exclude if there are employees to exclude
+        if (!empty($excludedEmployeeIds)) {
+            $query->whereNotIn('id', $excludedEmployeeIds);
+        }
+        
+        $this->additionalEmployees = $query->orderBy('first_name')
             ->get()
             ->map(function ($employee) {
                 return [

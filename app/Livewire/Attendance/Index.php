@@ -65,10 +65,16 @@ class Index extends Component
     // Missing Entry Flyout Properties
     public $showMissingEntryFlyout = false;
     public $missingEntryDate = '';
-    public $missingEntryType = ''; // 'IN' or 'OUT'
+    public $missingEntryType = ''; // 'IN', 'OUT', 'edit_checkin_checkout', 'edit_checkin_checkout_exclude_breaks'
     public $missingEntryTime = '';
     public $missingEntryNotes = '';
     public $dateAdjusted = false; // Flag to show if date was auto-adjusted
+    
+    // Edit Checkin/Checkout Properties
+    public $missingEntryDateFrom = '';
+    public $missingEntryDateTo = '';
+    public $missingEntryCheckinTime = '';
+    public $missingEntryCheckoutTime = '';
     
     // View Changes Flyout Properties
     public $showViewChangesFlyout = false;
@@ -488,6 +494,28 @@ class Index extends Component
         return $exemptions;
     }
 
+    /**
+     * Check if a date has "Exclude Breaks" manual entries
+     */
+    private function hasExcludeBreaksEntry($date)
+    {
+        if (!$this->punchCode) {
+            return false;
+        }
+
+        $dateCarbon = Carbon::parse($date)->startOfDay();
+        $endOfDay = $dateCarbon->copy()->endOfDay();
+
+        // Check if there are manual entries with "Exclude Breaks" in notes for this date
+        $hasExcludeBreaks = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->where('is_manual_entry', true)
+            ->whereBetween('punch_time', [$dateCarbon, $endOfDay])
+            ->where('notes', 'like', '%Exclude Breaks%')
+            ->exists();
+
+        return $hasExcludeBreaks;
+    }
+
     private function loadHolidaysForMonth($startOfMonth, $endOfMonth)
     {
         if (!$this->employee) {
@@ -704,6 +732,9 @@ class Index extends Component
             // Get the effective shift for this specific date (considers EmployeeShift assignments with start_date)
             $dayShift = $this->employee->getEffectiveShiftForDate($date);
             
+            // Check if this date has "Exclude Breaks" manual entries
+            $hasExcludeBreaksEntry = $this->hasExcludeBreaksEntry($date);
+            
             // Determine shift characteristics once for this day
             $isOvernight = false;
             $shiftStartsInPM = false;
@@ -770,6 +801,7 @@ class Index extends Component
             // Determine day status
             $status = 'absent'; // Default
             if ($isHoliday) {
+                // Always show as holiday if it's a holiday, even if employee worked
                 $status = 'holiday';
             } elseif ($current->isWeekend()) {
                 $status = 'off';
@@ -803,11 +835,8 @@ class Index extends Component
                 'has_manual_entries' => false,
             ];
             
-            // Skip processing attendance records if it's a holiday
-            if ($isHoliday) {
-                $current->addDay();
-                continue;
-            }
+            // Process attendance records even on holidays to show check-in/check-out times
+            // Don't skip holidays - we want to show attendance data even if status is "holiday"
             
             // Process attendance records for this day if they exist
             if (!empty($dayRecords)) {
@@ -965,16 +994,17 @@ class Index extends Component
                 $firstCheckIn = !empty($validCheckIns) ? $validCheckIns[0] : null;
                 $lastCheckOut = !empty($validCheckOuts) ? end($validCheckOuts) : null;
                 
-                // For exempted days, if we have records, mark as present
-                if ($isExempted && ($firstCheckIn || $lastCheckOut)) {
+                // For exempted days, if we have records, mark as present (but not if it's a holiday)
+                if ($isExempted && ($firstCheckIn || $lastCheckOut) && !$isHoliday) {
                     $status = 'present';
                 }
                 
                 // Update status: only mark as present if there's a valid check-in for PM-start shifts
+                // But don't override holiday status
                 if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
                     // Only AM check-out exists (belongs to previous day), don't mark as present
-                    // Unless it's an exempted day
-                    if (!$isExempted) {
+                    // Unless it's an exempted day or holiday
+                    if (!$isExempted && !$isHoliday) {
                         $firstCheckIn = null;
                         $lastCheckOut = null;
                         if ($current->isWeekend()) {
@@ -1001,7 +1031,8 @@ class Index extends Component
                     $processedData[$date]['expected_hours'] = $shiftValidation['expected_hours'];
                     
                     // Update status to include late/early information
-                    if ($processedData[$date]['status'] === 'present') {
+                    // But don't change status if it's a holiday - keep it as "holiday"
+                    if ($processedData[$date]['status'] === 'present' && !$isHoliday) {
                         if ($processedData[$date]['is_late'] && $processedData[$date]['is_early']) {
                             $processedData[$date]['status'] = 'present_late_early';
                         } elseif ($processedData[$date]['is_late']) {
@@ -1098,9 +1129,9 @@ class Index extends Component
                     $recordsForCalculation = $dayRecords;
                 }
                 
-                // For exempted days, only use first check-in and last check-out
+                // For exempted days or dates with "Exclude Breaks" entries, only use first check-in and last check-out
                 // Exclude intermediate entries and missing pairs
-                if ($isExempted && !empty($recordsForCalculation)) {
+                if (($isExempted || $hasExcludeBreaksEntry) && !empty($recordsForCalculation)) {
                     // Store the original merged records before we rebuild
                     // This includes next day's records for overnight shifts
                     $originalRecordsForCalculation = $recordsForCalculation;
@@ -1209,9 +1240,9 @@ class Index extends Component
                         }
                     }
                     
-                    // For exempted days, calculate hours from first check-in to last check-out
+                    // For exempted days or dates with "Exclude Breaks" entries, calculate hours from first check-in to last check-out
                     // Ignore missing pairs and intermediate entries
-                    if ($isExempted && $firstCheckIn && $lastCheckOut) {
+                    if (($isExempted || $hasExcludeBreaksEntry) && $firstCheckIn && $lastCheckOut) {
                         $exemptedMinutes = $firstCheckIn->diffInMinutes($lastCheckOut);
                         if ($exemptedMinutes > 0) {
                             // For exempted days, apply allowed break time logic if set
@@ -1826,25 +1857,25 @@ class Index extends Component
             }
         } else {
             // Fallback to counting from raw records
-            $attendedDays = $records->groupBy(function ($record) {
-                return Carbon::parse($record->punch_time)->format('Y-m-d');
-            })->filter(function ($dayRecords, $date) use ($targetMonth, $currentMonth) {
-                // Only count working days (exclude weekends)
-                $dateCarbon = Carbon::parse($date);
-                
-                // For current month, only count days up to today (don't count future days)
-                if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
-                    return false; // Don't count future days
-                }
-                
-                // Only count if the date is within the target month
-                $recordMonth = $dateCarbon->format('Y-m');
-                if ($recordMonth !== $targetMonth) {
-                    return false;
-                }
-                
-                return !$dateCarbon->isWeekend();
-            })->count();
+        $attendedDays = $records->groupBy(function ($record) {
+            return Carbon::parse($record->punch_time)->format('Y-m-d');
+        })->filter(function ($dayRecords, $date) use ($targetMonth, $currentMonth) {
+            // Only count working days (exclude weekends)
+            $dateCarbon = Carbon::parse($date);
+            
+            // For current month, only count days up to today (don't count future days)
+            if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
+                return false; // Don't count future days
+            }
+            
+            // Only count if the date is within the target month
+            $recordMonth = $dateCarbon->format('Y-m');
+            if ($recordMonth !== $targetMonth) {
+                return false;
+            }
+            
+            return !$dateCarbon->isWeekend();
+        })->count();
         }
 
         // Calculate total working hours using processed attendance data when available
@@ -1917,7 +1948,7 @@ class Index extends Component
 
         // Calculate expected hours till today (including today) for current month
         $expectedHoursTillToday = $this->calculateExpectedHoursTillToday($targetMonth);
-        
+
         // Count on_leave days, holidays, and exempted days (exclude from absent calculation)
         $onLeaveDays = 0;
         $holidayDays = 0;
@@ -1997,8 +2028,8 @@ class Index extends Component
         $workingDaysMinusHolidays = $workingDays - $holidayDays;
         $expectedHours = $this->calculateExpectedHours($workingDaysMinusHolidays, false);
         
-        // Calculate adjusted expected hours (after accounting for approved leaves and holidays) - without grace time
-        $adjustedWorkingDays = $workingDays - $onLeaveDays - $holidayDays;
+        // Calculate adjusted expected hours (after accounting for approved leaves, holidays, and absent days) - without grace time
+        $adjustedWorkingDays = $workingDays - $onLeaveDays - $holidayDays - max(0, $absentDays);
         $expectedHoursAdjusted = $this->calculateExpectedHours($adjustedWorkingDays, false);
         
         // Calculate expected hours till today WITHOUT grace time, excluding holidays and leaves (for "Hours Completed So Far")
@@ -2043,9 +2074,9 @@ class Index extends Component
         // This deducts grace time from the expected hours and also subtracts holidays
         $expectedHoursWithGraceTime = $this->calculateExpectedHours($workingDaysMinusHolidays, true);
         
-        // Calculate adjusted expected hours with grace time (after accounting for approved leaves and holidays)
-        // For leaves and holidays, deduct (shift duration - grace time) per day from the expected hours with grace time
-        $totalDaysToDeduct = $onLeaveDays + $holidayDays;
+        // Calculate adjusted expected hours with grace time (after accounting for approved leaves, holidays, and absent days)
+        // For leaves, holidays, and absent days, deduct (shift duration - grace time) per day from the expected hours with grace time
+        $totalDaysToDeduct = $onLeaveDays + $holidayDays + max(0, $absentDays);
         if ($totalDaysToDeduct > 0 && $this->employeeShift) {
             // Get shift duration in minutes
             $shift = $this->employeeShift;
@@ -2613,6 +2644,10 @@ class Index extends Component
         $this->missingEntryTime = '';
         $this->missingEntryNotes = '';
         $this->dateAdjusted = false;
+        $this->missingEntryDateFrom = '';
+        $this->missingEntryDateTo = '';
+        $this->missingEntryCheckinTime = '';
+        $this->missingEntryCheckoutTime = '';
     }
 
     /**
@@ -2683,6 +2718,8 @@ class Index extends Component
             abort(403);
         }
 
+        // Validate based on entry type
+        if (in_array($this->missingEntryType, ['IN', 'OUT'])) {
         $this->validate([
             'missingEntryDate' => 'required|date',
             'missingEntryType' => 'required|in:IN,OUT',
@@ -2694,6 +2731,24 @@ class Index extends Component
             'missingEntryType.in' => 'Entry type must be Check-in or Check-out.',
             'missingEntryTime.required' => 'Time is required.',
         ]);
+        } else {
+            $this->validate([
+                'missingEntryType' => 'required|in:edit_checkin_checkout,edit_checkin_checkout_exclude_breaks',
+                'missingEntryDateFrom' => 'required|date',
+                'missingEntryDateTo' => 'required|date|after_or_equal:missingEntryDateFrom',
+                'missingEntryCheckinTime' => 'required',
+                'missingEntryCheckoutTime' => 'required',
+                'missingEntryNotes' => 'nullable|string|max:500',
+            ], [
+                'missingEntryType.required' => 'Entry type is required.',
+                'missingEntryType.in' => 'Invalid entry type.',
+                'missingEntryDateFrom.required' => 'Date From is required.',
+                'missingEntryDateTo.required' => 'Date To is required.',
+                'missingEntryDateTo.after_or_equal' => 'Date To must be after or equal to Date From.',
+                'missingEntryCheckinTime.required' => 'Checkin Time is required.',
+                'missingEntryCheckoutTime.required' => 'Checkout Time is required.',
+            ]);
+        }
 
         if (!$this->punchCode) {
             session()->flash('error', 'Punch code not found. Please contact HR.');
@@ -2701,12 +2756,10 @@ class Index extends Component
         }
 
         try {
-            // Combine date and time
-            // Carbon::parse can handle both H:i and H:i:s formats automatically
+            if (in_array($this->missingEntryType, ['IN', 'OUT'])) {
+                // Original single entry logic
             $dateTime = Carbon::parse($this->missingEntryDate . ' ' . $this->missingEntryTime);
 
-            // Create manual entry
-            // Note: punch_time has a unique constraint, so we need to handle potential conflicts
             try {
                 DeviceAttendance::create([
                     'punch_code' => $this->punchCode,
@@ -2722,15 +2775,144 @@ class Index extends Component
                     'notes' => $this->missingEntryNotes,
                 ]);
             } catch (\Illuminate\Database\QueryException $e) {
-                // Handle unique constraint violation
                 if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry')) {
                     session()->flash('error', 'An entry already exists for this exact date and time. Please choose a different time.');
                     return;
                 }
-                throw $e; // Re-throw if it's a different error
+                    throw $e;
             }
 
             session()->flash('success', 'Missing entry added successfully.');
+            } else {
+                // New logic for edit checkin/checkout
+                $dateFrom = Carbon::parse($this->missingEntryDateFrom);
+                $dateTo = Carbon::parse($this->missingEntryDateTo);
+                $checkinTime = Carbon::parse($this->missingEntryCheckinTime);
+                $checkoutTime = Carbon::parse($this->missingEntryCheckoutTime);
+                
+                $entriesCreated = 0;
+                $errors = [];
+
+                if ($this->missingEntryType === 'edit_checkin_checkout') {
+                    // For each day in the date range, create checkin and checkout entries
+                    $current = $dateFrom->copy();
+                    while ($current->lte($dateTo)) {
+                        $dateStr = $current->format('Y-m-d');
+                        
+                        // Create checkin entry for this day
+                        $checkinDateTime = Carbon::parse($dateStr . ' ' . $checkinTime->format('H:i:s'));
+                        try {
+                            DeviceAttendance::create([
+                                'punch_code' => $this->punchCode,
+                                'device_ip' => '0.0.0.0',
+                                'device_type' => 'IN',
+                                'punch_time' => $checkinDateTime,
+                                'punch_type' => 'check_in',
+                                'status' => null,
+                                'verify_mode' => null,
+                                'is_processed' => false,
+                                'is_manual_entry' => true,
+                                'updated_by' => Auth::id(),
+                                'notes' => $this->missingEntryNotes,
+                            ]);
+                            $entriesCreated++;
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            if (!($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry'))) {
+                                $errors[] = "Failed to create checkin entry for {$dateStr}: " . $e->getMessage();
+                            }
+                        }
+                        
+                        // Create checkout entry for this day
+                        $checkoutDateTime = Carbon::parse($dateStr . ' ' . $checkoutTime->format('H:i:s'));
+                        // If checkout time is earlier than checkin time, it's likely next day
+                        if ($checkoutDateTime->lt($checkinDateTime)) {
+                            $checkoutDateTime->addDay();
+                        }
+                        
+                        try {
+                            DeviceAttendance::create([
+                                'punch_code' => $this->punchCode,
+                                'device_ip' => '0.0.0.0',
+                                'device_type' => 'OUT',
+                                'punch_time' => $checkoutDateTime,
+                                'punch_type' => 'check_out',
+                                'status' => null,
+                                'verify_mode' => null,
+                                'is_processed' => false,
+                                'is_manual_entry' => true,
+                                'updated_by' => Auth::id(),
+                                'notes' => $this->missingEntryNotes,
+                            ]);
+                            $entriesCreated++;
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            if (!($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry'))) {
+                                $errors[] = "Failed to create checkout entry for {$dateStr}: " . $e->getMessage();
+                            }
+                        }
+                        
+                        $current->addDay();
+                    }
+                } else if ($this->missingEntryType === 'edit_checkin_checkout_exclude_breaks') {
+                    // Only create checkin for first day and checkout for last day
+                    $checkinDateTime = Carbon::parse($dateFrom->format('Y-m-d') . ' ' . $checkinTime->format('H:i:s'));
+                    $checkoutDateTime = Carbon::parse($dateTo->format('Y-m-d') . ' ' . $checkoutTime->format('H:i:s'));
+                    
+                    // If checkout time is earlier than checkin time, it's likely next day
+                    if ($checkoutDateTime->lt($checkinDateTime)) {
+                        $checkoutDateTime->addDay();
+                    }
+                    
+                    // Create checkin entry for first day
+                    try {
+                        DeviceAttendance::create([
+                            'punch_code' => $this->punchCode,
+                            'device_ip' => '0.0.0.0',
+                            'device_type' => 'IN',
+                            'punch_time' => $checkinDateTime,
+                            'punch_type' => 'check_in',
+                            'status' => null,
+                            'verify_mode' => null,
+                            'is_processed' => false,
+                            'is_manual_entry' => true,
+                            'updated_by' => Auth::id(),
+                            'notes' => $this->missingEntryNotes . ' (Exclude Breaks)',
+                        ]);
+                        $entriesCreated++;
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        if (!($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry'))) {
+                            $errors[] = "Failed to create checkin entry: " . $e->getMessage();
+                        }
+                    }
+                    
+                    // Create checkout entry for last day
+                    try {
+                        DeviceAttendance::create([
+                            'punch_code' => $this->punchCode,
+                            'device_ip' => '0.0.0.0',
+                            'device_type' => 'OUT',
+                            'punch_time' => $checkoutDateTime,
+                            'punch_type' => 'check_out',
+                            'status' => null,
+                            'verify_mode' => null,
+                            'is_processed' => false,
+                            'is_manual_entry' => true,
+                            'updated_by' => Auth::id(),
+                            'notes' => $this->missingEntryNotes . ' (Exclude Breaks)',
+                        ]);
+                        $entriesCreated++;
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        if (!($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate entry'))) {
+                            $errors[] = "Failed to create checkout entry: " . $e->getMessage();
+                        }
+                    }
+                }
+
+                if (!empty($errors)) {
+                    session()->flash('error', 'Some entries could not be created: ' . implode('; ', $errors));
+                } else {
+                    session()->flash('success', "Successfully created {$entriesCreated} entry/entries.");
+                }
+            }
             
             // Close flyout and reload attendance
             $this->closeMissingEntryFlyout();
