@@ -799,6 +799,7 @@ class Index extends Component
             $isHoliday = $holiday !== null;
             
             // Determine day status
+            // Priority: Holiday > Weekend > Present > Absent > Exempted (only if present)
             $status = 'absent'; // Default
             if ($isHoliday) {
                 // Always show as holiday if it's a holiday, even if employee worked
@@ -806,11 +807,16 @@ class Index extends Component
             } elseif ($current->isWeekend()) {
                 $status = 'off';
             } elseif ($hasValidAttendance) {
-                $status = 'present';
-            } elseif ($isExempted) {
-                // For exempted days with no attendance, don't mark as absent
-                // Status will remain as 'absent' but we'll handle it differently below
-                $status = 'exempted';
+                // If employee is present and day is exempted, show as exempted
+                // Otherwise show as present (will be updated to present_late, etc. later)
+                if ($isExempted) {
+                    $status = 'exempted';
+                } else {
+                    $status = 'present';
+                }
+            } else {
+                // No attendance - always show as absent, even if day is exempted
+                $status = 'absent';
             }
             
             $processedData[$date] = [
@@ -994,22 +1000,23 @@ class Index extends Component
                 $firstCheckIn = !empty($validCheckIns) ? $validCheckIns[0] : null;
                 $lastCheckOut = !empty($validCheckOuts) ? end($validCheckOuts) : null;
                 
-                // For exempted days, if we have records, mark as present (but not if it's a holiday)
-                if ($isExempted && ($firstCheckIn || $lastCheckOut) && !$isHoliday) {
-                    $status = 'present';
-                }
+                // For exempted days with records, status should already be 'exempted' from initial determination
+                // Don't override it - exempted status is only for present employees
+                // If no records, status will remain 'absent' (prioritized over exempted)
                 
                 // Update status: only mark as present if there's a valid check-in for PM-start shifts
                 // But don't override holiday status
+                // Note: Absent takes priority over exempted - if no valid attendance, show as absent
                 if ($isOvernight && $shiftStartsInPM && empty($validCheckIns) && !empty($validCheckOuts)) {
                     // Only AM check-out exists (belongs to previous day), don't mark as present
-                    // Unless it's an exempted day or holiday
-                    if (!$isExempted && !$isHoliday) {
+                    // Absent takes priority - even if exempted, if no valid attendance, show as absent
+                    if (!$isHoliday) {
                         $firstCheckIn = null;
                         $lastCheckOut = null;
                         if ($current->isWeekend()) {
                             $status = 'off';
                         } else {
+                            // Always show as absent if no valid attendance, even if exempted
                             $status = 'absent';
                         }
                         $processedData[$date]['status'] = $status;
@@ -1844,13 +1851,16 @@ class Index extends Component
                 }
                 
                 // Count days with "present" status (including present_late, present_early, etc.)
+                // Also count "exempted" days as attended since exempted only applies when employee is present
                 $status = is_array($record) ? ($record['status'] ?? '') : '';
                 // Check for present status (case-insensitive, including variations like present_late, present_early, etc.)
+                // Also count exempted as attended (exempted means present on an exempted day)
                 if (!empty($status)) {
                     $statusLower = strtolower(trim($status));
                     if ($statusLower === 'present' || 
                         str_starts_with($statusLower, 'present_') || 
-                        str_starts_with($statusLower, 'present ')) {
+                        str_starts_with($statusLower, 'present ') ||
+                        $statusLower === 'exempted') {
                         $attendedDays++;
                     }
                 }
@@ -2002,23 +2012,66 @@ class Index extends Component
             }
         }
 
-        // Calculate absent days: (working days - holidays) - attended days - on_leave days - exempted days
-        // Note: Holidays are not working days for absent calculation, so exclude them from working days
-        $workingDaysExcludingHolidays = $workingDaysTillToday;
-        $current = $startOfMonth->copy();
-        $today = Carbon::now();
-        $endDate = ($targetMonth === $currentMonth) ? $today : $endOfMonth;
-        while ($current->lte($endDate)) {
-            if ($current->isWeekday()) {
-                $dateStr = $current->format('Y-m-d');
-                if (isset($holidaysMap[$dateStr])) {
-                    $workingDaysExcludingHolidays--;
+        // Calculate absent days: Count directly from processedData where status is 'absent'
+        // This ensures we count actual absent days, not calculated ones
+        $absentDays = 0;
+        if (!empty($processedData) && is_array($processedData)) {
+            foreach ($processedData as $record) {
+                $date = is_array($record) && isset($record['date']) ? $record['date'] : null;
+                if (!$date) {
+                    continue;
+                }
+                
+                try {
+                    $dateCarbon = Carbon::parse($date);
+                } catch (\Exception $e) {
+                    continue;
+                }
+                
+                // Only count working days (exclude weekends)
+                if ($dateCarbon->isWeekend()) {
+                    continue;
+                }
+                
+                // For current month, only count days up to today
+                if ($targetMonth === $currentMonth && $dateCarbon->isFuture()) {
+                    continue;
+                }
+                
+                // Only count if the date is within the target month
+                $recordMonth = $dateCarbon->format('Y-m');
+                if ($recordMonth !== $targetMonth) {
+                    continue;
+                }
+                
+                // Count days with "absent" status
+                $status = is_array($record) ? ($record['status'] ?? '') : '';
+                if ($status === 'absent') {
+                    $absentDays++;
                 }
             }
-            $current->addDay();
         }
         
-        $absentDays = $workingDaysExcludingHolidays - $attendedDays - $onLeaveDays - $exemptedDays;
+        // Fallback calculation if processedData is not available
+        if ($absentDays === 0 && empty($processedData)) {
+            // Calculate absent days: (working days - holidays) - attended days - on_leave days
+            // Note: Exempted days where employee is present are already in attendedDays, so don't subtract them
+            $workingDaysExcludingHolidays = $workingDaysTillToday;
+            $current = $startOfMonth->copy();
+            $today = Carbon::now();
+            $endDate = ($targetMonth === $currentMonth) ? $today : $endOfMonth;
+            while ($current->lte($endDate)) {
+                if ($current->isWeekday()) {
+                    $dateStr = $current->format('Y-m-d');
+                    if (isset($holidaysMap[$dateStr])) {
+                        $workingDaysExcludingHolidays--;
+                    }
+                }
+                $current->addDay();
+            }
+            
+            $absentDays = max(0, $workingDaysExcludingHolidays - $attendedDays - $onLeaveDays);
+        }
         
         // For attendance percentage, use working days till today for current month, full month for past months
         $workingDaysForPercentage = $targetMonth === $currentMonth ? $workingDaysTillToday : $workingDays;

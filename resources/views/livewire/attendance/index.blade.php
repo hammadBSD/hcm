@@ -147,7 +147,7 @@
                             <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                                 <div>
                                     <flux:text class="text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Expected Hours</flux:text>
-                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0)
+                                    @if(($attendanceStats['on_leave_days'] ?? 0) > 0 || ($attendanceStats['holiday_days'] ?? 0) > 0 || ($attendanceStats['absent_days'] ?? 0) > 0)
                                         <div class="flex flex-col">
                                             <flux:heading size="xl" class="text-green-600 dark:text-green-400">{{ $attendanceStats['expected_hours_adjusted'] ?? '0:00' }}</flux:heading>
                                         </div>
