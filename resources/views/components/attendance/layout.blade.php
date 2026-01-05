@@ -1,4 +1,4 @@
-<div class="flex items-start max-md:flex-col">
+<div class="flex items-start max-md:flex-col" style="width: 100%; max-width: 100%; overflow-x: hidden;">
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist>
             @can('attendance.sidebar.my_attendance')
@@ -90,16 +90,31 @@
                     </flux:navlist.item>
                 </div>
             @endcan
+
+            @can('attendance.sidebar.my_attendance')
+                <div class="mb-3">
+                    <flux:navlist.item 
+                        :href="route('attendance.report')" 
+                        wire:navigate
+                        :class="request()->routeIs('attendance.report') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                            {{ __('Attendance Report') }}
+                        </div>
+                    </flux:navlist.item>
+                </div>
+            @endcan
         </flux:navlist>
     </div>
 
     <flux:separator class="md:hidden" />
 
-    <div class="flex-1 self-stretch max-md:pt-6">
+    <div class="flex-1 self-stretch max-md:pt-6" style="min-width: 0; max-width: 100%; overflow-x: hidden;">
         <flux:heading>{{ $heading ?? '' }}</flux:heading>
         <flux:subheading>{{ $subheading ?? '' }}</flux:subheading>
 
-        <div class="mt-5 w-full">
+        <div class="mt-5 w-full" style="max-width: 100%; overflow-x: hidden;">
             {{ $slot }}
         </div>
     </div>
