@@ -76,9 +76,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'attendance.sidebar.exemptions',
             'attendance.sidebar.approvals',
             'attendance.sidebar.schedule',
+            'attendance.sidebar.report',
             'attendance.view.self',
             'attendance.view.team',
             'attendance.view.company',
+            'attendance.view.report',
             'attendance.manage.missing_entries',
             'attendance.manage.manual_entries',
             'attendance.manage.switch_user',
@@ -270,7 +272,9 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
         $attendanceApprover = array_merge($attendanceTeam, [
             'attendance.sidebar.approvals',
+            'attendance.sidebar.report',
             'attendance.view.company',
+            'attendance.view.report',
             'attendance.manage.missing_entries',
             'attendance.manage.manual_entries',
             'attendance.export',
