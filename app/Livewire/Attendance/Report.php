@@ -40,6 +40,7 @@ class Report extends Component
     public $selectedUserId = null;
     public $availableUsers = [];
     public $userSearchTerm = '';
+    public $employeeSearchTerm = '';
     public bool $canSwitchUsers = false;
     public bool $canViewOtherUsers = false;
     

@@ -17,39 +17,32 @@
 
             @if(!empty($employeesStats))
                 <!-- Filters -->
-                <div class="flex items-center justify-end gap-3 mb-4">
-                                        @php
-                                            $currentUser = auth()->user();
-                                        @endphp
-                                        @if($currentUser && ($currentUser->can('attendance.manage.switch_user') || $currentUser->hasRole('Super Admin')))
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <!-- Search Bar (Left) -->
+                    <div class="flex-1 max-w-md">
+                        <flux:input
+                            wire:model.live.debounce.300ms="employeeSearchTerm"
+                            type="text"
+                            placeholder="Search employees..."
+                            class="w-full"
+                        />
+                    </div>
+
+                    <!-- Dropdowns (Right) -->
+                                    <div class="flex items-center gap-3">
                                             <div
                                                 class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
                                                 wire:loading.flex
-                                                wire:target="selectedUserId, selectedMonth"
+                            wire:target="selectedMonth"
                                             >
                                                 <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
                                             </div>
-                                            <flux:select
-                                                wire:model.live="selectedUserId"
-                                                placeholder="Select User"
-                                                class="w-64"
-                                                wire:loading.attr="disabled"
-                                                wire:target="selectedUserId, selectedMonth"
-                                            >
-                                                @if(!$selectedUserId)
-                                                    <option value="">{{ Auth::user()->name ?? 'Current User' }}</option>
-                                                @endif
-                                                @foreach($availableUsers as $user)
-                                                    <option value="{{ $user['id'] }}">{{ $user['name'] }}</option>
-                                                @endforeach
-                                            </flux:select>
-                                        @endif
                                         <flux:select
                                             wire:model.live="selectedMonth"
                                             placeholder="{{ $currentMonth }}"
                                             class="w-40"
                                             wire:loading.attr="disabled"
-                                            wire:target="selectedUserId, selectedMonth"
+                            wire:target="selectedMonth"
                                         >
                                             <option value="">{{ $currentMonth }} (Current)</option>
                                             @foreach($availableMonths as $month)
@@ -57,6 +50,7 @@
                                             @endforeach
                                         </flux:select>
                                     </div>
+                                </div>
 
                 <!-- Attendance Statistics Table -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm" style="width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
@@ -103,7 +97,19 @@
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
-                                        @foreach($employeesStats as $employeeData)
+                                        @php
+                                            $filteredEmployees = collect($employeesStats);
+                                            if (!empty($employeeSearchTerm)) {
+                                                $searchTerm = strtolower($employeeSearchTerm);
+                                                $filteredEmployees = $filteredEmployees->filter(function($employeeData) use ($searchTerm) {
+                                                    $emp = $employeeData['employee'];
+                                                    $fullName = strtolower(trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')));
+                                                    $employeeCode = strtolower($emp->employee_code ?? '');
+                                                    return str_contains($fullName, $searchTerm) || str_contains($employeeCode, $searchTerm);
+                                                });
+                                            }
+                                        @endphp
+                                        @foreach($filteredEmployees as $employeeData)
                                             @php
                                                 $emp = $employeeData['employee'];
                                                 $stats = $employeeData['stats'];
@@ -125,7 +131,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                         {{ $stats['working_days'] ?? 0 }}
-                                                    </div>
+                                                        </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-green-600 dark:text-green-400">
@@ -135,7 +141,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-cyan-600 dark:text-cyan-400">
                                                         {{ $stats['on_leave_days'] ?? 0 }}
-                                                    </div>
+                                                        </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-red-600 dark:text-red-400">
@@ -145,23 +151,23 @@
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                         {{ $stats['late_days'] ?? 0 }}
-                                                    </div>
+                                                                </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-orange-600 dark:text-orange-400">
                                                         {{ $stats['total_break_time'] ?? '0:00' }}
-                                                    </div>
+                                                                        </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-red-600 dark:text-red-400">
                                                         {{ $stats['total_non_allowed_break_time'] ?? '0:00' }}
-                                                    </div>
+                                                                                </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-blue-600 dark:text-blue-400">
                                                         {{ $stats['holiday_days'] ?? 0 }}
-                                                    </div>
-                                                </td>
+                                                            </div>
+                                                    </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-blue-600 dark:text-blue-400">
                                                         {{ $stats['total_hours'] ?? '0:00' }}
@@ -179,7 +185,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium {{ ($stats['short_excess_minutes'] ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
                                                         {{ $stats['short_excess_hours'] ?? '0:00' }}
-                                                    </div>
+                                            </div>
                                                 </td>
                                             </tr>
                                         @endforeach
