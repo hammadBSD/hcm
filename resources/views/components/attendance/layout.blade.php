@@ -91,7 +91,7 @@
                 </div>
             @endcan
 
-            @can('attendance.sidebar.my_attendance')
+            @can('attendance.sidebar.report')
                 <div class="mb-3">
                     <flux:navlist.item 
                         :href="route('attendance.report')" 

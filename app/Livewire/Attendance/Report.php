@@ -4,6 +4,7 @@ namespace App\Livewire\Attendance;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Database\QueryException;
 use App\Models\AttendanceBreakExclusion;
 use App\Models\DeviceAttendance;
@@ -26,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 
 class Report extends Component
 {
+    use AuthorizesRequests;
     public $currentMonth = '';
     public $selectedMonth = '';
     public $attendanceData = [];
@@ -88,10 +90,20 @@ class Report extends Component
 
     public function mount()
     {
+        // Authorize access to attendance report
+        $user = Auth::user();
+        if (!$user) {
+            abort(403, 'Unauthorized');
+        }
+        
+        // Check if user has permission to view attendance report
+        if (!$user->can('attendance.view.report') && !$user->hasRole('Super Admin')) {
+            abort(403, 'You do not have permission to view the attendance report.');
+        }
+        
         $this->currentMonth = Carbon::now()->format('F Y');
         $this->selectedMonth = ''; // Default to current month
         $this->loadGlobalGracePeriods();
-        $user = Auth::user();
         $this->canSwitchUsers = $user
             ? ($user->can('attendance.manage.switch_user') || $user->hasRole('Super Admin'))
             : false;
