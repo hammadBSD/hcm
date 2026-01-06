@@ -3173,7 +3173,7 @@ class Index extends Component
         
         if ($shiftStartsInPM) {
             // For PM-start shifts (whether overnight or not):
-            // - Include all records from current day (PM check-ins and PM check-outs)
+            // - Include PM check-ins and PM check-outs from current day
             // - Include AM check-ins on next day (before 12 PM)
             // - Include AM check-outs on next day (within grace period: shift end + 5 hours)
             
@@ -3181,13 +3181,43 @@ class Index extends Component
             
             // Calculate cutoff based on shift end time + grace period
             if ($isOvernight) {
-                // For overnight shifts, shift end is on next day
+                // For overnight PM-start shifts:
+                // - Exclude AM check-outs on current day (they belong to previous day's shift)
+                // - Only include PM check-ins and PM check-outs from current day
+                // - Include AM check-ins from next day (before 12 PM)
+                // - Include AM check-outs from next day (within grace period)
+                
                 $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
                     $timeTo->hour,
                     $timeTo->minute,
                     $timeTo->second
                 );
                 $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+                
+                $query->where(function($q) use ($startOfDay, $endOfDay, $nextDayStart, $checkOutCutoff) {
+                    // Current day PM check-ins (12 PM or later)
+                    $q->where(function($q1) use ($startOfDay, $endOfDay) {
+                        $q1->whereBetween('punch_time', [$startOfDay, $endOfDay])
+                           ->where('device_type', 'IN')
+                           ->whereRaw('HOUR(punch_time) >= 12');
+                    })
+                    // Current day PM check-outs (12 PM or later) - exclude all AM check-outs (they belong to previous day)
+                    ->orWhere(function($q2) use ($startOfDay, $endOfDay) {
+                        $q2->whereBetween('punch_time', [$startOfDay, $endOfDay])
+                           ->where('device_type', 'OUT')
+                           ->whereRaw('HOUR(punch_time) >= 12');
+                    })
+                    // Next day AM check-ins (before 12 PM)
+                    ->orWhere(function($q3) use ($nextDayStart) {
+                        $q3->whereBetween('punch_time', [$nextDayStart, $nextDayStart->copy()->setTime(11, 59, 59)])
+                           ->where('device_type', 'IN');
+                    })
+                    // Next day AM check-outs (within grace period)
+                    ->orWhere(function($q4) use ($nextDayStart, $checkOutCutoff) {
+                        $q4->whereBetween('punch_time', [$nextDayStart, $checkOutCutoff])
+                           ->where('device_type', 'OUT');
+                    });
+                });
             } else {
                 // For non-overnight PM-start shifts, shift ends on current day at timeTo
                 // Cutoff is: current day shift end + grace period
@@ -3198,22 +3228,22 @@ class Index extends Component
                     $timeTo->second
                 );
                 $checkOutCutoff = $shiftEndOnCurrentDay->copy()->addHours($gracePeriodHours);
+                
+                $query->where(function($q) use ($startOfDay, $endOfDay, $nextDayStart, $checkOutCutoff) {
+                    // Current day records (all records from current day)
+                    $q->whereBetween('punch_time', [$startOfDay, $endOfDay])
+                      // Next day AM check-ins (before 12 PM)
+                      ->orWhere(function($q2) use ($nextDayStart) {
+                          $q2->whereBetween('punch_time', [$nextDayStart, $nextDayStart->copy()->setTime(11, 59, 59)])
+                             ->where('device_type', 'IN');
+                      })
+                      // Next day AM check-outs (within grace period)
+                      ->orWhere(function($q3) use ($nextDayStart, $checkOutCutoff) {
+                          $q3->whereBetween('punch_time', [$nextDayStart, $checkOutCutoff])
+                             ->where('device_type', 'OUT');
+                      });
+                });
             }
-            
-            $query->where(function($q) use ($startOfDay, $endOfDay, $nextDayStart, $checkOutCutoff) {
-                // Current day records
-                $q->whereBetween('punch_time', [$startOfDay, $endOfDay])
-                  // Next day AM check-ins (before 12 PM)
-                  ->orWhere(function($q2) use ($nextDayStart) {
-                      $q2->whereBetween('punch_time', [$nextDayStart, $nextDayStart->copy()->setTime(11, 59, 59)])
-                         ->where('device_type', 'IN');
-                  })
-                  // Next day AM check-outs (within grace period)
-                  ->orWhere(function($q3) use ($nextDayStart, $checkOutCutoff) {
-                      $q3->whereBetween('punch_time', [$nextDayStart, $checkOutCutoff])
-                         ->where('device_type', 'OUT');
-                  });
-            });
         } else {
             // For non-PM-start shifts, just get records for the current day
             $query->whereBetween('punch_time', [$startOfDay, $endOfDay]);
