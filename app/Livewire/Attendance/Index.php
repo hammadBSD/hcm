@@ -454,6 +454,7 @@ class Index extends Component
                     'status' => $leaveRequest->status,
                     'leave_type' => $leaveRequest->leaveType->name ?? __('Unknown'),
                     'total_days' => $leaveRequest->total_days,
+                    'duration' => $leaveRequest->duration, // Store duration for half-day calculation
                 ];
 
                 // If leave is approved, adjust attendance status from "absent" to "on_leave"
@@ -1930,7 +1931,20 @@ class Index extends Component
                         str_starts_with($statusLower, 'present_') || 
                         str_starts_with($statusLower, 'present ') ||
                         $statusLower === 'exempted') {
-                        $attendedDays++;
+                        // Check if there's a half-day leave request for this day
+                        $leaveRequest = $record['leave_request'] ?? null;
+                        if ($leaveRequest && isset($leaveRequest['status']) && $leaveRequest['status'] === LeaveRequestModel::STATUS_APPROVED) {
+                            // If it's a half-day leave, count as 0.5 present days
+                            if (isset($leaveRequest['total_days']) && (float)$leaveRequest['total_days'] == 0.5) {
+                                $attendedDays += 0.5;
+                            } else {
+                                // Full-day leave or no leave info - count as full day
+                                $attendedDays++;
+                            }
+                        } else {
+                            // No leave request - count as full day
+                            $attendedDays++;
+                        }
                     }
                 }
             }
@@ -2050,9 +2064,22 @@ class Index extends Component
         
         if (!empty($processedData) && is_array($processedData)) {
             foreach ($processedData as $record) {
-                if (isset($record['status']) && $record['status'] === 'on_leave') {
+                // Check for approved leave requests (even if employee was present)
+                $leaveRequest = $record['leave_request'] ?? null;
+                if ($leaveRequest && isset($leaveRequest['status']) && $leaveRequest['status'] === LeaveRequestModel::STATUS_APPROVED) {
+                    // Count leave days from approved leave request (0.5 for half-day, 1.0 for full-day)
+                    if (isset($leaveRequest['total_days'])) {
+                        $onLeaveDays += (float)$leaveRequest['total_days'];
+                    } else {
+                        // Fallback: count as full day if no total_days info
+                        $onLeaveDays++;
+                    }
+                } elseif (isset($record['status']) && $record['status'] === 'on_leave') {
+                    // Fallback: count days with on_leave status (for backward compatibility)
                     $onLeaveDays++;
-                } elseif (isset($record['status']) && $record['status'] === 'exempted') {
+                }
+                
+                if (isset($record['status']) && $record['status'] === 'exempted') {
                     $exemptedDays++;
                 }
                 
@@ -2198,6 +2225,7 @@ class Index extends Component
         
         // Calculate adjusted expected hours with grace time (after accounting for approved leaves, holidays, and absent days)
         // For leaves, holidays, and absent days, deduct (shift duration - grace time) per day from the expected hours with grace time
+        // Note: onLeaveDays is now a decimal (0.5 for half-day, 1.0 for full-day), so we can use it directly
         $totalDaysToDeduct = $onLeaveDays + $holidayDays + max(0, $absentDays);
         if ($totalDaysToDeduct > 0 && $this->employeeShift) {
             // Get shift duration in minutes
@@ -2228,6 +2256,7 @@ class Index extends Component
             $graceTimePerDay = $this->getGraceTimePerDay($shift);
             
             // Deduct (shift duration - grace time) per leave/holiday day
+            // Since onLeaveDays is now decimal (0.5 for half-day), this will correctly deduct half for half-day leaves
             $deductionPerDay = $shiftMinutes - $graceTimePerDay;
             $totalDeductionMinutes = $totalDaysToDeduct * $deductionPerDay;
             

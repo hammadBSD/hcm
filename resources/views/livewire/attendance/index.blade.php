@@ -36,7 +36,7 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Present Days</flux:text>
-                                <flux:heading size="lg" class="text-green-600 dark:text-green-400 mt-1">{{ $attendanceStats['attended_days'] ?? 0 }}</flux:heading>
+                                <flux:heading size="lg" class="text-green-600 dark:text-green-400 mt-1">{{ ($attendanceStats['attended_days'] ?? 0) == (int)($attendanceStats['attended_days'] ?? 0) ? (int)($attendanceStats['attended_days'] ?? 0) : number_format($attendanceStats['attended_days'], 1) }}</flux:heading>
                             </div>
                             <div class="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
                                 <flux:icon name="check-circle" class="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -49,7 +49,7 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <flux:text class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Leaves</flux:text>
-                                <flux:heading size="lg" class="text-cyan-600 dark:text-cyan-400 mt-1">{{ $attendanceStats['on_leave_days'] ?? 0 }}</flux:heading>
+                                <flux:heading size="lg" class="text-cyan-600 dark:text-cyan-400 mt-1">{{ ($attendanceStats['on_leave_days'] ?? 0) == 0 ? '0' : number_format($attendanceStats['on_leave_days'], 1) }}</flux:heading>
                             </div>
                             <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900 rounded-lg flex items-center justify-center">
                                 <flux:icon name="calendar" class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />

@@ -145,12 +145,12 @@
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-green-600 dark:text-green-400">
-                                                        {{ $stats['attended_days'] ?? 0 }}
+                                                        {{ ($stats['attended_days'] ?? 0) == (int)($stats['attended_days'] ?? 0) ? (int)($stats['attended_days'] ?? 0) : number_format($stats['attended_days'], 1) }}
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm font-medium text-cyan-600 dark:text-cyan-400">
-                                                        {{ $stats['on_leave_days'] ?? 0 }}
+                                                        {{ ($stats['on_leave_days'] ?? 0) == 0 ? '0' : number_format($stats['on_leave_days'], 1) }}
                                                         </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
