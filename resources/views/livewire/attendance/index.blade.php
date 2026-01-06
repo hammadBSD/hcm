@@ -825,7 +825,20 @@
                                         </div>
                                     @endif
                                 </div>
-                                @if($entry['verify_mode'] != 2)
+                                @if($entry['verify_mode'] == 2)
+                                    <flux:button 
+                                        wire:click="undoRemoveEntry({{ $entry['id'] }})" 
+                                        variant="ghost" 
+                                        color="green" 
+                                        size="sm"
+                                        icon="arrow-uturn-left"
+                                        wire:loading.attr="disabled"
+                                        wire:target="undoRemoveEntry({{ $entry['id'] }})"
+                                    >
+                                        <span wire:loading.remove wire:target="undoRemoveEntry({{ $entry['id'] }})">Undo</span>
+                                        <span wire:loading wire:target="undoRemoveEntry({{ $entry['id'] }})">Undoing...</span>
+                                    </flux:button>
+                                @elseif($entry['verify_mode'] != 2)
                                     @if($entryToRemove == $entry['id'])
                                         <div class="flex items-center gap-2">
                                             <flux:button 

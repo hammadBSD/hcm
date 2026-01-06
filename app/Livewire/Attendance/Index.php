@@ -3318,6 +3318,55 @@ class Index extends Component
     }
 
     /**
+     * Undo removal of entry (restore verify_mode to 0)
+     */
+    public function undoRemoveEntry($entryId)
+    {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
+        try {
+            $entry = DeviceAttendance::find($entryId);
+            
+            if (!$entry) {
+                session()->flash('error', 'Entry not found.');
+                return;
+            }
+
+            // Check if entry belongs to current user's punch code
+            if ($entry->punch_code !== $this->punchCode) {
+                session()->flash('error', 'You do not have permission to undo this entry.');
+                return;
+            }
+
+            // Check if entry is actually removed (verify_mode = 2)
+            if ($entry->verify_mode != 2) {
+                session()->flash('error', 'This entry is not removed.');
+                return;
+            }
+
+            // Set verify_mode to 0 to restore it
+            $entry->update([
+                'verify_mode' => 0,
+                'updated_by' => Auth::id(),
+            ]);
+
+            // Reload attendance data to reflect the changes
+            $this->loadUserAttendance();
+
+            // Reload entries for the date in the flyout
+            if ($this->removeEntriesDate) {
+                $this->openRemoveEntriesFlyout($this->removeEntriesDate);
+            }
+            
+            session()->flash('success', 'Entry restored successfully.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to restore entry: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Delete manual entry
      */
     public function deleteManualEntry($entryId)
