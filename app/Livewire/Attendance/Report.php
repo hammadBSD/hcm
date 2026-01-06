@@ -205,9 +205,13 @@ class Report extends Component
                 }
             }
             
-            // Get attendance records for this employee
+            // Get attendance records for this employee (exclude verify_mode = 2)
             $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
                 ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
+                ->where(function($query) {
+                    $query->whereNull('verify_mode')
+                          ->orWhere('verify_mode', '!=', 2);
+                })
                 ->orderBy('punch_time', 'desc')
                 ->get();
             
@@ -435,6 +439,10 @@ class Report extends Component
 
         // Get all months that have attendance data from all active employees, excluding current month
         $months = DeviceAttendance::whereIn('punch_code', $punchCodes)
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->selectRaw('DATE_FORMAT(punch_time, "%Y-%m") as month')
             ->distinct()
             ->whereRaw('DATE_FORMAT(punch_time, "%Y-%m") != ?', [$currentMonth])
@@ -598,6 +606,10 @@ class Report extends Component
 
         $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
             ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->orderBy('punch_time', 'desc')
             ->get();
 
@@ -732,6 +744,10 @@ class Report extends Component
             ->where('is_manual_entry', true)
             ->whereBetween('punch_time', [$dateCarbon, $endOfDay])
             ->where('notes', 'like', '%Exclude Breaks%')
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->exists();
 
         return $hasExcludeBreaks;
@@ -3265,7 +3281,11 @@ class Report extends Component
         // For PM-start overnight shifts, we need to also check the next day for AM entries
         // that were date-adjusted when created (AM times get adjusted to next day)
         $query = DeviceAttendance::where('punch_code', $this->punchCode)
-            ->where('is_manual_entry', true);
+            ->where('is_manual_entry', true)
+            ->where(function($q) {
+                $q->whereNull('verify_mode')
+                  ->orWhere('verify_mode', '!=', 2);
+            });
         
         // Check if employee has PM-start overnight shift
         if ($this->isPMStartOvernightShift()) {
@@ -3357,6 +3377,102 @@ class Report extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to delete manual entry: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Export attendance report to CSV
+     */
+    public function exportToCsv()
+    {
+        if (empty($this->employeesStats)) {
+            session()->flash('error', 'No data available to export.');
+            return;
+        }
+
+        // Apply the same filtering as the view
+        $filteredEmployees = collect($this->employeesStats);
+        if (!empty($this->employeeSearchTerm)) {
+            $searchTerm = strtolower($this->employeeSearchTerm);
+            $filteredEmployees = $filteredEmployees->filter(function($employeeData) use ($searchTerm) {
+                $emp = $employeeData['employee'];
+                $fullName = strtolower(trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')));
+                $employeeCode = strtolower($emp->employee_code ?? '');
+                return str_contains($fullName, $searchTerm) || str_contains($employeeCode, $searchTerm);
+            });
+        }
+
+        // Get the month label for filename
+        $monthLabel = $this->selectedMonth 
+            ? Carbon::createFromFormat('Y-m', $this->selectedMonth)->format('F Y')
+            : Carbon::now()->format('F Y');
+        
+        $filename = 'attendance_report_' . str_replace(' ', '_', strtolower($monthLabel)) . '_' . date('Y-m-d_His') . '.csv';
+
+        // Create CSV content
+        $headers = [
+            'Employee Code',
+            'Employee Name',
+            'Working Days',
+            'Present Days',
+            'Leaves',
+            'Absent Days',
+            'Late Days',
+            'Total Break Time',
+            'Total Non-Allowed Break Time',
+            'Holidays',
+            'Total Hours Worked',
+            'Monthly Expected Hours',
+            'Short/Excess Hours',
+        ];
+
+        $rows = [];
+        $rows[] = $headers;
+
+        foreach ($filteredEmployees as $employeeData) {
+            $emp = $employeeData['employee'];
+            $stats = $employeeData['stats'];
+            
+            $expectedHours = ($stats['on_leave_days'] ?? 0) > 0 || ($stats['holiday_days'] ?? 0) > 0 || ($stats['absent_days'] ?? 0) > 0
+                ? ($stats['expected_hours_adjusted'] ?? '0:00')
+                : ($stats['expected_hours'] ?? '0:00');
+
+            $rows[] = [
+                $emp->employee_code ?? 'N/A',
+                trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')),
+                $stats['working_days'] ?? 0,
+                $stats['attended_days'] ?? 0,
+                $stats['on_leave_days'] ?? 0,
+                $stats['absent_days'] ?? 0,
+                $stats['late_days'] ?? 0,
+                $stats['total_break_time'] ?? '0:00',
+                $stats['total_non_allowed_break_time'] ?? '0:00',
+                $stats['holiday_days'] ?? 0,
+                $stats['total_hours'] ?? '0:00',
+                $expectedHours,
+                $stats['short_excess_hours'] ?? '0:00',
+            ];
+        }
+
+        // Generate CSV content
+        $csvContent = '';
+        foreach ($rows as $row) {
+            $csvContent .= implode(',', array_map(function($field) {
+                // Escape fields that contain commas, quotes, or newlines
+                $field = str_replace('"', '""', $field);
+                if (strpos($field, ',') !== false || strpos($field, '"') !== false || strpos($field, "\n") !== false) {
+                    return '"' . $field . '"';
+                }
+                return $field;
+            }, $row)) . "\n";
+        }
+
+        // Return download response
+        return response()->streamDownload(function() use ($csvContent) {
+            echo $csvContent;
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function render()

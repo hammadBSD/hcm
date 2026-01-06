@@ -80,6 +80,12 @@ class Index extends Component
     public $showViewChangesFlyout = false;
     public $viewChangesDate = '';
     public $manualEntries = [];
+    
+    // Remove Entries Flyout Properties
+    public $showRemoveEntriesFlyout = false;
+    public $removeEntriesDate = '';
+    public $dayEntries = [];
+    public $entryToRemove = null; // For confirmation dialog
 
     public bool $isBreakTrackingExcluded = false;
     public bool $showBreaksInGrid = true;
@@ -214,6 +220,10 @@ class Index extends Component
 
         // Get all months that have attendance data, excluding current month
         $months = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->selectRaw('DATE_FORMAT(punch_time, "%Y-%m") as month')
             ->distinct()
             ->whereRaw('DATE_FORMAT(punch_time, "%Y-%m") != ?', [$currentMonth])
@@ -377,6 +387,10 @@ class Index extends Component
 
         $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
             ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->orderBy('punch_time', 'desc')
             ->get();
 
@@ -511,6 +525,10 @@ class Index extends Component
             ->where('is_manual_entry', true)
             ->whereBetween('punch_time', [$dateCarbon, $endOfDay])
             ->where('notes', 'like', '%Exclude Breaks%')
+            ->where(function($query) {
+                $query->whereNull('verify_mode')
+                      ->orWhere('verify_mode', '!=', 2);
+            })
             ->exists();
 
         return $hasExcludeBreaks;
@@ -1513,16 +1531,47 @@ class Index extends Component
         // Deduplicate records before processing
         $deduplicatedRecords = $this->deduplicateRecords($recordsArray);
         
+        // Check if first record is an OUT (missing check-in scenario)
+        // If so, add it to break details and include it in processing
+        $firstOutTime = null;
+        $firstOutRecord = null;
+        $firstOutWasPaired = false;
+        
+        if (!empty($deduplicatedRecords)) {
+            $firstRecord = $deduplicatedRecords[0];
+            $firstType = $firstRecord['device_type'] ?? null;
+            
+            if ($firstType === 'OUT') {
+                // First record is OUT (missing check-in)
+                $firstOutTime = Carbon::parse($firstRecord['punch_time']);
+                $firstOutRecord = $firstRecord;
+                $firstOutManual = isset($firstRecord['is_manual_entry']) && $firstRecord['is_manual_entry'] ? true : false;
+                
+                // Set this as the last check-out so it can pair with subsequent IN
+                // We'll add "Missing Check-in" entry later only if it doesn't pair with anything
+                $lastCheckOut = $firstOutTime;
+                $lastCheckOutRecord = $firstRecord;
+            }
+        }
+        
         // Skip first check-in and last check-out (boundary times)
-        $middleRecords = array_slice($deduplicatedRecords, 1, -1);
+        // If first was OUT, we've already added "Missing Check-in" entry, but we still need to process it
+        // to pair with subsequent IN, so we'll include it in middle records
+        // Only skip first if it's an IN (normal check-in)
+        $skipFirst = !empty($deduplicatedRecords) && ($deduplicatedRecords[0]['device_type'] ?? null) === 'IN' ? 1 : 0;
+        $middleRecords = array_slice($deduplicatedRecords, $skipFirst, -1);
         
         foreach ($middleRecords as $record) {
             $recordTime = Carbon::parse($record['punch_time']);
             $type = $record['device_type'];
             
             if ($type === 'OUT') {
+                // Check if this is the first OUT (we've already added "Missing Check-in" for it)
+                $isFirstOut = $firstOutTime && $recordTime->equalTo($firstOutTime);
+                
                 // Two OUTs in a row means previous IN missing → close prior as '--'
-                if ($lastCheckOut !== null) {
+                // But don't add entry if this is the first OUT (we already added "Missing Check-in")
+                if ($lastCheckOut !== null && !$isFirstOut) {
                     $breakDetails[] = [
                         'start' => $lastCheckOut->format('h:i:s A'),
                         'end' => '--',
@@ -1531,8 +1580,11 @@ class Index extends Component
                     ];
                 }
                 // Start a new potential break at this OUT
-                $lastCheckOut = $recordTime;
-                $lastCheckOutRecord = $record; // Store the record
+                // If this is the first OUT, $lastCheckOut is already set, so don't override it
+                if (!$isFirstOut) {
+                    $lastCheckOut = $recordTime;
+                    $lastCheckOutRecord = $record; // Store the record
+                }
             } elseif ($type === 'IN') {
                 $isManualCheckIn = isset($record['is_manual_entry']) && $record['is_manual_entry'] ? true : false;
                 
@@ -1540,6 +1592,11 @@ class Index extends Component
                     // Normal complete pair: OUT → IN
                     $breakDuration = $lastCheckOut->diffInMinutes($recordTime);
                     if ($breakDuration > 0) {
+                        // Check if this is pairing with the first OUT
+                        if ($firstOutTime && $lastCheckOut->equalTo($firstOutTime)) {
+                            $firstOutWasPaired = true;
+                        }
+                        
                         $breakDetails[] = [
                             'start' => $lastCheckOut->format('h:i:s A'),
                             'end' => $recordTime->format('h:i:s A'),
@@ -1562,8 +1619,20 @@ class Index extends Component
             }
         }
         
+        // If first OUT wasn't paired with an IN, show "Missing Check-in"
+        if ($firstOutTime !== null && !$firstOutWasPaired) {
+            $firstOutManual = isset($firstOutRecord['is_manual_entry']) && $firstOutRecord['is_manual_entry'] ? true : false;
+            $breakDetails[] = [
+                'start' => $firstOutTime->format('h:i:s A'),
+                'end' => '--',
+                'duration' => '--',
+                'start_manual' => $firstOutManual,
+            ];
+        }
+        
         // If the sequence ended with an OUT and no following IN, show OUT → '--'
-        if ($lastCheckOut !== null) {
+        // But only if it's not the first OUT (which we already handled above)
+        if ($lastCheckOut !== null && (!$firstOutTime || !$lastCheckOut->equalTo($firstOutTime))) {
             $breakDetails[] = [
                 'start' => $lastCheckOut->format('h:i:s A'),
                 'end' => '--',
@@ -2995,7 +3064,11 @@ class Index extends Component
         // For PM-start overnight shifts, we need to also check the next day for AM entries
         // that were date-adjusted when created (AM times get adjusted to next day)
         $query = DeviceAttendance::where('punch_code', $this->punchCode)
-            ->where('is_manual_entry', true);
+            ->where('is_manual_entry', true)
+            ->where(function($q) {
+                $q->whereNull('verify_mode')
+                  ->orWhere('verify_mode', '!=', 2);
+            });
         
         // Check if employee has PM-start overnight shift
         if ($this->isPMStartOvernightShift()) {
@@ -3045,6 +3118,203 @@ class Index extends Component
         $this->showViewChangesFlyout = false;
         $this->viewChangesDate = '';
         $this->manualEntries = [];
+    }
+
+    /**
+     * Open remove entries flyout
+     */
+    public function openRemoveEntriesFlyout($date)
+    {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
+        $this->removeEntriesDate = $date;
+        
+        if (!$this->punchCode) {
+            session()->flash('error', 'Punch code not found.');
+            return;
+        }
+        
+        // Get all entries for this date (including those with verify_mode = 2)
+        // Use the same logic as attendance processing to get all entries that belong to this day
+        $startOfDay = Carbon::parse($date)->startOfDay();
+        $endOfDay = Carbon::parse($date)->endOfDay();
+        $nextDate = Carbon::parse($date)->addDay()->format('Y-m-d');
+        
+        // Get the effective shift for this specific date
+        $dayShift = $this->employee->getEffectiveShiftForDate($date);
+        
+        $query = DeviceAttendance::where('punch_code', $this->punchCode);
+        
+        // Determine shift characteristics
+        $isOvernight = false;
+        $shiftStartsInPM = false;
+        $timeFrom = null;
+        $timeTo = null;
+        $gracePeriodHours = 5;
+        
+        if ($dayShift) {
+            $timeFromParts = explode(':', $dayShift->time_from);
+            $timeToParts = explode(':', $dayShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int)($timeFromParts[0] ?? 0),
+                (int)($timeFromParts[1] ?? 0),
+                (int)($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int)($timeToParts[0] ?? 0),
+                (int)($timeToParts[1] ?? 0),
+                (int)($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+            $shiftStartsInPM = $timeFrom->hour >= 12;
+        }
+        
+        if ($shiftStartsInPM) {
+            // For PM-start shifts (whether overnight or not):
+            // - Include all records from current day (PM check-ins and PM check-outs)
+            // - Include AM check-ins on next day (before 12 PM)
+            // - Include AM check-outs on next day (within grace period: shift end + 5 hours)
+            
+            $nextDayStart = Carbon::parse($nextDate)->startOfDay();
+            
+            // Calculate cutoff based on shift end time + grace period
+            if ($isOvernight) {
+                // For overnight shifts, shift end is on next day
+                $shiftEndOnNextDay = Carbon::parse($nextDate)->setTime(
+                    $timeTo->hour,
+                    $timeTo->minute,
+                    $timeTo->second
+                );
+                $checkOutCutoff = $shiftEndOnNextDay->copy()->addHours($gracePeriodHours);
+            } else {
+                // For non-overnight PM-start shifts, shift ends on current day at timeTo
+                // Cutoff is: current day shift end + grace period
+                // Example: 1 PM - 10 PM shift, cutoff = Dec 24 10 PM + 5 hours = Dec 25 3 AM
+                $shiftEndOnCurrentDay = Carbon::parse($date)->setTime(
+                    $timeTo->hour,
+                    $timeTo->minute,
+                    $timeTo->second
+                );
+                $checkOutCutoff = $shiftEndOnCurrentDay->copy()->addHours($gracePeriodHours);
+            }
+            
+            $query->where(function($q) use ($startOfDay, $endOfDay, $nextDayStart, $checkOutCutoff) {
+                // Current day records
+                $q->whereBetween('punch_time', [$startOfDay, $endOfDay])
+                  // Next day AM check-ins (before 12 PM)
+                  ->orWhere(function($q2) use ($nextDayStart) {
+                      $q2->whereBetween('punch_time', [$nextDayStart, $nextDayStart->copy()->setTime(11, 59, 59)])
+                         ->where('device_type', 'IN');
+                  })
+                  // Next day AM check-outs (within grace period)
+                  ->orWhere(function($q3) use ($nextDayStart, $checkOutCutoff) {
+                      $q3->whereBetween('punch_time', [$nextDayStart, $checkOutCutoff])
+                         ->where('device_type', 'OUT');
+                  });
+            });
+        } else {
+            // For non-PM-start shifts, just get records for the current day
+            $query->whereBetween('punch_time', [$startOfDay, $endOfDay]);
+        }
+        
+        $this->dayEntries = $query->orderBy('punch_time', 'asc')
+            ->get()
+            ->map(function($entry) {
+                return [
+                    'id' => $entry->id,
+                    'type' => $entry->device_type,
+                    'type_label' => $entry->device_type === 'IN' ? 'Check-in' : 'Check-out',
+                    'time' => Carbon::parse($entry->punch_time)->format('h:i:s A'),
+                    'date_time' => Carbon::parse($entry->punch_time)->format('M d, Y h:i:s A'),
+                    'is_manual_entry' => $entry->is_manual_entry ?? false,
+                    'verify_mode' => $entry->verify_mode,
+                    'notes' => $entry->notes,
+                ];
+            })
+            ->toArray();
+        
+        $this->showRemoveEntriesFlyout = true;
+    }
+
+    /**
+     * Close remove entries flyout
+     */
+    public function closeRemoveEntriesFlyout()
+    {
+        $this->showRemoveEntriesFlyout = false;
+        $this->removeEntriesDate = '';
+        $this->dayEntries = [];
+    }
+
+    /**
+     * Confirm removal of entry (show confirmation dialog)
+     */
+    public function confirmRemoveEntry($entryId)
+    {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
+        $this->entryToRemove = $entryId;
+    }
+
+    /**
+     * Cancel entry removal
+     */
+    public function cancelRemoveEntry()
+    {
+        $this->entryToRemove = null;
+    }
+
+    /**
+     * Remove entry (set verify_mode to 2)
+     */
+    public function removeEntry($entryId)
+    {
+        if (!Auth::user()?->can('attendance.manage.missing_entries')) {
+            abort(403);
+        }
+
+        try {
+            $entry = DeviceAttendance::find($entryId);
+            
+            if (!$entry) {
+                session()->flash('error', 'Entry not found.');
+                $this->entryToRemove = null;
+                return;
+            }
+
+            // Check if entry belongs to current user's punch code
+            if ($entry->punch_code !== $this->punchCode) {
+                session()->flash('error', 'You do not have permission to remove this entry.');
+                $this->entryToRemove = null;
+                return;
+            }
+
+            // Set verify_mode to 2 to hide it from calculations
+            $entry->update([
+                'verify_mode' => 2,
+                'updated_by' => Auth::id(),
+            ]);
+
+            // Clear confirmation
+            $this->entryToRemove = null;
+
+            // Reload attendance data to reflect the changes
+            $this->loadUserAttendance();
+
+            // Reload entries for the date in the flyout
+            if ($this->removeEntriesDate) {
+                $this->openRemoveEntriesFlyout($this->removeEntriesDate);
+            }
+            
+            session()->flash('success', 'Entry removed successfully.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to remove entry: ' . $e->getMessage());
+            $this->entryToRemove = null;
+        }
     }
 
     /**

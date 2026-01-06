@@ -30,6 +30,16 @@
 
                     <!-- Dropdowns (Right) -->
                                     <div class="flex items-center gap-3">
+                                            <flux:button 
+                                                wire:click="exportToCsv" 
+                                                variant="outline" 
+                                                icon="arrow-down-tray"
+                                                wire:loading.attr="disabled"
+                                                wire:target="exportToCsv"
+                                            >
+                                                <span wire:loading.remove wire:target="exportToCsv">Export CSV</span>
+                                                <span wire:loading wire:target="exportToCsv">Exporting...</span>
+                                            </flux:button>
                                             <div
                                                 class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
                                                 wire:loading.flex

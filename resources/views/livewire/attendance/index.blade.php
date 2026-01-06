@@ -514,6 +514,9 @@
                                                             <flux:menu.item icon="plus-circle" wire:click="openMissingEntryFlyout('{{ $record['date'] }}')">
                                                                 {{ __('Add Missing Entry') }}
                                                             </flux:menu.item>
+                                                            <flux:menu.item icon="trash" wire:click="openRemoveEntriesFlyout('{{ $record['date'] }}')">
+                                                                {{ __('Remove Entries') }}
+                                                            </flux:menu.item>
                                                             @if($hasManualEntries || $isAbsent)
                                                                 <flux:menu.separator />
                                                             @endif
@@ -762,6 +765,104 @@
                 <div class="flex gap-2">
                     <flux:spacer />
                     <flux:button wire:click="closeViewChangesFlyout" variant="primary">Close</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+
+        <!-- Remove Entries Flyout -->
+        <flux:modal wire:model.self="showRemoveEntriesFlyout" variant="flyout" class="w-[40rem] max-w-[50vw]">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Remove Entries</flux:heading>
+                    <flux:text class="text-zinc-600 dark:text-zinc-400 mt-1">
+                        All entries for {{ $removeEntriesDate ? \Carbon\Carbon::parse($removeEntriesDate)->format('F d, Y') : '' }}
+                    </flux:text>
+                </div>
+
+                @if(session()->has('success'))
+                    <flux:callout color="green" icon="check-circle">
+                        {{ session('success') }}
+                    </flux:callout>
+                @endif
+
+                @if(session()->has('error'))
+                    <flux:callout color="red" icon="exclamation-circle">
+                        {{ session('error') }}
+                    </flux:callout>
+                @endif
+
+                @if(empty($dayEntries))
+                    <div class="text-center py-8">
+                        <flux:icon name="inbox" class="mx-auto h-12 w-12 text-zinc-400" />
+                        <flux:text class="mt-4 text-zinc-500 dark:text-zinc-400">
+                            No entries found for this date.
+                        </flux:text>
+                    </div>
+                @else
+                    <div class="space-y-3">
+                        @foreach($dayEntries as $entry)
+                            <div class="flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg {{ $entry['verify_mode'] == 2 ? 'opacity-60' : '' }}">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="flex flex-col">
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                {{ $entry['type_label'] }}
+                                            </div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                {{ $entry['date_time'] }}
+                                            </div>
+                                        </div>
+                                        @if($entry['is_manual_entry'])
+                                            <flux:badge color="blue" size="xs">Manual</flux:badge>
+                                        @endif
+                                        @if($entry['verify_mode'] == 2)
+                                            <flux:badge color="red" size="xs">Removed</flux:badge>
+                                        @endif
+                                    </div>
+                                    @if(!empty($entry['notes']))
+                                        <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                            <strong>Notes:</strong> {{ $entry['notes'] }}
+                                        </div>
+                                    @endif
+                                </div>
+                                @if($entry['verify_mode'] != 2)
+                                    @if($entryToRemove == $entry['id'])
+                                        <div class="flex items-center gap-2">
+                                            <flux:button 
+                                                wire:click="removeEntry({{ $entry['id'] }})" 
+                                                variant="ghost" 
+                                                color="red" 
+                                                size="sm"
+                                            >
+                                                Confirm
+                                            </flux:button>
+                                            <flux:button 
+                                                wire:click="cancelRemoveEntry" 
+                                                variant="ghost" 
+                                                size="sm"
+                                            >
+                                                Cancel
+                                            </flux:button>
+                                        </div>
+                                    @else
+                                        <flux:button 
+                                            wire:click="confirmRemoveEntry({{ $entry['id'] }})" 
+                                            variant="ghost" 
+                                            color="red" 
+                                            size="sm"
+                                            icon="trash"
+                                        >
+                                            Remove
+                                        </flux:button>
+                                    @endif
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <flux:button wire:click="closeRemoveEntriesFlyout" variant="primary">Close</flux:button>
                 </div>
             </div>
         </flux:modal>
