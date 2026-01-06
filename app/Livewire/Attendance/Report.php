@@ -3410,6 +3410,26 @@ class Report extends Component
     }
 
     /**
+     * Format short/excess hours for CSV export (Excel-compatible)
+     */
+    private function formatShortExcessHoursForCsv($shortExcessHours, $shortExcessMinutes)
+    {
+        if ($shortExcessMinutes == 0) {
+            return '0:00';
+        }
+        
+        // Parse the time format (e.g., "-17:38" or "12:48")
+        $isNegative = strpos($shortExcessHours, '-') === 0;
+        $timeValue = ltrim($shortExcessHours, '-');
+        
+        if ($isNegative) {
+            return 'Short: ' . $timeValue;
+        } else {
+            return 'Excess: ' . $timeValue;
+        }
+    }
+
+    /**
      * Export attendance report to CSV
      */
     public function exportToCsv()
@@ -3479,7 +3499,7 @@ class Report extends Component
                 $stats['holiday_days'] ?? 0,
                 $stats['total_hours'] ?? '0:00',
                 $expectedHours,
-                $stats['short_excess_hours'] ?? '0:00',
+                $this->formatShortExcessHoursForCsv($stats['short_excess_hours'] ?? '0:00', $stats['short_excess_minutes'] ?? 0),
             ];
         }
 
