@@ -501,16 +501,51 @@
                             </div>
                         </div>
                         
-                        <!-- Notes Field -->
-                        <flux:field>
-                            <flux:label>{{ __('Notes') }}</flux:label>
-                            <flux:textarea
-                                wire:model="editLogData.notes"
-                                rows="6"
-                                placeholder="{{ __('Enter daily log notes...') }}"
-                            />
-                            <flux:error name="editLogData.notes" />
-                        </flux:field>
+                        <!-- Log Entries -->
+                        <div>
+                            <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-3">
+                                {{ __('Log Entries') }} ({{ count($editLogData['entries'] ?? []) }})
+                            </flux:subheading>
+                            @if(!empty($editLogData['entries']) && is_array($editLogData['entries']))
+                                <div class="space-y-4">
+                                    @foreach($editLogData['entries'] as $index => $entry)
+                                        <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                            <div class="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1">
+                                                        {{ __('Entry') }} #{{ $index + 1 }}
+                                                    </p>
+                                                    @if(isset($entry['created_at']))
+                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {{ \Carbon\Carbon::parse($entry['created_at'])->format('M d, Y h:i A') }}
+                                                        </p>
+                                                    @endif
+                                                </div>
+                                                @if(isset($entry['created_by_name']))
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('By') }}: {{ $entry['created_by_name'] }}
+                                                    </p>
+                                                @endif
+                                            </div>
+                                            <flux:field>
+                                                <flux:label>{{ __('Notes') }}</flux:label>
+                                                <flux:textarea
+                                                    wire:model="editLogData.entries.{{ $index }}.notes"
+                                                    rows="4"
+                                                    placeholder="{{ __('Enter log entry notes...') }}"
+                                                    required
+                                                />
+                                                <flux:error name="editLogData.entries.{{ $index }}.notes" />
+                                            </flux:field>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                    <p class="text-zinc-900 dark:text-zinc-100">{{ __('No log entries found.') }}</p>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                     
                     <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-700">

@@ -356,6 +356,20 @@ class DailyLog extends Component
                 }
             }
             
+            // Get all entries for this log
+            $data = $log->data ?? [];
+            $entries = isset($data['entries']) && is_array($data['entries']) ? $data['entries'] : [];
+            
+            // If old format (single notes), convert to entries format
+            if (empty($entries) && isset($data['notes'])) {
+                $entries = [[
+                    'notes' => $data['notes'],
+                    'created_at' => $log->created_at->toDateTimeString(),
+                    'created_by' => $log->created_by,
+                    'created_by_name' => $log->createdBy ? $log->createdBy->name : null,
+                ]];
+            }
+            
             $this->editLogData = [
                 'id' => $log->id,
                 'employee_id' => $log->employee_id,
@@ -368,8 +382,8 @@ class DailyLog extends Component
                 'period' => $log->period,
                 'period_label' => $this->getPeriodLabel($log->period),
                 'is_locked' => $log->is_locked,
-                'notes' => isset($log->data['notes']) ? $log->data['notes'] : '',
-                'data' => $log->data ?? [],
+                'data' => $data,
+                'entries' => $entries,
             ];
         }
         $this->showEditFlyout = true;
@@ -415,9 +429,53 @@ class DailyLog extends Component
             return;
         }
         
-        // Update the log data
+        // Validate that all entries have notes
+        if (empty($this->editLogData['entries']) || !is_array($this->editLogData['entries'])) {
+            session()->flash('error', __('At least one log entry is required.'));
+            return;
+        }
+        
+        // Validate each entry
+        foreach ($this->editLogData['entries'] as $index => $entry) {
+            if (empty($entry['notes']) || trim($entry['notes']) === '') {
+                session()->flash('error', __('Entry #' . ($index + 1) . ' notes cannot be empty.'));
+                return;
+            }
+        }
+        
+        // Update the log data with all entries
         $data = $log->data ?? [];
-        $data['notes'] = $this->editLogData['notes'];
+        
+        // Preserve created_at, created_by, and created_by_name for existing entries
+        $updatedEntries = [];
+        foreach ($this->editLogData['entries'] as $index => $entry) {
+            $updatedEntry = [
+                'notes' => trim($entry['notes']),
+            ];
+            
+            // Preserve original entry metadata if it exists
+            if (isset($entry['created_at'])) {
+                $updatedEntry['created_at'] = $entry['created_at'];
+            } else {
+                $updatedEntry['created_at'] = Carbon::now()->toDateTimeString();
+            }
+            
+            if (isset($entry['created_by'])) {
+                $updatedEntry['created_by'] = $entry['created_by'];
+            } else {
+                $updatedEntry['created_by'] = $user->id;
+            }
+            
+            if (isset($entry['created_by_name'])) {
+                $updatedEntry['created_by_name'] = $entry['created_by_name'];
+            } else {
+                $updatedEntry['created_by_name'] = $user->name;
+            }
+            
+            $updatedEntries[] = $updatedEntry;
+        }
+        
+        $data['entries'] = $updatedEntries;
         
         $log->update([
             'data' => $data,
