@@ -248,37 +248,26 @@ class Index extends Component
         $today = \Carbon\Carbon::today();
         
         foreach ($employeeIds as $employeeId) {
-            if ($parentTask->frequency === 'daily') {
-                // For daily tasks, create task for today
-                Task::create([
-                    'name' => $parentTask->name,
-                    'title' => $parentTask->title,
-                    'description' => $parentTask->description,
-                    'assigned_to' => $employeeId,
-                    'assigned_by' => $parentTask->assigned_by,
-                    'due_date' => $parentTask->due_date,
-                    'frequency' => $parentTask->frequency,
-                    'auto_assign' => false,
-                    'parent_task_id' => $parentTask->id,
-                    'status' => 'pending',
-                    'custom_fields' => $parentTask->custom_fields,
-                ]);
-            } else {
-                // For weekly tasks, create task for today
-                Task::create([
-                    'name' => $parentTask->name,
-                    'title' => $parentTask->title,
-                    'description' => $parentTask->description,
-                    'assigned_to' => $employeeId,
-                    'assigned_by' => $parentTask->assigned_by,
-                    'due_date' => $parentTask->due_date,
-                    'frequency' => $parentTask->frequency,
-                    'auto_assign' => false,
-                    'parent_task_id' => $parentTask->id,
-                    'status' => 'pending',
-                    'custom_fields' => $parentTask->custom_fields,
-                ]);
+            // Prepare task data
+            $taskData = [
+                'name' => $parentTask->name,
+                'title' => $parentTask->title,
+                'description' => $parentTask->description,
+                'assigned_to' => $employeeId,
+                'assigned_by' => $parentTask->assigned_by,
+                'due_date' => $parentTask->due_date,
+                'frequency' => $parentTask->frequency,
+                'auto_assign' => false,
+                'parent_task_id' => $parentTask->id,
+                'status' => 'pending',
+            ];
+
+            // Only add custom_fields if they exist and are not empty
+            if (!empty($parentTask->custom_fields)) {
+                $taskData['custom_fields'] = $parentTask->custom_fields;
             }
+
+            Task::create($taskData);
         }
     }
 

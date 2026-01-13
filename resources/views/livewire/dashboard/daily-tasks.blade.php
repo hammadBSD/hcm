@@ -1,62 +1,95 @@
-<div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+@php
+    $user = Auth::user();
+    $isSuperAdmin = $user && $user->hasRole('Super Admin');
+@endphp
+<div class="bg-white dark:bg-zinc-800 rounded-lg border {{ $hasLogToday ? 'border-zinc-200 dark:border-zinc-700' : ($isSuperAdmin ? 'border-zinc-200 dark:border-zinc-700' : 'border-red-500 dark:border-red-600') }} p-6">
     <div class="flex items-center justify-between mb-4">
         <div>
             <div class="flex items-center gap-2 mb-2">
                 <flux:icon name="clipboard-document-check" class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
-                <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Daily Tasks') }}</span>
+                <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Daily Logs') }}</span>
             </div>
-            @if($hasTemplate && $template)
+            @if($hasLogToday)
                 <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
-                    {{ $todayLog ? __('Completed') : __('Pending') }}
+                    {{ __('Logged') }}
                 </flux:heading>
                 <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                    {{ $template->name }}
+                    {{ __('You have saved the work log for today.') }}
                 </div>
-            @else
+            @elseif(!$isSuperAdmin)
                 <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
-                    {{ __('No Template') }}
+                    {{ __('Not Logged') }}
                 </flux:heading>
                 <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                    {{ __('No task template assigned') }}
+                    {{ __('You have not logged your work for today. Don\'t forget to log your work before your shift ends.') }}
                 </div>
             @endif
         </div>
-        <div class="w-12 h-12 {{ $hasTemplate && $todayLog ? 'bg-green-100 dark:bg-green-900' : 'bg-blue-100 dark:bg-blue-900' }} rounded-full flex items-center justify-center">
-            <flux:icon name="{{ $hasTemplate && $todayLog ? 'check-circle' : 'clipboard-document-check' }}" class="w-6 h-6 {{ $hasTemplate && $todayLog ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400' }}" />
-        </div>
-    </div>
-    
-    @if($hasTemplate && $template)
-        @if($isLocked)
-            <div class="mb-4">
-                <flux:callout variant="warning" icon="lock-closed" size="sm">
-                    {{ __('Task log is locked') }}
-                </flux:callout>
+        @if($hasLogToday || $isSuperAdmin)
+            <div class="w-12 h-12 {{ $hasLogToday ? 'bg-green-100 dark:bg-green-900' : 'bg-zinc-100 dark:bg-zinc-700' }} rounded-full flex items-center justify-center">
+                @if($hasLogToday)
+                    <flux:icon name="check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
+                @else
+                    <flux:icon name="clipboard-document-check" class="w-6 h-6 text-zinc-600 dark:text-zinc-400" />
+                @endif
+            </div>
+        @else
+            <div class="w-12 h-12 bg-red-500 dark:bg-red-600 rounded-full flex items-center justify-center">
+                <flux:icon name="x-mark" class="w-6 h-6 text-white" />
             </div>
         @endif
-        
-        <div class="flex items-center gap-3">
-            <flux:button 
-                variant="primary" 
-                icon="pencil"
-                :href="route('tasks.daily-log')"
-                wire:navigate
-            >
-                {{ $todayLog ? __('View/Edit Tasks') : __('Log Tasks') }}
-            </flux:button>
-            @if($todayLog && !$isLocked)
-                <flux:badge color="green" size="sm">
-                    {{ __('Saved') }}
-                </flux:badge>
-            @endif
-        </div>
-    @elseif($settings && $settings->enabled)
-        <div class="text-sm text-zinc-500 dark:text-zinc-400">
-            {{ __('Contact your administrator to assign a task template.') }}
-        </div>
+    </div>
+    
+    @if($settings && $settings->enabled)
+        @if(!$hasLogToday)
+            <div class="flex items-center gap-3">
+                <flux:button 
+                    variant="primary" 
+                    icon="plus"
+                    href="{{ route('tasks.daily-log') }}"
+                    wire:navigate
+                >
+                    {{ __('Add Log') }}
+                </flux:button>
+            </div>
+        @endif
     @else
         <div class="text-sm text-zinc-500 dark:text-zinc-400">
             {{ __('Daily task logging is disabled.') }}
         </div>
     @endif
 </div>
+
+@if($showCreateLogFlyout)
+    <!-- Create Log Flyout -->
+    <flux:modal wire:model="showCreateLogFlyout" variant="flyout" name="create-daily-log" class="max-w-2xl">
+        <flux:heading size="lg" class="mb-4">
+            {{ __('Create Daily Log') }}
+        </flux:heading>
+        
+        <form wire:submit="saveLog">
+            <div class="space-y-6">
+                <!-- Notes Field -->
+                <flux:field>
+                    <flux:label>{{ __('Notes') }} <span class="text-red-500">*</span></flux:label>
+                    <flux:textarea
+                        wire:model="createLogForm.notes"
+                        rows="6"
+                        placeholder="{{ __('Enter daily log notes...') }}"
+                        required
+                    />
+                    <flux:error name="createLogForm.notes" />
+                </flux:field>
+            </div>
+            
+            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button type="button" wire:click="closeCreateLogFlyout" variant="ghost">
+                    {{ __('Cancel') }}
+                </flux:button>
+                <flux:button type="submit" variant="primary">
+                    {{ __('Create Log') }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+@endif

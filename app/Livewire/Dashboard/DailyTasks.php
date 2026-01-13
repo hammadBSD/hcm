@@ -5,19 +5,19 @@ namespace App\Livewire\Dashboard;
 use App\Models\Employee;
 use App\Models\TaskLog;
 use App\Models\TaskSetting;
-use App\Models\TaskTemplate;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class DailyTasks extends Component
 {
-    public $hasTemplate = false;
-    public $template = null;
     public $todayLog = null;
-    public $isLocked = false;
-    public $canEdit = true;
+    public $hasLogToday = false;
     public $settings = null;
+    public $showCreateLogFlyout = false;
+    public $createLogForm = [
+        'notes' => '',
+    ];
 
     public function mount()
     {
@@ -42,70 +42,105 @@ class DailyTasks extends Component
             return;
         }
 
-        $this->template = TaskTemplate::getTemplateForEmployee($employee);
-        $this->hasTemplate = $this->template !== null;
-
-        if ($this->template) {
-            $today = Carbon::today()->format('Y-m-d');
-            $this->todayLog = TaskLog::where('employee_id', $employee->id)
-                ->where('task_template_id', $this->template->id)
-                ->where('log_date', $today)
-                ->where('period', 'full_day')
-                ->first();
-
-            if ($this->todayLog) {
-                $this->isLocked = $this->todayLog->is_locked;
-                $this->canEdit = $this->todayLog->canEdit();
-            } else {
-                $this->canEdit = $this->canCreateNewLog($employee);
-            }
-        }
+        // Check if log exists for today (no template requirement)
+        $today = Carbon::today()->format('Y-m-d');
+        $this->todayLog = TaskLog::where('employee_id', $employee->id)
+            ->where('log_date', $today)
+            ->first();
+        
+        $this->hasLogToday = $this->todayLog !== null;
     }
-
-    public function canCreateNewLog($employee): bool
+    
+    public function openCreateLogFlyout()
     {
-        if (!$this->settings->lock_after_shift) {
-            return true;
+        $this->showCreateLogFlyout = true;
+    }
+    
+    public function closeCreateLogFlyout()
+    {
+        $this->showCreateLogFlyout = false;
+    }
+    
+    public function saveLog()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            session()->flash('error', __('User not found.'));
+            return;
         }
+
+        $employee = $user->employee;
+        if (!$employee) {
+            session()->flash('error', __('Employee record not found.'));
+            return;
+        }
+
+        $this->validate([
+            'createLogForm.notes' => 'required|string|min:3',
+        ], [
+            'createLogForm.notes.required' => __('Notes are required.'),
+            'createLogForm.notes.min' => __('Notes must be at least 3 characters.'),
+        ]);
 
         $today = Carbon::today()->format('Y-m-d');
-        $shift = $employee->getEffectiveShiftForDate($today);
-        if (!$shift) {
-            return true;
+        
+        // Check if a log already exists for this employee, date, and period (same shift)
+        $existingLog = TaskLog::where('employee_id', $employee->id)
+            ->where('log_date', $today)
+            ->where('period', 'full_day')
+            ->first();
+        
+        $newEntry = [
+            'notes' => $this->createLogForm['notes'],
+            'created_at' => Carbon::now()->toDateTimeString(),
+            'created_by' => $user->id,
+            'created_by_name' => $user->name,
+        ];
+        
+        if ($existingLog) {
+            // Add entry to existing log
+            $data = $existingLog->data ?? [];
+            if (!isset($data['entries']) || !is_array($data['entries'])) {
+                $data['entries'] = [];
+            }
+            $data['entries'][] = $newEntry;
+            
+            $existingLog->update([
+                'data' => $data,
+            ]);
+            
+            session()->flash('success', __('Log entry added successfully.'));
+        } else {
+            // Create new log with first entry
+            TaskLog::create([
+                'employee_id' => $employee->id,
+                'task_template_id' => null, // No template required
+                'log_date' => $today,
+                'period' => 'full_day',
+                'data' => [
+                    'entries' => [$newEntry]
+                ],
+                'created_by' => $user->id,
+            ]);
+            
+            session()->flash('success', __('Daily log created successfully.'));
         }
 
-        $shiftEndTime = $this->parseShiftTime($shift->end_time);
-        if (!$shiftEndTime) {
-            return true;
-        }
-
-        $lockTime = Carbon::parse($today . ' ' . $shiftEndTime)
-            ->addMinutes($this->settings->lock_grace_period_minutes);
-
-        $shiftStartTime = $this->parseShiftTime($shift->start_time);
-        if ($shiftStartTime && $shiftStartTime > $shiftEndTime) {
-            $lockTime->addDay();
-        }
-
-        return Carbon::now()->lt($lockTime);
-    }
-
-    private function parseShiftTime(?string $time): ?string
-    {
-        if (!$time) {
-            return null;
-        }
-
-        $parts = explode(':', $time);
-        if (count($parts) >= 2) {
-            return sprintf('%02d:%02d:00', (int)$parts[0], (int)$parts[1]);
-        }
-
-        return null;
+        $this->createLogForm['notes'] = '';
+        $this->closeCreateLogFlyout();
+        $this->loadData();
     }
 
     public function render()
     {
-        return view('livewire.dashboard.daily-tasks');
+        $user = Auth::user();
+        $isSuperAdmin = $user && $user->hasRole('Super Admin');
+        
+        return view('livewire.dashboard.daily-tasks', [
+            'hasLogToday' => $this->hasLogToday,
+            'todayLog' => $this->todayLog,
+            'settings' => $this->settings,
+            'isSuperAdmin' => $isSuperAdmin,
+        ]);
     }
 }

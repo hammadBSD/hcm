@@ -69,6 +69,9 @@ class AutoAssignTasks extends Command
 
     private function createDailyTasks(Task $parentTask, array $employeeIds, Carbon $date)
     {
+        // Refresh parent task to ensure we have the latest data including custom_fields
+        $parentTask->refresh();
+        
         foreach ($employeeIds as $employeeId) {
             // Check if task already exists for this employee and date
             $existingTask = Task::where('parent_task_id', $parentTask->id)
@@ -80,7 +83,8 @@ class AutoAssignTasks extends Command
                 continue; // Task already exists for today
             }
 
-            Task::create([
+            // Prepare task data
+            $taskData = [
                 'name' => $parentTask->name,
                 'title' => $parentTask->title,
                 'description' => $parentTask->description,
@@ -91,15 +95,25 @@ class AutoAssignTasks extends Command
                 'auto_assign' => false,
                 'parent_task_id' => $parentTask->id,
                 'status' => 'pending',
-                'custom_fields' => $parentTask->custom_fields,
-            ]);
+            ];
+
+            // Only add custom_fields if they exist and are not empty
+            if (!empty($parentTask->custom_fields)) {
+                $taskData['custom_fields'] = $parentTask->custom_fields;
+            }
+
+            Task::create($taskData);
         }
     }
 
     private function createWeeklyTasks(Task $parentTask, array $employeeIds, Carbon $date)
     {
+        // Refresh parent task to ensure we have the latest data including custom_fields
+        $parentTask->refresh();
+        
         foreach ($employeeIds as $employeeId) {
-            Task::create([
+            // Prepare task data
+            $taskData = [
                 'name' => $parentTask->name,
                 'title' => $parentTask->title,
                 'description' => $parentTask->description,
@@ -110,8 +124,14 @@ class AutoAssignTasks extends Command
                 'auto_assign' => false,
                 'parent_task_id' => $parentTask->id,
                 'status' => 'pending',
-                'custom_fields' => $parentTask->custom_fields,
-            ]);
+            ];
+
+            // Only add custom_fields if they exist and are not empty
+            if (!empty($parentTask->custom_fields)) {
+                $taskData['custom_fields'] = $parentTask->custom_fields;
+            }
+
+            Task::create($taskData);
         }
     }
 }

@@ -602,22 +602,47 @@
                         @endif
                     </div>
                     
-                    <!-- Log Notes/Content -->
-                    @if(!empty($viewLogData['notes']))
-                        <div>
-                            <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-2">
-                                {{ __('Notes') }}
-                            </flux:subheading>
-                            <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
-                                <p class="text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">{{ $viewLogData['notes'] }}</p>
+                    <!-- Log Entries -->
+                    <div>
+                        <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-3">
+                            {{ __('Log Entries') }} ({{ count($viewLogData['entries'] ?? []) }})
+                        </flux:subheading>
+                        @if(!empty($viewLogData['entries']) && is_array($viewLogData['entries']))
+                            <div class="space-y-4">
+                                @foreach($viewLogData['entries'] as $index => $entry)
+                                    <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <div>
+                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ __('Entry') }} #{{ $index + 1 }}
+                                                </p>
+                                                @if(isset($entry['created_at']))
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ \Carbon\Carbon::parse($entry['created_at'])->format('M d, Y h:i A') }}
+                                                    </p>
+                                                @endif
+                                            </div>
+                                            @if(isset($entry['created_by_name']))
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('By') }}: {{ $entry['created_by_name'] }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        <p class="text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">{{ $entry['notes'] ?? __('No notes provided.') }}</p>
+                                    </div>
+                                @endforeach
                             </div>
-                        </div>
-                    @endif
+                        @else
+                            <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                <p class="text-zinc-900 dark:text-zinc-100">{{ __('No log entries found.') }}</p>
+                            </div>
+                        @endif
+                    </div>
                     
                     <!-- Custom Fields Data -->
                     @if(!empty($viewLogData['data']) && is_array($viewLogData['data']))
                         @foreach($viewLogData['data'] as $key => $value)
-                            @if($key !== 'notes' && !empty($value))
+                            @if($key !== 'notes' && $key !== 'entries' && !empty($value))
                                 <div>
                                     <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
                                         {{ ucfirst(str_replace('_', ' ', $key)) }}

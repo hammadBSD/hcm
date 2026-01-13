@@ -172,18 +172,48 @@ class DailyLog extends Component
             }
         }
         
-        // Create log with notes in data and track who created it
-        // Note: task_template_id is nullable, so we don't require a template
-        TaskLog::create([
-            'employee_id' => $employee->id,
-            'task_template_id' => null, // No template required
-            'log_date' => $this->createLogForm['date'],
-            'period' => 'full_day',
-            'data' => ['notes' => $this->createLogForm['notes']],
-            'created_by' => $user->id, // Track who created this log
-        ]);
+        // Check if a log already exists for this employee, date, and period (same shift)
+        $existingLog = TaskLog::where('employee_id', $employee->id)
+            ->where('log_date', $this->createLogForm['date'])
+            ->where('period', 'full_day')
+            ->first();
         
-        session()->flash('success', __('Daily log created successfully.'));
+        $newEntry = [
+            'notes' => $this->createLogForm['notes'],
+            'created_at' => Carbon::now()->toDateTimeString(),
+            'created_by' => $user->id,
+            'created_by_name' => $user->name,
+        ];
+        
+        if ($existingLog) {
+            // Add entry to existing log
+            $data = $existingLog->data ?? [];
+            if (!isset($data['entries']) || !is_array($data['entries'])) {
+                $data['entries'] = [];
+            }
+            $data['entries'][] = $newEntry;
+            
+            $existingLog->update([
+                'data' => $data,
+            ]);
+            
+            session()->flash('success', __('Log entry added successfully.'));
+        } else {
+            // Create new log with first entry
+            TaskLog::create([
+                'employee_id' => $employee->id,
+                'task_template_id' => null, // No template required
+                'log_date' => $this->createLogForm['date'],
+                'period' => 'full_day',
+                'data' => [
+                    'entries' => [$newEntry]
+                ],
+                'created_by' => $user->id, // Track who created this log
+            ]);
+            
+            session()->flash('success', __('Daily log created successfully.'));
+        }
+        
         $this->closeCreateLogFlyout();
         $this->loadDailyLogs();
     }
@@ -248,6 +278,20 @@ class DailyLog extends Component
                 }
             }
             
+            // Get all entries for this log
+            $data = $log->data ?? [];
+            $entries = isset($data['entries']) && is_array($data['entries']) ? $data['entries'] : [];
+            
+            // If old format (single notes), convert to entries format
+            if (empty($entries) && isset($data['notes'])) {
+                $entries = [[
+                    'notes' => $data['notes'],
+                    'created_at' => $log->created_at->toDateTimeString(),
+                    'created_by' => $log->created_by,
+                    'created_by_name' => $log->createdBy ? $log->createdBy->name : null,
+                ]];
+            }
+            
             $this->viewLogData = [
                 'id' => $log->id,
                 'employee_name' => $log->employee->first_name . ' ' . $log->employee->last_name,
@@ -261,8 +305,8 @@ class DailyLog extends Component
                 'is_locked' => $log->is_locked,
                 'created_at' => $log->created_at->format('M d, Y h:i A'),
                 'created_by' => $log->createdBy ? $log->createdBy->name : null,
-                'data' => $log->data ?? [],
-                'notes' => isset($log->data['notes']) ? $log->data['notes'] : '',
+                'data' => $data,
+                'entries' => $entries,
             ];
         }
         $this->showViewFlyout = true;
