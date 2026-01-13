@@ -279,6 +279,9 @@
                                                     @endif
                                                 </button>
                                             </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 tracking-wider">
+                                                {{ __('Logs/Tasks') }}
+                                            </th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 {{ __('Actions') }}
                                             </th>
@@ -457,6 +460,50 @@
                                                                 <flux:icon name="exclamation-triangle" class="w-3 h-3" />
                                                                 No Shift Assigned
                                                             </div>
+                                                        @endif
+                                                    </div>
+                                                </td>
+                                                
+                                                <td class="px-6 py-6 whitespace-nowrap">
+                                                    <div class="flex items-center gap-1">
+                                                        @php
+                                                            // Check if employee has logs for this date
+                                                            $hasLog = \App\Models\TaskLog::where('employee_id', $employee->id)
+                                                                ->where('log_date', $record['date'])
+                                                                ->exists();
+                                                            
+                                                            // Check if employee has tasks for this date and if any are completed
+                                                            $hasCompletedTask = \App\Models\Task::where('assigned_to', $employee->id)
+                                                                ->whereDate('created_at', $record['date'])
+                                                                ->where('status', 'completed')
+                                                                ->exists();
+                                                            
+                                                            // Check if employee has any tasks for this date
+                                                            $hasAnyTask = \App\Models\Task::where('assigned_to', $employee->id)
+                                                                ->whereDate('created_at', $record['date'])
+                                                                ->exists();
+                                                        @endphp
+                                                        
+                                                        {{-- Log Icon --}}
+                                                        <flux:tooltip>
+                                                            <div class="p-2 {{ $hasLog ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }} hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
+                                                                <flux:icon name="clipboard-document-check" class="w-5 h-5" />
+                                                            </div>
+                                                            <flux:tooltip.content>
+                                                                {{ __('Log') }}
+                                                            </flux:tooltip.content>
+                                                        </flux:tooltip>
+                                                        
+                                                        {{-- Task Icon (only show if employee has tasks and at least one is completed) --}}
+                                                        @if($hasAnyTask && $hasCompletedTask)
+                                                            <flux:tooltip>
+                                                                <div class="p-2 text-green-600 dark:text-green-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
+                                                                    <flux:icon name="check-circle" class="w-5 h-5" />
+                                                                </div>
+                                                                <flux:tooltip.content>
+                                                                    {{ __('Task') }}
+                                                                </flux:tooltip.content>
+                                                            </flux:tooltip>
                                                         @endif
                                                     </div>
                                                 </td>
