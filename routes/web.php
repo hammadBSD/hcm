@@ -131,9 +131,20 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     // Operations
     Route::get('system-management/operations/projects', \App\Livewire\SystemManagement\Operations\Projects\Index::class)->name('system-management.operations.projects');
     Route::get('system-management/operations/tasks', \App\Livewire\SystemManagement\Operations\Tasks\Index::class)->name('system-management.operations.tasks');
+    Route::get('system-management/operations/tasks/settings', \App\Livewire\SystemManagement\Operations\Tasks\Settings::class)->name('system-management.operations.tasks.settings');
     Route::get('system-management/operations/month-close', \App\Livewire\SystemManagement\Operations\MonthClose\Index::class)->name('system-management.operations.month-close');
     Route::get('system-management/operations/day-close', \App\Livewire\SystemManagement\Operations\DayClose\Index::class)->name('system-management.operations.day-close');
     Route::get('system-management/operations/constants', \App\Livewire\SystemManagement\Operations\Constants\Index::class)->name('system-management.operations.constants');
+    
+    // Tasks (Employee-facing)
+    // Tasks Routes
+    Route::redirect('tasks', 'tasks/my-tasks');
+    Route::get('tasks/my-tasks', \App\Livewire\Tasks\MyTasks::class)->name('tasks.my-tasks');
+    Route::get('tasks/index', \App\Livewire\Tasks\Index::class)->name('tasks.index');
+    Route::get('tasks/settings', \App\Livewire\Tasks\Settings::class)->name('tasks.settings');
+    
+    // Daily Logs Routes
+    Route::get('tasks/daily-log', \App\Livewire\Tasks\DailyLog::class)->name('tasks.daily-log');
     
     // Attendance Settings
     Route::get('system-management/attendance-settings/shift-schedule', \App\Livewire\SystemManagement\AttendanceSettings\ShiftSchedule\Index::class)->name('system-management.attendance-settings.shift-schedule');

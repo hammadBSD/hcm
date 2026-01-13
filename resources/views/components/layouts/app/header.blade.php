@@ -78,6 +78,19 @@
                             {{ __('Leaves') }}
                         </flux:navbar.item>
                     @endcanany
+                    @canany([
+                        'tasks.view',
+                        'tasks.view.self',
+                        'tasks.view.team',
+                        'tasks.view.company',
+                        'tasks.create',
+                        'tasks.edit',
+                        'tasks.assign',
+                    ])
+                        <flux:navbar.item icon="clipboard-document-list" :href="route('tasks.my-tasks')" :current="request()->routeIs('tasks.*') && !request()->routeIs('tasks.daily-log')" wire:navigate>
+                            {{ __('Tasks/Logs') }}
+                        </flux:navbar.item>
+                    @endcanany
                     <flux:separator vertical variant="subtle" class="my-2"/>
                     <flux:dropdown>
                         <flux:navbar.item icon:trailing="chevron-down">{{ __('More') }}</flux:navbar.item>
@@ -102,7 +115,7 @@
             <flux:spacer />
             
             <flux:navbar class="me-4">
-                <flux:navbar.item icon="magnifying-glass" href="#" label="Search" />
+                <!-- <flux:navbar.item icon="magnifying-glass" href="#" label="Search" /> -->
                 <flux:navbar.item class="max-lg:hidden" icon="bell" href="#" label="Notifications" />
                 @can('system.sidebar.roles')
                     <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" :href="route('system-management.index')" label="Settings" wire:navigate />
@@ -201,6 +214,22 @@
                     <flux:sidebar.item icon="calendar" :href="route('leaves.index')" :current="request()->routeIs('leaves.*')" wire:navigate>
                         {{ __('Leaves') }}
                     </flux:sidebar.item>
+                @endcanany
+                @canany([
+                    'tasks.view',
+                    'tasks.create',
+                    'tasks.edit',
+                ])
+                    @canany(['tasks.view.self', 'tasks.view.team', 'tasks.view.company', 'tasks.create', 'tasks.edit'])
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('tasks.my-tasks')" :current="request()->routeIs('tasks.*') && !request()->routeIs('tasks.daily-log')" wire:navigate>
+                            {{ __('Tasks') }}
+                        </flux:sidebar.item>
+                    @endcanany
+                    @canany(['tasks.view.self', 'tasks.create', 'tasks.edit'])
+                        <flux:sidebar.item icon="clipboard-document-check" :href="route('tasks.daily-log')" :current="request()->routeIs('tasks.daily-log')" wire:navigate>
+                            {{ __('Daily Logs') }}
+                        </flux:sidebar.item>
+                    @endcanany
                 @endcanany
                 <flux:sidebar.item icon="chart-bar" href="#" :current="request()->routeIs('performance.*')">
                     {{ __('Performance') }}

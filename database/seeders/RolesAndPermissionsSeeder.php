@@ -51,6 +51,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view.self',
             'dashboard.view.team',
             'dashboard.view.company',
+            'dashboard.view.absent_late',
 
             // Employees Module
             'employees.sidebar.directory',
@@ -106,6 +107,34 @@ class RolesAndPermissionsSeeder extends Seeder
             'leaves.manage.all',
             'leaves.request.submit',
             'leaves.approve.requests',
+
+            // Tasks Module (Task Management)
+            'tasks.view.self',
+            'tasks.view.team',
+            'tasks.view.company',
+            'tasks.view.all',
+            'tasks.view.group',
+            'tasks.view.department',
+            'tasks.view.role',
+            'tasks.create',
+            'tasks.create.group',
+            'tasks.create.department',
+            'tasks.create.role',
+            'tasks.assign',
+            'tasks.edit',
+            'tasks.delete',
+            'tasks.update.status',
+            
+            // Daily Logs Module
+            'daily-logs.view.self',
+            'daily-logs.view.all',
+            'daily-logs.create.self',
+            'daily-logs.create.all',
+            'daily-logs.edit',
+            'daily-logs.delete',
+            'daily-logs.manage.templates',
+            'daily-logs.manage.assignments',
+            'daily-logs.manage.settings',
 
             // Reports Module
             'reports.sidebar.main',
@@ -234,7 +263,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $superAdmin->givePermissionTo(Permission::all());
 
         $dashboardSelf = ['dashboard.sidebar.main', 'dashboard.view.self'];
-        $dashboardTeam = array_merge($dashboardSelf, ['dashboard.view.team']);
+        $dashboardTeam = array_merge($dashboardSelf, ['dashboard.view.team', 'dashboard.view.absent_late']);
         $dashboardCompany = array_merge($dashboardTeam, ['dashboard.view.company']);
 
         $employeesSidebarBasic = [];
@@ -309,6 +338,52 @@ class RolesAndPermissionsSeeder extends Seeder
             'leaves.request.submit',
         ];
 
+        // Task Management Permissions
+        $tasksSelf = [
+            'tasks.view.self',
+            'tasks.create',
+            'tasks.edit',
+            'tasks.update.status',
+        ];
+        $tasksGroup = array_merge($tasksSelf, [
+            'tasks.view.group',
+            'tasks.create.group',
+        ]);
+        $tasksDepartment = array_merge($tasksGroup, [
+            'tasks.view.department',
+            'tasks.create.department',
+        ]);
+        $tasksRole = array_merge($tasksDepartment, [
+            'tasks.view.role',
+            'tasks.create.role',
+        ]);
+        $tasksManager = array_merge($tasksRole, [
+            'tasks.view.team',
+            'tasks.assign',
+        ]);
+        $tasksAdmin = array_merge($tasksManager, [
+            'tasks.view.company',
+            'tasks.view.all',
+            'tasks.delete',
+        ]);
+        
+        // Daily Logs Permissions
+        $dailyLogsSelf = [
+            'daily-logs.view.self',
+            'daily-logs.create.self',
+            'daily-logs.edit',
+        ];
+        $dailyLogsManager = array_merge($dailyLogsSelf, [
+            'daily-logs.view.all',
+            'daily-logs.create.all',
+            'daily-logs.manage.templates',
+            'daily-logs.manage.assignments',
+        ]);
+        $dailyLogsAdmin = array_merge($dailyLogsManager, [
+            'daily-logs.manage.settings',
+            'daily-logs.delete',
+        ]);
+
         $payrollSidebar = [
             'payroll.sidebar.main',
             'payroll.sidebar.settings',
@@ -330,6 +405,8 @@ class RolesAndPermissionsSeeder extends Seeder
             $systemSidebarFull,
             $systemManageFull,
             $leavesManager,
+            $tasksAdmin,
+            $dailyLogsAdmin,
             $payrollSidebar,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.delete', 'employee.export',
@@ -369,6 +446,8 @@ class RolesAndPermissionsSeeder extends Seeder
             $systemSidebarFull,
             ['system.manage.roles', 'system.manage.users'],
             $leavesManager,
+            $tasksManager,
+            $dailyLogsManager,
             $payrollSidebar,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.export',
@@ -466,6 +545,8 @@ class RolesAndPermissionsSeeder extends Seeder
             $attendanceApprover,
             $systemSidebarFull,
             $leavesManager,
+            $tasksManager,
+            $dailyLogsManager,
             $payrollSidebar,
             [
                 'employee.view',
@@ -521,6 +602,8 @@ class RolesAndPermissionsSeeder extends Seeder
             ['employees.manage.delegation', 'employees.manage.suggestions'],
             $attendanceSelf,
             $leavesManager,
+            $tasksSelf,
+            $dailyLogsSelf,
             [
                 'employee.view', // Own profile only
                 'payroll.view.self',

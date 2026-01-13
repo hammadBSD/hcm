@@ -162,6 +162,16 @@ class Employee extends Model
         return $this->hasMany(LeaveBalanceTransaction::class);
     }
 
+    public function taskLogs(): HasMany
+    {
+        return $this->hasMany(TaskLog::class);
+    }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assigned_to');
+    }
+
     /**
      * Get the effective shift for this employee
      * Priority:

@@ -374,13 +374,25 @@
                     <flux:navlist.item 
                         :href="route('system-management.operations.tasks')" 
                         wire:navigate
-                        :class="request()->routeIs('system-management.operations.tasks') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        :class="request()->routeIs('system-management.operations.tasks') || request()->routeIs('system-management.operations.tasks.settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
                         <div class="flex items-center">
                             <flux:icon name="clipboard-document-check" class="w-4 h-4 mr-3" />
-                            {{ __('Task') }}
+                            {{ __('Tasks') }}
                         </div>
                     </flux:navlist.item>
+                    @can('tasks.manage.settings')
+                    <flux:navlist.item 
+                        :href="route('system-management.operations.tasks.settings')" 
+                        wire:navigate
+                        :class="request()->routeIs('system-management.operations.tasks.settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="cog-6-tooth" class="w-4 h-4 mr-3" />
+                            {{ __('Task Settings') }}
+                        </div>
+                    </flux:navlist.item>
+                    @endcan
                     <flux:navlist.item 
                         :href="route('system-management.operations.month-close')" 
                         wire:navigate

@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         //
     })
+    ->withSchedule(function ($schedule) {
+        // Run every hour to catch shift start times
+        $schedule->command('tasks:auto-assign')->hourly();
+    })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

@@ -23,6 +23,9 @@
             <!-- Attendance Status Card -->
             <livewire:dashboard.your-status-card />
 
+            <!-- Daily Tasks Card -->
+            <livewire:dashboard.daily-tasks />
+
             <!-- Suggestions/Complaints Card -->
             <livewire:dashboard.suggestions-complaints />
 
@@ -115,38 +118,18 @@
             </div>
         </div> --}}
 
-        <!-- Bottom Section - Recent Activity & Quick Actions -->
-        {{-- <div class="grid gap-6 lg:grid-cols-2">
-            <!-- Recent Activity -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
-                        Recent Activity
-                    </flux:heading>
-                    <flux:button variant="outline" size="sm">
-                        View All
-                    </flux:button>
-                </div>
-                <div class="space-y-3">
-                    <flux:callout variant="success" icon="check-circle" inline>
-                        <flux:callout.heading>John Doe checked in</flux:callout.heading>
-                        <flux:callout.text>2 minutes ago</flux:callout.text>
-                    </flux:callout>
-                    
-                    <flux:callout variant="secondary" icon="document-plus" inline>
-                        <flux:callout.heading>Sarah Johnson requested leave</flux:callout.heading>
-                        <flux:callout.text>15 minutes ago</flux:callout.text>
-                    </flux:callout>
-                    
-                    <flux:callout variant="secondary" icon="user-plus" inline>
-                        <flux:callout.heading>New employee onboarded</flux:callout.heading>
-                        <flux:callout.text>1 hour ago</flux:callout.text>
-                    </flux:callout>
-                </div>
-            </div>
+        <!-- Bottom Section - Recent Activity & Absent/Late Employees -->
+         <div class="grid gap-6 lg:grid-cols-2">
+            <!-- Tasks -->
+            <livewire:dashboard.tasks />
+
+            <!-- Absent & Late Employees -->
+            @can('dashboard.view.absent_late')
+                <livewire:dashboard.absent-late-employees />
+            @endcan
 
             <!-- Quick Actions -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+            {{-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100 mb-4">
                     Quick Actions
                 </flux:heading>
