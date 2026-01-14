@@ -558,12 +558,12 @@
                                                                     }
                                                                     
                                                                     if ($shiftEnded) {
-                                                                        // Shift ended with pending tasks - red
+                                                                        // Shift ended with pending tasks - red cross
                                                                         $taskIconColor = 'text-red-600 dark:text-red-400';
-                                                                        $taskIconName = 'exclamation-triangle';
+                                                                        $taskIconName = 'x-circle';
                                                                         $showTaskIcon = true;
                                                                     } else {
-                                                                        // Shift not ended with pending tasks - yellow
+                                                                        // Shift not ended with pending tasks - yellow warning
                                                                         $taskIconColor = 'text-yellow-600 dark:text-yellow-400';
                                                                         $taskIconName = 'exclamation-triangle';
                                                                         $showTaskIcon = true;
@@ -589,7 +589,13 @@
                                                                     <flux:icon name="{{ $taskIconName }}" class="w-5 h-5" />
                                                                 </div>
                                                                 <flux:tooltip.content>
-                                                                    {{ $taskIconName === 'check-circle' ? __('Tasks Completed') : __('Pending Tasks') }}
+                                                                    @if($taskIconName === 'check-circle')
+                                                                        {{ __('Tasks Completed') }}
+                                                                    @elseif($taskIconName === 'x-circle')
+                                                                        {{ __('Incomplete Tasks') }}
+                                                                    @else
+                                                                        {{ __('Pending Tasks') }}
+                                                                    @endif
                                                                 </flux:tooltip.content>
                                                             </flux:tooltip>
                                                         @endif
