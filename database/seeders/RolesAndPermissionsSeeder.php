@@ -124,6 +124,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tasks.edit',
             'tasks.delete',
             'tasks.update.status',
+            'tasks.complete.after_shift_end',
             
             // Daily Logs Module
             'daily-logs.view.self',

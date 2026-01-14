@@ -472,16 +472,104 @@
                                                                 ->where('log_date', $record['date'])
                                                                 ->exists();
                                                             
-                                                            // Check if employee has tasks for this date and if any are completed
-                                                            $hasCompletedTask = \App\Models\Task::where('assigned_to', $employee->id)
+                                                            // Check tasks for this date
+                                                            $tasks = \App\Models\Task::where('assigned_to', $employee->id)
                                                                 ->whereDate('created_at', $record['date'])
-                                                                ->where('status', 'completed')
-                                                                ->exists();
+                                                                ->get();
                                                             
-                                                            // Check if employee has any tasks for this date
-                                                            $hasAnyTask = \App\Models\Task::where('assigned_to', $employee->id)
-                                                                ->whereDate('created_at', $record['date'])
-                                                                ->exists();
+                                                            $hasAnyTask = $tasks->isNotEmpty();
+                                                            $hasCompletedTask = $tasks->where('status', 'completed')->isNotEmpty();
+                                                            $hasPendingTask = $tasks->where('status', '!=', 'completed')->isNotEmpty();
+                                                            $allTasksCompleted = $hasAnyTask && $tasks->every(fn($task) => $task->status === 'completed');
+                                                            
+                                                            // Determine task icon color and visibility
+                                                            $taskIconColor = null;
+                                                            $taskIconName = null;
+                                                            $showTaskIcon = false;
+                                                            
+                                                            if ($hasAnyTask) {
+                                                                if ($allTasksCompleted) {
+                                                                    // All tasks completed - green
+                                                                    $taskIconColor = 'text-green-600 dark:text-green-400';
+                                                                    $taskIconName = 'check-circle';
+                                                                    $showTaskIcon = true;
+                                                                } elseif ($hasPendingTask) {
+                                                                    // Has pending tasks - check if shift has ended
+                                                                    $shift = $employee->getEffectiveShiftForDate($record['date']);
+                                                                    $shiftEnded = false;
+                                                                    
+                                                                    if ($shift && $shift->time_to) {
+                                                                        // Parse shift end time
+                                                                        $timeToParts = explode(':', $shift->time_to);
+                                                                        $shiftEndTime = \Carbon\Carbon::createFromTime(
+                                                                            (int)($timeToParts[0] ?? 0),
+                                                                            (int)($timeToParts[1] ?? 0),
+                                                                            (int)($timeToParts[2] ?? 0)
+                                                                        );
+                                                                        
+                                                                        // Check if shift is overnight
+                                                                        $timeFromParts = explode(':', $shift->time_from);
+                                                                        $shiftStartTime = \Carbon\Carbon::createFromTime(
+                                                                            (int)($timeFromParts[0] ?? 0),
+                                                                            (int)($timeFromParts[1] ?? 0),
+                                                                            (int)($timeFromParts[2] ?? 0)
+                                                                        );
+                                                                        $isOvernight = $shiftStartTime->gt($shiftEndTime);
+                                                                        
+                                                                        // Calculate shift end datetime
+                                                                        $recordDate = \Carbon\Carbon::parse($record['date']);
+                                                                        if ($isOvernight) {
+                                                                            // Overnight shift ends next day
+                                                                            $shiftEndDateTime = $recordDate->copy()->addDay()->setTime(
+                                                                                $shiftEndTime->hour,
+                                                                                $shiftEndTime->minute,
+                                                                                $shiftEndTime->second
+                                                                            );
+                                                                        } else {
+                                                                            // Regular shift ends same day
+                                                                            $shiftEndDateTime = $recordDate->copy()->setTime(
+                                                                                $shiftEndTime->hour,
+                                                                                $shiftEndTime->minute,
+                                                                                $shiftEndTime->second
+                                                                            );
+                                                                        }
+                                                                        
+                                                                        // Check if shift has ended
+                                                                        // For past dates, shift has definitely ended
+                                                                        // For today, check if current time is past shift end
+                                                                        $now = \Carbon\Carbon::now();
+                                                                        $todayStart = \Carbon\Carbon::today();
+                                                                        if ($recordDate->lt($todayStart)) {
+                                                                            // Past date - shift has ended
+                                                                            $shiftEnded = true;
+                                                                        } elseif ($recordDate->isToday()) {
+                                                                            // Today - check if current time is past shift end
+                                                                            $shiftEnded = $now->gte($shiftEndDateTime);
+                                                                        } else {
+                                                                            // Future date - shift hasn't ended
+                                                                            $shiftEnded = false;
+                                                                        }
+                                                                    } else {
+                                                                        // No shift info - assume shift has ended for past dates
+                                                                        if (!isset($recordDate)) {
+                                                                            $recordDate = \Carbon\Carbon::parse($record['date']);
+                                                                        }
+                                                                        $shiftEnded = $recordDate->lt(\Carbon\Carbon::today());
+                                                                    }
+                                                                    
+                                                                    if ($shiftEnded) {
+                                                                        // Shift ended with pending tasks - red
+                                                                        $taskIconColor = 'text-red-600 dark:text-red-400';
+                                                                        $taskIconName = 'exclamation-triangle';
+                                                                        $showTaskIcon = true;
+                                                                    } else {
+                                                                        // Shift not ended with pending tasks - yellow
+                                                                        $taskIconColor = 'text-yellow-600 dark:text-yellow-400';
+                                                                        $taskIconName = 'exclamation-triangle';
+                                                                        $showTaskIcon = true;
+                                                                    }
+                                                                }
+                                                            }
                                                         @endphp
                                                         
                                                         {{-- Log Icon --}}
@@ -490,18 +578,18 @@
                                                                 <flux:icon name="clipboard-document-check" class="w-5 h-5" />
                                                             </div>
                                                             <flux:tooltip.content>
-                                                                {{ __('Log') }}
+                                                                {{ $hasLog ? __('Daily Work Logged') : __('No Daily Logs') }}
                                                             </flux:tooltip.content>
                                                         </flux:tooltip>
                                                         
-                                                        {{-- Task Icon (only show if employee has tasks and at least one is completed) --}}
-                                                        @if($hasAnyTask && $hasCompletedTask)
+                                                        {{-- Task Icon --}}
+                                                        @if($showTaskIcon)
                                                             <flux:tooltip>
-                                                                <div class="p-2 text-green-600 dark:text-green-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
-                                                                    <flux:icon name="check-circle" class="w-5 h-5" />
+                                                                <div class="p-2 {{ $taskIconColor }} hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
+                                                                    <flux:icon name="{{ $taskIconName }}" class="w-5 h-5" />
                                                                 </div>
                                                                 <flux:tooltip.content>
-                                                                    {{ __('Task') }}
+                                                                    {{ $taskIconName === 'check-circle' ? __('Tasks Completed') : __('Pending Tasks') }}
                                                                 </flux:tooltip.content>
                                                             </flux:tooltip>
                                                         @endif

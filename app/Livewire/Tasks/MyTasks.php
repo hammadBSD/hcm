@@ -99,6 +99,90 @@ class MyTasks extends Component
         }
     }
 
+    /**
+     * Check if shift has ended for a task's date
+     */
+    public function hasShiftEnded($task): bool
+    {
+        $user = Auth::user();
+        
+        // Only apply restriction for employee role (not Super Admin or users with view all permissions)
+        if ($user->hasRole('Super Admin') || $user->can('tasks.view.all') || $user->can('tasks.view.company')) {
+            return false; // Admins can always edit
+        }
+        
+        // Check if user has permission to complete tasks after shift end
+        if ($user->can('tasks.complete.after_shift_end')) {
+            return false; // User can complete tasks even after shift end
+        }
+        
+        $employee = $user->employee;
+        if (!$employee) {
+            return false;
+        }
+        
+        // Get the task's date (use created_at date)
+        $taskDate = \Carbon\Carbon::parse($task->created_at)->format('Y-m-d');
+        
+        // Get shift for that date
+        $shift = $employee->getEffectiveShiftForDate($taskDate);
+        if (!$shift || !$shift->time_to) {
+            // No shift info - assume shift has ended for past dates
+            $taskDateCarbon = \Carbon\Carbon::parse($taskDate);
+            return $taskDateCarbon->lt(\Carbon\Carbon::today());
+        }
+        
+        // Parse shift end time
+        $timeToParts = explode(':', $shift->time_to);
+        $shiftEndTime = \Carbon\Carbon::createFromTime(
+            (int)($timeToParts[0] ?? 0),
+            (int)($timeToParts[1] ?? 0),
+            (int)($timeToParts[2] ?? 0)
+        );
+        
+        // Check if shift is overnight
+        $timeFromParts = explode(':', $shift->time_from);
+        $shiftStartTime = \Carbon\Carbon::createFromTime(
+            (int)($timeFromParts[0] ?? 0),
+            (int)($timeFromParts[1] ?? 0),
+            (int)($timeFromParts[2] ?? 0)
+        );
+        $isOvernight = $shiftStartTime->gt($shiftEndTime);
+        
+        // Calculate shift end datetime
+        $taskDateCarbon = \Carbon\Carbon::parse($taskDate);
+        if ($isOvernight) {
+            // Overnight shift ends next day
+            $shiftEndDateTime = $taskDateCarbon->copy()->addDay()->setTime(
+                $shiftEndTime->hour,
+                $shiftEndTime->minute,
+                $shiftEndTime->second
+            );
+        } else {
+            // Regular shift ends same day
+            $shiftEndDateTime = $taskDateCarbon->copy()->setTime(
+                $shiftEndTime->hour,
+                $shiftEndTime->minute,
+                $shiftEndTime->second
+            );
+        }
+        
+        // Check if shift has ended
+        $now = \Carbon\Carbon::now();
+        $todayStart = \Carbon\Carbon::today();
+        
+        if ($taskDateCarbon->lt($todayStart)) {
+            // Past date - shift has ended
+            return true;
+        } elseif ($taskDateCarbon->isToday()) {
+            // Today - check if current time is past shift end
+            return $now->gte($shiftEndDateTime);
+        } else {
+            // Future date - shift hasn't ended
+            return false;
+        }
+    }
+
     public function closeViewFlyout()
     {
         $this->showViewFlyout = false;
@@ -422,6 +506,7 @@ class MyTasks extends Component
         if (!$employee) {
             return view('livewire.tasks.my-tasks', [
                 'tasks' => collect([]),
+                'isEmployeeRole' => true,
             ]);
         }
 
@@ -471,8 +556,11 @@ class MyTasks extends Component
 
         $tasks = $query->paginate($this->perPage);
 
+        $isEmployeeRole = !($user->hasRole('Super Admin') || $user->can('tasks.view.all') || $user->can('tasks.view.company'));
+
         return view('livewire.tasks.my-tasks', [
             'tasks' => $tasks,
+            'isEmployeeRole' => $isEmployeeRole,
         ]);
     }
 }

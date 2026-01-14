@@ -173,22 +173,27 @@
                                                 {{ __('View') }}
                                             </flux:button>
                                             @if($task->status === 'pending')
-                                                <flux:button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    icon="check-circle"
-                                                    wire:click="openActionModal({{ $task->id }}, 'complete')"
-                                                    class="text-green-600 hover:text-green-700"
-                                                >
-                                                </flux:button>
-                                                <flux:button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    icon="x-circle"
-                                                    wire:click="openActionModal({{ $task->id }}, 'reject')"
-                                                    class="text-red-600 hover:text-red-700"
-                                                >
-                                                </flux:button>
+                                                @php
+                                                    $shiftEnded = $isEmployeeRole ? $this->hasShiftEnded($task) : false;
+                                                @endphp
+                                                @if(!$shiftEnded)
+                                                    <flux:button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        icon="check-circle"
+                                                        wire:click="openActionModal({{ $task->id }}, 'complete')"
+                                                        class="text-green-600 hover:text-green-700"
+                                                    >
+                                                    </flux:button>
+                                                    <flux:button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        icon="x-circle"
+                                                        wire:click="openActionModal({{ $task->id }}, 'reject')"
+                                                        class="text-red-600 hover:text-red-700"
+                                                    >
+                                                    </flux:button>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>
@@ -433,74 +438,93 @@
                 </div>
 
                 @if($selectedTask->status === 'pending')
-                    <!-- Custom Fields -->
-                    @if($selectedTask->custom_fields && count($selectedTask->custom_fields) > 0)
-                        <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
-                            <flux:subheading>{{ __('Custom Fields') }}</flux:subheading>
-                            @foreach($selectedTask->custom_fields as $field)
-                                @php
-                                    $fieldName = $field['name'];
-                                    $fieldLabel = ucfirst(str_replace('_', ' ', $field['label'] ?? $field['name']));
-                                    $fieldType = $field['type'] ?? 'text';
-                                @endphp
-                                <flux:field>
-                                    <flux:label>{{ $fieldLabel }} <span class="text-red-500">*</span></flux:label>
-                                    @if($fieldType === 'textarea')
-                                        <flux:textarea 
-                                            wire:model.live="customFieldValues.{{ $fieldName }}" 
-                                            rows="4"
-                                            placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
-                                            required
-                                        />
-                                    @elseif($fieldType === 'number')
-                                        <flux:input 
-                                            type="number"
-                                            wire:model.live="customFieldValues.{{ $fieldName }}" 
-                                            placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
-                                            required
-                                        />
-                                    @elseif($fieldType === 'date')
-                                        <flux:input 
-                                            type="date"
-                                            wire:model.live="customFieldValues.{{ $fieldName }}" 
-                                            required
-                                        />
-                                    @else
-                                        <flux:input 
-                                            wire:model.live="customFieldValues.{{ $fieldName }}" 
-                                            placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
-                                            required
-                                        />
-                                    @endif
-                                </flux:field>
-                            @endforeach
+                    @php
+                        $shiftEnded = $isEmployeeRole ? $this->hasShiftEnded($selectedTask) : false;
+                    @endphp
+                    
+                    @if($shiftEnded)
+                        <!-- Shift has ended - show message -->
+                        <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                            <flux:callout variant="warning" icon="exclamation-triangle">
+                                <div class="space-y-2">
+                                    <p class="font-medium">{{ __('Task Submission Time Has Expired') }}</p>
+                                    <p class="text-sm">{{ __('The shift for this task has ended. You can no longer complete or reject this task. Please contact your supervisor if you need assistance.') }}</p>
+                                </div>
+                            </flux:callout>
                         </div>
-                    @endif
-
-                    <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
-                        <flux:field>
-                            <flux:label>{{ __('Notes') }} <span class="text-red-500">*</span></flux:label>
-                            <flux:textarea 
-                                wire:model="taskNotes" 
-                                rows="4" 
-                                placeholder="{{ __('Enter notes about completing or rejecting this task...') }}" 
-                                required
-                            />
-                            <flux:error name="taskNotes" />
-                            <flux:description>{{ __('Please provide notes when completing or rejecting this task.') }}</flux:description>
-                        </flux:field>
-                        <div class="flex justify-end gap-3">
-                            <flux:button variant="outline" wire:click="markAsCompleted({{ $selectedTask->id }})" class="flex items-center">
-                                <span>{{ __('Done') }}</span>
-                                <flux:icon name="check-circle" class="w-4 h-4 ml-2 text-green-600" />
-                            </flux:button>
-                            <flux:button variant="outline" wire:click="markAsRejected({{ $selectedTask->id }})" class="flex items-center">
-                                <span>{{ __('Rejected') }}</span>
-                                <flux:icon name="x-circle" class="w-4 h-4 ml-2 text-red-600" />
-                            </flux:button>
+                        <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                             <flux:button variant="ghost" wire:click="closeViewFlyout">{{ __('Close') }}</flux:button>
                         </div>
-                    </div>
+                    @else
+                        <!-- Custom Fields -->
+                        @if($selectedTask->custom_fields && count($selectedTask->custom_fields) > 0)
+                            <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
+                                <flux:subheading>{{ __('Custom Fields') }}</flux:subheading>
+                                @foreach($selectedTask->custom_fields as $field)
+                                    @php
+                                        $fieldName = $field['name'];
+                                        $fieldLabel = ucfirst(str_replace('_', ' ', $field['label'] ?? $field['name']));
+                                        $fieldType = $field['type'] ?? 'text';
+                                    @endphp
+                                    <flux:field>
+                                        <flux:label>{{ $fieldLabel }} <span class="text-red-500">*</span></flux:label>
+                                        @if($fieldType === 'textarea')
+                                            <flux:textarea 
+                                                wire:model.live="customFieldValues.{{ $fieldName }}" 
+                                                rows="4"
+                                                placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
+                                                required
+                                            />
+                                        @elseif($fieldType === 'number')
+                                            <flux:input 
+                                                type="number"
+                                                wire:model.live="customFieldValues.{{ $fieldName }}" 
+                                                placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
+                                                required
+                                            />
+                                        @elseif($fieldType === 'date')
+                                            <flux:input 
+                                                type="date"
+                                                wire:model.live="customFieldValues.{{ $fieldName }}" 
+                                                required
+                                            />
+                                        @else
+                                            <flux:input 
+                                                wire:model.live="customFieldValues.{{ $fieldName }}" 
+                                                placeholder="{{ __('Enter') }} {{ strtolower($fieldLabel) }}..."
+                                                required
+                                            />
+                                        @endif
+                                    </flux:field>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
+                            <flux:field>
+                                <flux:label>{{ __('Notes') }} <span class="text-red-500">*</span></flux:label>
+                                <flux:textarea 
+                                    wire:model="taskNotes" 
+                                    rows="4" 
+                                    placeholder="{{ __('Enter notes about completing or rejecting this task...') }}" 
+                                    required
+                                />
+                                <flux:error name="taskNotes" />
+                                <flux:description>{{ __('Please provide notes when completing or rejecting this task.') }}</flux:description>
+                            </flux:field>
+                            <div class="flex justify-end gap-3">
+                                <flux:button variant="outline" wire:click="markAsCompleted({{ $selectedTask->id }})" class="flex items-center">
+                                    <span>{{ __('Done') }}</span>
+                                    <flux:icon name="check-circle" class="w-4 h-4 ml-2 text-green-600" />
+                                </flux:button>
+                                <flux:button variant="outline" wire:click="markAsRejected({{ $selectedTask->id }})" class="flex items-center">
+                                    <span>{{ __('Rejected') }}</span>
+                                    <flux:icon name="x-circle" class="w-4 h-4 ml-2 text-red-600" />
+                                </flux:button>
+                                <flux:button variant="ghost" wire:click="closeViewFlyout">{{ __('Close') }}</flux:button>
+                            </div>
+                        </div>
+                    @endif
                 @else
                     @if($selectedTask->completion_notes)
                         <div>
