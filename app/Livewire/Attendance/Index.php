@@ -1977,7 +1977,12 @@ class Index extends Component
         $lateDays = 0;
 
         if (!empty($processedData) && is_array($processedData)) {
-            foreach ($processedData as $record) {
+            foreach ($processedData as $key => $record) {
+                // Ensure record is an array (processedData is keyed by date strings)
+                if (!is_array($record)) {
+                    continue;
+                }
+                
                 $totalHoursString = $record['total_hours'] ?? null;
 
                 if (!$totalHoursString || strtoupper($totalHoursString) === 'N/A') {
@@ -2062,21 +2067,145 @@ class Index extends Component
             $current->addDay();
         }
         
-        if (!empty($processedData) && is_array($processedData)) {
-            foreach ($processedData as $record) {
-                // Check for approved leave requests (even if employee was present)
-                $leaveRequest = $record['leave_request'] ?? null;
-                if ($leaveRequest && isset($leaveRequest['status']) && $leaveRequest['status'] === LeaveRequestModel::STATUS_APPROVED) {
-                    // Count leave days from approved leave request (0.5 for half-day, 1.0 for full-day)
-                    if (isset($leaveRequest['total_days'])) {
-                        $onLeaveDays += (float)$leaveRequest['total_days'];
-                    } else {
-                        // Fallback: count as full day if no total_days info
-                        $onLeaveDays++;
+        // Load ALL leave requests (not just approved) to identify rejected dates
+        $allLeaveRequests = [];
+        if ($this->employee) {
+            $allLeaveRequests = LeaveRequestModel::where('employee_id', $this->employee->id)
+                ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                    $query->whereBetween('start_date', [$startOfMonth, $endOfMonth])
+                        ->orWhereBetween('end_date', [$startOfMonth, $endOfMonth])
+                        ->orWhere(function ($q) use ($startOfMonth, $endOfMonth) {
+                            $q->where('start_date', '<=', $startOfMonth)
+                              ->where('end_date', '>=', $endOfMonth);
+                        });
+                })
+                ->get();
+        }
+        
+        // Build a map of dates that have rejected leave requests (these should NOT count as leaves)
+        $rejectedLeaveDates = [];
+        foreach ($allLeaveRequests as $request) {
+            if ($request->status === LeaveRequestModel::STATUS_REJECTED) {
+                $start = Carbon::parse($request->start_date);
+                $end = Carbon::parse($request->end_date);
+                $current = $start->copy();
+                
+                while ($current->lte($end)) {
+                    $dateKey = $current->format('Y-m-d');
+                    if ($current->isWeekday() && 
+                        $current->gte($startOfMonth) && 
+                        $current->lte($endOfMonth)) {
+                        $rejectedLeaveDates[$dateKey] = true;
                     }
-                } elseif (isset($record['status']) && $record['status'] === 'on_leave') {
-                    // Fallback: count days with on_leave status (for backward compatibility)
-                    $onLeaveDays++;
+                    $current->addDay();
+                }
+            }
+        }
+        
+        // Load only approved leave requests for counting
+        $leaveRequests = [];
+        if ($this->employee) {
+            $leaveRequests = LeaveRequestModel::where('employee_id', $this->employee->id)
+                ->where('status', LeaveRequestModel::STATUS_APPROVED)
+                ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                    $query->whereBetween('start_date', [$startOfMonth, $endOfMonth])
+                        ->orWhereBetween('end_date', [$startOfMonth, $endOfMonth])
+                        ->orWhere(function ($q) use ($startOfMonth, $endOfMonth) {
+                            $q->where('start_date', '<=', $startOfMonth)
+                              ->where('end_date', '>=', $endOfMonth);
+                        });
+                })
+                ->get();
+        }
+        
+        // Build a map of dates that have leave requests (to exclude from fallback counting)
+        $leaveRequestDates = [];
+        foreach ($leaveRequests as $request) {
+            $start = Carbon::parse($request->start_date);
+            $end = Carbon::parse($request->end_date);
+            $current = $start->copy();
+            
+            while ($current->lte($end)) {
+                $dateKey = $current->format('Y-m-d');
+                $leaveRequestDates[$dateKey] = true;
+                $current->addDay();
+            }
+        }
+        
+        // Count leave days by counting only weekdays (excluding weekends) for each approved leave request
+        // But exclude dates that have rejected leave requests
+        $countedLeaveRequestIds = [];
+        foreach ($leaveRequests as $request) {
+            $leaveRequestId = $request->id;
+            
+            // Skip if already counted
+            if (isset($countedLeaveRequestIds[$leaveRequestId])) {
+                continue;
+            }
+            
+            // Check if it's a half-day leave
+            $isHalfDay = in_array($request->duration ?? '', ['half_day_morning', 'half_day_afternoon'], true);
+            
+            if ($isHalfDay) {
+                // For half-day leaves, count as 0.5 days (only if it falls on a weekday, within target month, and not rejected)
+                $start = Carbon::parse($request->start_date);
+                $dateKey = $start->format('Y-m-d');
+                if ($start->isWeekday() && 
+                    $start->gte($startOfMonth) && 
+                    $start->lte($endOfMonth) &&
+                    !isset($rejectedLeaveDates[$dateKey])) {
+                    $onLeaveDays += 0.5;
+                }
+            } else {
+                // For full-day leaves, count only weekdays between start_date and end_date
+                // But exclude dates that have rejected leave requests
+                $start = Carbon::parse($request->start_date);
+                $end = Carbon::parse($request->end_date);
+                $current = $start->copy();
+                
+                $weekdayCount = 0;
+                while ($current->lte($end)) {
+                    // Only count weekdays that fall within the target month AND don't have rejected leave requests
+                    $dateKey = $current->format('Y-m-d');
+                    if ($current->isWeekday() && 
+                        $current->gte($startOfMonth) && 
+                        $current->lte($endOfMonth) &&
+                        !isset($rejectedLeaveDates[$dateKey])) {
+                        $weekdayCount++;
+                    }
+                    $current->addDay();
+                }
+                
+                $onLeaveDays += $weekdayCount;
+            }
+            
+            // Mark this leave request as counted
+            $countedLeaveRequestIds[$leaveRequestId] = true;
+        }
+        
+        // Fallback: Count days with on_leave status from processedData (for backward compatibility)
+        // Only count if they don't already have a leave request (to avoid double-counting)
+        if (!empty($processedData) && is_array($processedData)) {
+            // Track dates with on_leave status to avoid double-counting
+            $countedLeaveDates = [];
+            
+            foreach ($processedData as $record) {
+                // Only count if status is on_leave and we haven't already counted a leave request for this date
+                if (isset($record['status']) && $record['status'] === 'on_leave') {
+                    $date = is_array($record) && isset($record['date']) ? $record['date'] : null;
+                    // Skip if this date already has a leave request (already counted above)
+                    if ($date && !isset($leaveRequestDates[$date]) && !isset($countedLeaveDates[$date])) {
+                        // Only count if it's a weekday
+                        try {
+                            $dateCarbon = Carbon::parse($date);
+                            if ($dateCarbon->isWeekday()) {
+                                $onLeaveDays++;
+                                $countedLeaveDates[$date] = true;
+                            }
+                        } catch (\Exception $e) {
+                            // Skip invalid dates
+                        }
+                    }
                 }
                 
                 if (isset($record['status']) && $record['status'] === 'exempted') {
