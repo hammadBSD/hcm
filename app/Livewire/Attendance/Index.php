@@ -19,6 +19,8 @@ use App\Models\Constant;
 use App\Models\AttendanceBreakSetting;
 use App\Models\LeaveType;
 use App\Models\Holiday;
+use App\Models\TaskLog;
+use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +88,16 @@ class Index extends Component
     public $removeEntriesDate = '';
     public $dayEntries = [];
     public $entryToRemove = null; // For confirmation dialog
+
+    // Daily Logs Flyout Properties
+    public $showDailyLogsFlyout = false;
+    public $dailyLogsDate = '';
+    public $dailyLogsData = null;
+
+    // Daily Tasks Flyout Properties
+    public $showDailyTasksFlyout = false;
+    public $dailyTasksDate = '';
+    public $dailyTasksData = null;
 
     public bool $isBreakTrackingExcluded = false;
     public bool $showBreaksInGrid = true;
@@ -3454,6 +3466,171 @@ class Index extends Component
     public function cancelRemoveEntry()
     {
         $this->entryToRemove = null;
+    }
+
+    /**
+     * Open daily logs flyout for a specific date
+     */
+    public function openDailyLogsFlyout($date)
+    {
+        $this->dailyLogsDate = $date;
+        $this->loadDailyLogsForDate($date);
+        $this->showDailyLogsFlyout = true;
+    }
+
+    /**
+     * Close daily logs flyout
+     */
+    public function closeDailyLogsFlyout()
+    {
+        $this->showDailyLogsFlyout = false;
+        $this->dailyLogsDate = '';
+        $this->dailyLogsData = null;
+    }
+
+    /**
+     * Load daily logs for a specific date
+     */
+    private function loadDailyLogsForDate($date)
+    {
+        if (!$this->employee) {
+            $this->dailyLogsData = null;
+            return;
+        }
+
+        $log = TaskLog::where('employee_id', $this->employee->id)
+            ->where('log_date', $date)
+            ->with(['employee', 'createdBy'])
+            ->first();
+
+        if (!$log) {
+            $this->dailyLogsData = null;
+            return;
+        }
+
+        $data = $log->data ?? [];
+        $entries = isset($data['entries']) && is_array($data['entries']) ? $data['entries'] : [];
+
+        // If old format (single notes), convert to entries format
+        if (empty($entries) && isset($data['notes'])) {
+            $entries = [[
+                'notes' => $data['notes'],
+                'created_at' => $log->created_at->toDateTimeString(),
+                'created_by_name' => $log->createdBy ? $log->createdBy->name : 'System',
+            ]];
+        }
+
+        $this->dailyLogsData = [
+            'employee_name' => $log->employee ? ($log->employee->first_name . ' ' . $log->employee->last_name) : 'N/A',
+            'employee_code' => $log->employee ? $log->employee->employee_code : 'N/A',
+            'formatted_date' => Carbon::parse($date)->format('M d, Y'),
+            'entries' => $entries,
+            'data' => $data,
+            'created_at' => $log->created_at->format('M d, Y h:i A'),
+            'created_by' => $log->createdBy ? $log->createdBy->name : 'System',
+        ];
+    }
+
+    /**
+     * Open daily tasks flyout for a specific date
+     */
+    public function openDailyTasksFlyout($date)
+    {
+        $this->dailyTasksDate = $date;
+        $this->loadDailyTasksForDate($date);
+        $this->showDailyTasksFlyout = true;
+    }
+
+    /**
+     * Close daily tasks flyout
+     */
+    public function closeDailyTasksFlyout()
+    {
+        $this->showDailyTasksFlyout = false;
+        $this->dailyTasksDate = '';
+        $this->dailyTasksData = null;
+    }
+
+    /**
+     * Load daily tasks for a specific date
+     */
+    private function loadDailyTasksForDate($date)
+    {
+        if (!$this->employee) {
+            $this->dailyTasksData = null;
+            return;
+        }
+
+        $tasks = Task::where('assigned_to', $this->employee->id)
+            ->whereDate('created_at', $date)
+            ->with(['assignedTo', 'assignedBy'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        if ($tasks->isEmpty()) {
+            $this->dailyTasksData = null;
+            return;
+        }
+
+        $tasksData = [];
+        $completedCount = 0;
+        $pendingCount = 0;
+        $incompleteCount = 0;
+
+        foreach ($tasks as $task) {
+            $status = $task->status;
+            if ($status === 'completed') {
+                $completedCount++;
+            } elseif ($status === 'pending') {
+                $pendingCount++;
+            } else {
+                $incompleteCount++;
+            }
+
+            // Get custom field values
+            $customFieldValues = [];
+            if ($task->custom_fields && $task->custom_field_values) {
+                foreach ($task->custom_fields as $field) {
+                    $fieldName = $field['name'];
+                    $fieldLabel = $field['label'] ?? ucfirst(str_replace('_', ' ', $fieldName));
+                    $value = $task->custom_field_values[$fieldName] ?? null;
+                    
+                    if ($value !== null && $value !== '') {
+                        $customFieldValues[] = [
+                            'label' => $fieldLabel,
+                            'name' => $fieldName,
+                            'value' => $value,
+                        ];
+                    }
+                }
+            }
+
+            $tasksData[] = [
+                'id' => $task->id,
+                'name' => $task->name ?: $task->title,
+                'description' => $task->description,
+                'status' => $status,
+                'frequency' => $task->frequency,
+                'due_date' => $task->due_date ? $task->due_date->format('M d, Y') : null,
+                'created_at' => $task->created_at->format('M d, Y h:i A'),
+                'completed_at' => $task->completed_at ? $task->completed_at->format('M d, Y h:i A') : null,
+                'assigned_by' => $task->assignedBy ? $task->assignedBy->name : 'System',
+                'completion_notes' => $task->completion_notes ?? null,
+                'rejection_reason' => $task->rejection_reason ?? null,
+                'custom_field_values' => $customFieldValues,
+            ];
+        }
+
+        $this->dailyTasksData = [
+            'employee_name' => $this->employee->first_name . ' ' . $this->employee->last_name,
+            'employee_code' => $this->employee->employee_code,
+            'formatted_date' => Carbon::parse($date)->format('M d, Y'),
+            'tasks' => $tasksData,
+            'total_tasks' => $tasks->count(),
+            'completed_count' => $completedCount,
+            'pending_count' => $pendingCount,
+            'incomplete_count' => $incompleteCount,
+        ];
     }
 
     /**

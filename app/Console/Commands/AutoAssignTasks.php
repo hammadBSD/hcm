@@ -28,6 +28,13 @@ class AutoAssignTasks extends Command
      */
     public function handle()
     {
+        $startTime = Carbon::now();
+        \Log::info('=== AutoAssignTasks Command Started ===', [
+            'timestamp' => $startTime->toDateTimeString(),
+            'date' => $startTime->format('Y-m-d'),
+            'time' => $startTime->format('H:i:s'),
+        ]);
+        
         $today = Carbon::today();
         
         // Get all parent tasks with auto_assign enabled
@@ -35,10 +42,21 @@ class AutoAssignTasks extends Command
             ->whereNull('parent_task_id')
             ->get();
 
+        \Log::info('AutoAssignTasks: Found parent tasks', [
+            'count' => $parentTasks->count(),
+        ]);
+
+        $totalTasksCreated = 0;
+        $tasksCreatedByParent = [];
+
         foreach ($parentTasks as $parentTask) {
             $employeeIds = $parentTask->template_employee_ids ?? [];
             
             if (empty($employeeIds)) {
+                \Log::warning('AutoAssignTasks: Parent task has no employee IDs', [
+                    'task_id' => $parentTask->id,
+                    'task_name' => $parentTask->name,
+                ]);
                 continue;
             }
 
@@ -47,23 +65,49 @@ class AutoAssignTasks extends Command
                 continue;
             }
 
+            $tasksCreated = 0;
             if ($parentTask->frequency === 'daily') {
                 // For daily tasks, create tasks for today if they don't exist
-                $this->createDailyTasks($parentTask, $employeeIds, $today);
+                $tasksCreated = $this->createDailyTasks($parentTask, $employeeIds, $today);
             } elseif ($parentTask->frequency === 'weekly') {
                 // For weekly tasks, check if next_assign_date is today or in the past
                 if ($parentTask->next_assign_date && $parentTask->next_assign_date->lte($today)) {
-                    $this->createWeeklyTasks($parentTask, $employeeIds, $today);
+                    $tasksCreated = $this->createWeeklyTasks($parentTask, $employeeIds, $today);
                     
                     // Update next_assign_date to exactly 7 days from today
                     $parentTask->update([
                         'next_assign_date' => $today->copy()->addDays(7),
                     ]);
+                } else {
+                    \Log::info('AutoAssignTasks: Weekly task not due yet', [
+                        'task_id' => $parentTask->id,
+                        'task_name' => $parentTask->name,
+                        'next_assign_date' => $parentTask->next_assign_date?->format('Y-m-d'),
+                        'today' => $today->format('Y-m-d'),
+                    ]);
                 }
+            }
+            
+            $totalTasksCreated += $tasksCreated;
+            if ($tasksCreated > 0) {
+                $tasksCreatedByParent[$parentTask->id] = [
+                    'name' => $parentTask->name,
+                    'count' => $tasksCreated,
+                ];
             }
         }
 
-        $this->info('Auto-assign tasks processed successfully.');
+        $endTime = Carbon::now();
+        $duration = $endTime->diffInSeconds($startTime);
+        
+        \Log::info('=== AutoAssignTasks Command Completed ===', [
+            'timestamp' => $endTime->toDateTimeString(),
+            'duration_seconds' => $duration,
+            'total_tasks_created' => $totalTasksCreated,
+            'tasks_by_parent' => $tasksCreatedByParent,
+        ]);
+
+        $this->info("Auto-assign tasks processed successfully. Created {$totalTasksCreated} tasks.");
         return 0;
     }
 
@@ -71,6 +115,9 @@ class AutoAssignTasks extends Command
     {
         // Refresh parent task to ensure we have the latest data including custom_fields
         $parentTask->refresh();
+        
+        $tasksCreated = 0;
+        $tasksSkipped = 0;
         
         foreach ($employeeIds as $employeeId) {
             // Check if task already exists for this employee and date
@@ -80,6 +127,12 @@ class AutoAssignTasks extends Command
                 ->first();
 
             if ($existingTask) {
+                $tasksSkipped++;
+                \Log::debug('AutoAssignTasks: Task already exists', [
+                    'parent_task_id' => $parentTask->id,
+                    'employee_id' => $employeeId,
+                    'date' => $date->format('Y-m-d'),
+                ]);
                 continue; // Task already exists for today
             }
 
@@ -103,13 +156,35 @@ class AutoAssignTasks extends Command
             }
 
             Task::create($taskData);
+            $tasksCreated++;
+            
+            \Log::info('AutoAssignTasks: Created daily task', [
+                'parent_task_id' => $parentTask->id,
+                'parent_task_name' => $parentTask->name,
+                'employee_id' => $employeeId,
+                'date' => $date->format('Y-m-d'),
+            ]);
         }
+        
+        if ($tasksCreated > 0 || $tasksSkipped > 0) {
+            \Log::info('AutoAssignTasks: Daily tasks summary', [
+                'parent_task_id' => $parentTask->id,
+                'parent_task_name' => $parentTask->name,
+                'tasks_created' => $tasksCreated,
+                'tasks_skipped' => $tasksSkipped,
+                'total_employees' => count($employeeIds),
+            ]);
+        }
+        
+        return $tasksCreated;
     }
 
     private function createWeeklyTasks(Task $parentTask, array $employeeIds, Carbon $date)
     {
         // Refresh parent task to ensure we have the latest data including custom_fields
         $parentTask->refresh();
+        
+        $tasksCreated = 0;
         
         foreach ($employeeIds as $employeeId) {
             // Prepare task data
@@ -132,6 +207,25 @@ class AutoAssignTasks extends Command
             }
 
             Task::create($taskData);
+            $tasksCreated++;
+            
+            \Log::info('AutoAssignTasks: Created weekly task', [
+                'parent_task_id' => $parentTask->id,
+                'parent_task_name' => $parentTask->name,
+                'employee_id' => $employeeId,
+                'date' => $date->format('Y-m-d'),
+            ]);
         }
+        
+        if ($tasksCreated > 0) {
+            \Log::info('AutoAssignTasks: Weekly tasks summary', [
+                'parent_task_id' => $parentTask->id,
+                'parent_task_name' => $parentTask->name,
+                'tasks_created' => $tasksCreated,
+                'total_employees' => count($employeeIds),
+            ]);
+        }
+        
+        return $tasksCreated;
     }
 }

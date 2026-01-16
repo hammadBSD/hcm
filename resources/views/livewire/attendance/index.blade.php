@@ -574,9 +574,18 @@
                                                         
                                                         {{-- Log Icon --}}
                                                         <flux:tooltip>
-                                                            <div class="p-2 {{ $hasLog ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }} hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
-                                                                <flux:icon name="clipboard-document-check" class="w-5 h-5" />
-                                                            </div>
+                                                            @if($hasLog)
+                                                                <div 
+                                                                    class="p-2 text-green-600 dark:text-green-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer"
+                                                                    wire:click="openDailyLogsFlyout('{{ $record['date'] }}')"
+                                                                >
+                                                                    <flux:icon name="clipboard-document-check" class="w-5 h-5" />
+                                                                </div>
+                                                            @else
+                                                                <div class="p-2 text-red-600 dark:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
+                                                                    <flux:icon name="clipboard-document-check" class="w-5 h-5" />
+                                                                </div>
+                                                            @endif
                                                             <flux:tooltip.content>
                                                                 {{ $hasLog ? __('Daily Work Logged') : __('No Daily Logs') }}
                                                             </flux:tooltip.content>
@@ -585,7 +594,10 @@
                                                         {{-- Task Icon --}}
                                                         @if($showTaskIcon)
                                                             <flux:tooltip>
-                                                                <div class="p-2 {{ $taskIconColor }} hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer">
+                                                                <div 
+                                                                    class="p-2 {{ $taskIconColor }} hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors cursor-pointer"
+                                                                    wire:click="openDailyTasksFlyout('{{ $record['date'] }}')"
+                                                                >
                                                                     <flux:icon name="{{ $taskIconName }}" class="w-5 h-5" />
                                                                 </div>
                                                                 <flux:tooltip.content>
@@ -1178,5 +1190,261 @@
                 </div>
             </form>
         </flux:modal>
+
+    <!-- Daily Logs Flyout -->
+    <flux:modal wire:model.self="showDailyLogsFlyout" variant="flyout" class="w-[40rem] max-w-[50vw]">
+        <flux:heading size="lg" class="mb-4">
+            {{ __('Daily Log Details') }}
+        </flux:heading>
+        
+        @if($dailyLogsData)
+            <div class="space-y-6">
+                <!-- Employee Information -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
+                            {{ __('Employee') }}
+                        </flux:subheading>
+                        <p class="text-zinc-900 dark:text-zinc-100">{{ $dailyLogsData['employee_name'] }}</p>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ $dailyLogsData['employee_code'] }}</p>
+                    </div>
+                    <div>
+                        <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
+                            {{ __('Date') }}
+                        </flux:subheading>
+                        <p class="text-zinc-900 dark:text-zinc-100">{{ $dailyLogsData['formatted_date'] }}</p>
+                    </div>
+                </div>
+                
+                <!-- Log Entries -->
+                <div>
+                    <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-3">
+                        {{ __('Log Entries') }} ({{ count($dailyLogsData['entries'] ?? []) }})
+                    </flux:subheading>
+                    @if(!empty($dailyLogsData['entries']) && is_array($dailyLogsData['entries']))
+                        <div class="space-y-4">
+                            @foreach($dailyLogsData['entries'] as $index => $entry)
+                                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                    <div class="flex items-start justify-between mb-2">
+                                        <div>
+                                            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                {{ __('Entry') }} #{{ $index + 1 }}
+                                            </p>
+                                            @if(isset($entry['created_at']))
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ \Carbon\Carbon::parse($entry['created_at'])->format('M d, Y h:i A') }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        @if(isset($entry['created_by_name']))
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                {{ __('By') }}: {{ $entry['created_by_name'] }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <p class="text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">{{ $entry['notes'] ?? __('No notes provided.') }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                            <p class="text-zinc-900 dark:text-zinc-100">{{ __('No log entries found.') }}</p>
+                        </div>
+                    @endif
+                </div>
+                
+                <!-- Custom Fields Data -->
+                @if(!empty($dailyLogsData['data']) && is_array($dailyLogsData['data']))
+                    @foreach($dailyLogsData['data'] as $key => $value)
+                        @if($key !== 'notes' && $key !== 'entries' && !empty($value))
+                            <div>
+                                <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
+                                    {{ ucfirst(str_replace('_', ' ', $key)) }}
+                                </flux:subheading>
+                                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                    <p class="text-zinc-900 dark:text-zinc-100">
+                                        @if(is_array($value))
+                                            {{ json_encode($value, JSON_PRETTY_PRINT) }}
+                                        @else
+                                            {{ $value }}
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
+                @endif
+            </div>
+            
+            <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button variant="ghost" wire:click="closeDailyLogsFlyout">{{ __('Close') }}</flux:button>
+            </div>
+        @else
+            <div class="space-y-4">
+                <flux:callout variant="warning" icon="exclamation-triangle">
+                    {{ __('No log data found for this date.') }}
+                </flux:callout>
+                <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <flux:button variant="ghost" wire:click="closeDailyLogsFlyout">{{ __('Close') }}</flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
+    <!-- Daily Tasks Flyout -->
+    <flux:modal wire:model.self="showDailyTasksFlyout" variant="flyout" class="w-[40rem] max-w-[50vw]">
+        <flux:heading size="lg" class="mb-4">
+            {{ __('Daily Tasks Details') }}
+        </flux:heading>
+        
+        @if($dailyTasksData)
+            <div class="space-y-6">
+                <!-- Employee Information -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
+                            {{ __('Employee') }}
+                        </flux:subheading>
+                        <p class="text-zinc-900 dark:text-zinc-100">{{ $dailyTasksData['employee_name'] }}</p>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ $dailyTasksData['employee_code'] }}</p>
+                    </div>
+                    <div>
+                        <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-1">
+                            {{ __('Date') }}
+                        </flux:subheading>
+                        <p class="text-zinc-900 dark:text-zinc-100">{{ $dailyTasksData['formatted_date'] }}</p>
+                    </div>
+                </div>
+
+                <!-- Task Summary -->
+                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                    <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-3">
+                        {{ __('Summary') }}
+                    </flux:subheading>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Total Tasks') }}</p>
+                            <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ $dailyTasksData['total_tasks'] }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Completed') }}</p>
+                            <p class="text-lg font-semibold text-green-600 dark:text-green-400">{{ $dailyTasksData['completed_count'] }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</p>
+                            <p class="text-lg font-semibold text-yellow-600 dark:text-yellow-400">{{ $dailyTasksData['pending_count'] }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Incomplete') }}</p>
+                            <p class="text-lg font-semibold text-red-600 dark:text-red-400">{{ $dailyTasksData['incomplete_count'] }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tasks List -->
+                <div>
+                    <flux:subheading class="text-zinc-600 dark:text-zinc-400 mb-3">
+                        {{ __('Tasks') }} ({{ $dailyTasksData['total_tasks'] }})
+                    </flux:subheading>
+                    @if(!empty($dailyTasksData['tasks']) && is_array($dailyTasksData['tasks']))
+                        <div class="space-y-4">
+                            @foreach($dailyTasksData['tasks'] as $index => $task)
+                                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                                    <div class="flex items-start justify-between mb-2">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ $task['name'] }}
+                                                </p>
+                                                @php
+                                                    $statusColor = match($task['status']) {
+                                                        'completed' => 'green',
+                                                        'pending' => 'yellow',
+                                                        'rejected' => 'red',
+                                                        default => 'zinc'
+                                                    };
+                                                @endphp
+                                                <flux:badge color="{{ $statusColor }}" size="sm">
+                                                    {{ ucfirst($task['status']) }}
+                                                </flux:badge>
+                                            </div>
+                                            @if($task['description'])
+                                                <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-2 whitespace-pre-wrap">{{ $task['description'] }}</p>
+                                            @endif
+                                            <div class="flex flex-wrap gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                                                <span>{{ __('Frequency') }}: {{ ucfirst($task['frequency']) }}</span>
+                                                @if($task['due_date'])
+                                                    <span>{{ __('Due Date') }}: {{ $task['due_date'] }}</span>
+                                                @endif
+                                                <span>{{ __('Created') }}: {{ $task['created_at'] }}</span>
+                                                @if($task['completed_at'])
+                                                    <span class="text-green-600 dark:text-green-400">{{ __('Completed') }}: {{ $task['completed_at'] }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if($task['completion_notes'])
+                                        <div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{{ __('Completion Notes') }}:</p>
+                                            <p class="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">{{ $task['completion_notes'] }}</p>
+                                        </div>
+                                    @endif
+                                    @if($task['rejection_reason'])
+                                        <div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{{ __('Rejection Reason') }}:</p>
+                                            <p class="text-sm text-red-600 dark:text-red-400 whitespace-pre-wrap">{{ $task['rejection_reason'] }}</p>
+                                        </div>
+                                    @endif
+                                    @if(!empty($task['custom_field_values']) && is_array($task['custom_field_values']))
+                                        <div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-2">{{ __('Custom Fields') }}:</p>
+                                            <div class="space-y-2">
+                                                @foreach($task['custom_field_values'] as $field)
+                                                    <div class="flex items-start gap-2 p-2 border border-zinc-200 dark:border-zinc-700 rounded">
+                                                        <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 min-w-[100px]">
+                                                            {{ $field['label'] }}:
+                                                        </span>
+                                                        <span class="text-xs text-zinc-900 dark:text-zinc-100 flex-1">
+                                                            @if(is_array($field['value']))
+                                                                {{ json_encode($field['value'], JSON_PRETTY_PRINT) }}
+                                                            @else
+                                                                {{ $field['value'] }}
+                                                            @endif
+                                                        </span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endif
+                                    <div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                            {{ __('Assigned By') }}: {{ $task['assigned_by'] }}
+                                        </p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700">
+                            <p class="text-zinc-900 dark:text-zinc-100">{{ __('No tasks found.') }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button variant="ghost" wire:click="closeDailyTasksFlyout">{{ __('Close') }}</flux:button>
+            </div>
+        @else
+            <div class="space-y-4">
+                <flux:callout variant="warning" icon="exclamation-triangle">
+                    {{ __('No task data found for this date.') }}
+                </flux:callout>
+                <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <flux:button variant="ghost" wire:click="closeDailyTasksFlyout">{{ __('Close') }}</flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
     </x-attendance.layout>
 </section>

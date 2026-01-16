@@ -134,12 +134,14 @@ class Tasks extends Component
         $tasks = collect();
         
         if ($employee) {
-            // Get pending tasks assigned to the current user's employee
+            // Get pending tasks assigned to the current user's employee for TODAY only
             // Exclude parent tasks (auto-assign tasks) - only show actual assigned tasks
             // Parent tasks have auto_assign = true and parent_task_id = null
             // Child tasks have parent_task_id IS NOT NULL
+            $today = \Carbon\Carbon::today();
             $tasks = Task::where('assigned_to', $employee->id)
                 ->where('status', 'pending')
+                ->whereDate('created_at', $today)
                 ->where(function($query) {
                     // Show tasks that are either:
                     // 1. One-time tasks (auto_assign = false and parent_task_id = null)

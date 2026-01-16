@@ -16,7 +16,18 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function ($schedule) {
         // Run every hour to catch shift start times
-        $schedule->command('tasks:auto-assign')->hourly();
+        $schedule->command('tasks:auto-assign')
+            ->hourly()
+            ->before(function () {
+                \Log::info('Scheduler: tasks:auto-assign is about to run', [
+                    'timestamp' => now()->toDateTimeString(),
+                ]);
+            })
+            ->after(function () {
+                \Log::info('Scheduler: tasks:auto-assign completed', [
+                    'timestamp' => now()->toDateTimeString(),
+                ]);
+            });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
