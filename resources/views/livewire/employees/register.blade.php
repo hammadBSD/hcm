@@ -2,6 +2,18 @@
     @include('partials.employees-heading')
     
     <x-employees.layout :heading="__('Employee Registration')" :subheading="__('Register new employees in the system')">
+        @if(session('message'))
+            <flux:callout variant="success" icon="check-circle" class="mb-4">
+                {{ session('message') }}
+            </flux:callout>
+        @endif
+
+        @if(session('error'))
+            <flux:callout variant="danger" icon="exclamation-circle" class="mb-4">
+                {{ session('error') }}
+            </flux:callout>
+        @endif
+
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
             <!-- Custom Tabs Implementation -->
             <div class="px-6 pt-6">
@@ -55,7 +67,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Employee Code') }}</flux:label>
-                                    <flux:input wire:model="employee_code" placeholder="EMP001" />
+                                    <flux:input wire:model="employeeCode" placeholder="EMP001" />
                                 </flux:field>
                             </div>
 
@@ -63,7 +75,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Punch Code') }}</flux:label>
-                                    <flux:input wire:model="punch_code" placeholder="PC001" />
+                                    <flux:input wire:model="punchCode" placeholder="PC001" />
                                 </flux:field>
                             </div>
 
@@ -82,7 +94,7 @@
                             <div class="w-full md:w-1/3 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('First Name') }} <span class="text-red-500">*</span></flux:label>
-                                    <flux:input wire:model="first_name" placeholder="John" required />
+                                    <flux:input wire:model="firstName" placeholder="John" required />
                                 </flux:field>
                             </div>
 
@@ -90,7 +102,7 @@
                             <div class="w-full md:w-1/3 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Last Name') }} <span class="text-red-500">*</span></flux:label>
-                                    <flux:input wire:model="last_name" placeholder="Doe" required />
+                                    <flux:input wire:model="lastName" placeholder="Doe" required />
                                 </flux:field>
                             </div>
 
@@ -98,7 +110,7 @@
                             <div class="w-full md:w-1/3 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Father\'s Name') }}</flux:label>
-                                    <flux:input wire:model="father_name" placeholder="Robert Doe" />
+                                    <flux:input wire:model="fatherName" placeholder="Robert Doe" />
                                 </flux:field>
                             </div>
                         </div>
@@ -136,7 +148,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Manual Attendance') }}</flux:label>
-                                    <flux:select wire:model="manual_attendance">
+                                    <flux:select wire:model="manualAttendance">
                                         <option value="no">{{ __('No') }}</option>
                                         <option value="yes">{{ __('Yes') }}</option>
                                     </flux:select>
@@ -228,7 +240,7 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Document Type') }}</flux:label>
-                                        <flux:select wire:model="document_type">
+                                        <flux:select wire:model="documentType">
                                             <option value="">{{ __('-- Select --') }}</option>
                                             <option value="passport">{{ __('Passport') }}</option>
                                             <option value="id-card">{{ __('ID Card') }}</option>
@@ -243,7 +255,7 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Document Number') }}</flux:label>
-                                        <flux:input wire:model="document_number" placeholder="Document number" />
+                                        <flux:input wire:model="documentNumber" placeholder="Document number" />
                                     </flux:field>
                                 </div>
 
@@ -251,7 +263,7 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Issue Date') }}</flux:label>
-                                        <flux:input wire:model="issue_date" type="date" />
+                                        <flux:input wire:model="issueDate" type="date" />
                                     </flux:field>
                                 </div>
 
@@ -259,7 +271,7 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Expiry Date') }}</flux:label>
-                                        <flux:input wire:model="expiry_date" type="date" />
+                                        <flux:input wire:model="expiryDate" type="date" />
                                     </flux:field>
                                 </div>
                             </div>
@@ -304,7 +316,7 @@
                                 <flux:heading size="md">{{ __('File Upload') }}</flux:heading>
                                 <div class="w-full px-2 mb-4">
                                     <flux:field>
-                                        <flux:input type="file" wire:model="document_file" accept=".pdf,.jpg,.png,.doc,.docx" />
+                                        <flux:input type="file" wire:model="documentFile" accept=".pdf,.jpg,.png,.doc,.docx" />
                                     </flux:field>
                                 </div>
                             </div>
@@ -314,7 +326,7 @@
                         <div class="flex flex-wrap -mx-2">
                             <div class="w-full px-2 mb-4">
                                 <flux:field variant="inline">
-                                    <flux:checkbox wire:model="allow_employee_login" />
+                                    <flux:checkbox wire:model="allowEmployeeLogin" />
                                     <flux:label>{{ __('Allow Employee Login') }}</flux:label>
                                 </flux:field>
                             </div>
@@ -323,7 +335,7 @@
                         <!-- Profile Picture -->
                         <flux:field>
                             <flux:label>{{ __('Profile Picture') }}</flux:label>
-                            <flux:input type="file" wire:model="profile_picture" accept="image/*" />
+                            <flux:input type="file" wire:model="profilePicture" accept="image/*" />
                         </flux:field>
 
                         <!-- Emergency Contact -->
@@ -334,28 +346,28 @@
                                 <div class="w-full md:w-1/2 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Contact Name') }}</flux:label>
-                                        <flux:input wire:model="emergency_contact_name" placeholder="Emergency contact name" />
+                                        <flux:input wire:model="emergencyContactName" placeholder="Emergency contact name" />
                                     </flux:field>
                                 </div>
 
                                 <div class="w-full md:w-1/2 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Relation') }}</flux:label>
-                                        <flux:input wire:model="emergency_relation" placeholder="Spouse, Parent, etc." />
+                                        <flux:input wire:model="emergencyRelation" placeholder="Spouse, Parent, etc." />
                                     </flux:field>
                                 </div>
 
                                 <div class="w-full md:w-1/2 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Phone') }}</flux:label>
-                                        <flux:input wire:model="emergency_phone" type="tel" placeholder="+1 (555) 123-4567" />
+                                        <flux:input wire:model="emergencyPhone" type="tel" placeholder="+1 (555) 123-4567" />
                                     </flux:field>
                                 </div>
 
                                 <div class="w-full md:w-1/2 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Address') }}</flux:label>
-                                        <flux:textarea wire:model="emergency_address" placeholder="Emergency contact address" />
+                                        <flux:textarea wire:model="emergencyAddress" placeholder="Emergency contact address" />
                                     </flux:field>
                                 </div>
                             </div>
@@ -373,7 +385,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Date of Birth') }}</flux:label>
-                                    <flux:input wire:model="date_of_birth" type="date" />
+                                    <flux:input wire:model="dateOfBirth" type="date" />
                                 </flux:field>
                             </div>
 
@@ -394,7 +406,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Marital Status') }}</flux:label>
-                                    <flux:select wire:model="marital_status">
+                                    <flux:select wire:model="maritalStatus">
                                         <option value="">{{ __('Select Status') }}</option>
                                         <option value="single">{{ __('Single') }}</option>
                                         <option value="married">{{ __('Married') }}</option>
@@ -419,7 +431,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Blood Group') }}</flux:label>
-                                    <flux:select wire:model="blood_group">
+                                    <flux:select wire:model="bloodGroup">
                                         <option value="">{{ __('Select Blood Group') }}</option>
                                         <option value="A+">{{ __('A+') }}</option>
                                         <option value="A-">{{ __('A-') }}</option>
@@ -593,7 +605,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Previous Designation') }}</flux:label>
-                                    <flux:input wire:model="previous_designation" placeholder="Previous designation" />
+                                    <flux:input wire:model="previousDesignation" placeholder="Previous designation" />
                                 </flux:field>
                             </div>
 
@@ -601,7 +613,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('From Date') }}</flux:label>
-                                    <flux:input wire:model="from_date" type="date" />
+                                    <flux:input wire:model="fromDate" type="date" />
                                 </flux:field>
                             </div>
 
@@ -609,7 +621,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('To Date') }}</flux:label>
-                                    <flux:input wire:model="to_date" type="date" />
+                                    <flux:input wire:model="toDate" type="date" />
                                 </flux:field>
                             </div>
                         </div>
@@ -620,7 +632,7 @@
                             <div class="w-full px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Reason for Leaving') }}</flux:label>
-                                    <flux:textarea wire:model="reason_for_leaving" placeholder="Reason for leaving previous company" />
+                                    <flux:textarea wire:model="reasonForLeaving" placeholder="Reason for leaving previous company" />
                                 </flux:field>
                             </div>
                         </div>
@@ -842,7 +854,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Basic Salary') }}</flux:label>
-                                    <flux:input wire:model="basic_salary" type="number" placeholder="50000" />
+                                    <flux:input wire:model="basicSalary" type="number" placeholder="50000" />
                                 </flux:field>
                             </div>
 
@@ -882,7 +894,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Payment Frequency') }}</flux:label>
-                                    <flux:select wire:model="payment_frequency">
+                                    <flux:select wire:model="paymentFrequency">
                                         <option value="monthly">{{ __('Monthly') }}</option>
                                         <option value="bi-weekly">{{ __('Bi-weekly') }}</option>
                                         <option value="weekly">{{ __('Weekly') }}</option>
@@ -894,7 +906,7 @@
                             <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                 <flux:field>
                                     <flux:label>{{ __('Bank Account Number') }}</flux:label>
-                                    <flux:input wire:model="bank_account" placeholder="1234567890" />
+                                    <flux:input wire:model="bankAccount" placeholder="1234567890" />
                                 </flux:field>
                             </div>
 
@@ -941,7 +953,7 @@
                                 <flux:field>
                                     <flux:label>{{ __('Salary Notes') }}</flux:label>
                                     <flux:textarea 
-                                        wire:model="salary_notes" 
+                                        wire:model="salaryNotes" 
                                         placeholder="Additional notes about salary, benefits, or compensation details..."
                                         rows="3"
                                         resize="vertical"

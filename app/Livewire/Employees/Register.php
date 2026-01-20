@@ -202,7 +202,19 @@ class Register extends Component
 
     public function resetForm()
     {
-        $this->reset();
+        $this->reset([
+            'prefix', 'employeeCode', 'punchCode', 'firstName', 'lastName', 'fatherName',
+            'mobile', 'email', 'reportsTo', 'role', 'manualAttendance', 'status',
+            'department', 'designation', 'password', 'shift', 'group_id',
+            'allowEmployeeLogin', 'profilePicture', 'emergencyContactName',
+            'emergencyRelation', 'emergencyPhone', 'emergencyAddress',
+            'dateOfBirth', 'gender', 'maritalStatus', 'nationality', 'bloodGroup', 'address',
+            'companyName', 'previousDesignation', 'fromDate', 'toDate', 'reasonForLeaving',
+            'documentType', 'documentNumber', 'issueDate', 'expiryDate', 'documentFile',
+            'basicSalary', 'allowances', 'bonus', 'currency', 'paymentFrequency',
+            'bankAccount', 'taxId', 'salaryNotes'
+        ]);
+        $this->activeTab = 'general';
     }
 
     public function saveDraft()
@@ -214,19 +226,30 @@ class Register extends Component
     public function submit()
     {
         // Validate and submit form
-        $this->validate([
+        $rules = [
             'firstName' => 'required|string|max:255',
             'lastName' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'mobile' => 'required|string|max:20',
-            'password' => 'required|string|min:8',
             'department' => 'nullable|exists:departments,id',
             'designation' => 'nullable|exists:designations,id',
             'group_id' => 'nullable|exists:groups,id',
             'reportsTo' => 'nullable|exists:employees,id',
             'shift' => 'nullable|exists:shifts,id',
             'role' => 'nullable|exists:roles,id',
-        ]);
+        ];
+
+        // Only require password if employee login is allowed
+        if ($this->allowEmployeeLogin) {
+            $rules['password'] = 'required|string|min:8';
+        } else {
+            // If login is not allowed, generate a random password
+            if (empty($this->password)) {
+                $this->password = \Illuminate\Support\Str::random(16);
+            }
+        }
+
+        $this->validate($rules);
 
         try {
             DB::transaction(function () {
@@ -318,7 +341,15 @@ class Register extends Component
 
             session()->flash('message', 'Employee created successfully!');
             $this->resetForm();
+            $this->loadOptions(); // Reload options after reset
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Validation errors are automatically handled by Livewire
+            throw $e;
         } catch (\Exception $e) {
+            \Log::error('Employee creation failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
             session()->flash('error', 'Failed to create employee: ' . $e->getMessage());
         }
     }

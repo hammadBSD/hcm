@@ -172,6 +172,16 @@
                                             >
                                                 {{ __('View') }}
                                             </flux:button>
+                                            @if($canEditTasks)
+                                                <flux:button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    icon="pencil"
+                                                    wire:click="openEditFlyout({{ $task->id }})"
+                                                    class="text-blue-600 hover:text-blue-700"
+                                                >
+                                                </flux:button>
+                                            @endif
                                             @if($task->status === 'pending')
                                                 @php
                                                     $shiftEnded = $isEmployeeRole ? $this->hasShiftEnded($task) : false;
@@ -275,6 +285,43 @@
                 </flux:button>
             </div>
 
+            <!-- Attachments -->
+            <flux:field>
+                <flux:label>{{ __('Attachments') }}</flux:label>
+                <flux:input 
+                    type="file" 
+                    wire:model="attachments" 
+                    multiple
+                    accept="*/*"
+                />
+                <flux:description>{{ __('You can attach multiple files. Maximum file size: 20MB per file.') }}</flux:description>
+                <flux:error name="attachments.*" />
+                
+                @if(count($attachments) > 0)
+                    <div class="mt-3 space-y-2">
+                        @foreach($attachments as $index => $file)
+                            @if($file)
+                                <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <flux:icon name="paper-clip" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                                        <span class="text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $file->getClientOriginalName() }}</span>
+                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ number_format($file->getSize() / 1024, 2) }} KB)</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        wire:click="removeAttachment({{ $index }})"
+                                        class="ml-2 p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                        title="{{ __('Remove') }}"
+                                    >
+                                        <flux:icon name="x-mark" class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                @endif
+            </flux:field>
+
             <flux:field>
                 <flux:label>{{ __('Assign To') }} <span class="text-red-500">*</span></flux:label>
                 
@@ -369,6 +416,200 @@
         </form>
     </flux:modal>
 
+    <!-- Edit Task Flyout -->
+    <flux:modal variant="flyout" wire:model="showEditFlyout" title="{{ __('Edit Task') }}" class="w-[40rem]">
+        <form wire:submit="updateTask" class="space-y-6">
+            <flux:field>
+                <flux:label>{{ __('Task Name') }} <span class="text-red-500">*</span></flux:label>
+                <flux:input wire:model="form.name" placeholder="{{ __('Enter task name...') }}" required />
+                <flux:error name="form.name" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Task Description') }} <span class="text-red-500">*</span></flux:label>
+                <flux:textarea wire:model="form.description" rows="6" placeholder="{{ __('Enter task description...') }}" required />
+                <flux:error name="form.description" />
+            </flux:field>
+
+            <!-- Custom Fields -->
+            @if(!empty($form['custom_fields']))
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <flux:subheading>{{ __('Custom Fields') }}</flux:subheading>
+                    </div>
+                    @foreach($form['custom_fields'] as $index => $field)
+                        <div class="flex items-start gap-3 p-3 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            <div class="flex-1 space-y-2">
+                                <flux:field>
+                                    <flux:label>{{ __('Field Name') }} <span class="text-red-500">*</span></flux:label>
+                                    <flux:input wire:model="form.custom_fields.{{ $index }}.name" placeholder="{{ __('Enter field name...') }}" required />
+                                </flux:field>
+                                <flux:field>
+                                    <flux:label>{{ __('Field Type') }}</flux:label>
+                                    <flux:select wire:model="form.custom_fields.{{ $index }}.type">
+                                        <option value="text">{{ __('Text') }}</option>
+                                        <option value="number">{{ __('Number') }}</option>
+                                        <option value="textarea">{{ __('Textarea') }}</option>
+                                        <option value="date">{{ __('Date') }}</option>
+                                    </flux:select>
+                                </flux:field>
+                            </div>
+                            <button
+                                type="button"
+                                wire:click="removeCustomField({{ $index }})"
+                                class="mt-6 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="{{ __('Remove Field') }}"
+                            >
+                                <flux:icon name="trash" class="w-5 h-5" />
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <!-- Add Field Button -->
+            <div>
+                <flux:button type="button" variant="outline" wire:click="addCustomField" icon="plus">
+                    {{ __('Add Field') }}
+                </flux:button>
+            </div>
+
+            <!-- Attachments -->
+            <flux:field>
+                <flux:label>{{ __('Attachments') }}</flux:label>
+                <flux:input 
+                    type="file" 
+                    wire:model="attachments" 
+                    multiple
+                    accept="*/*"
+                />
+                <flux:description>{{ __('You can attach multiple files. Maximum file size: 20MB per file.') }}</flux:description>
+                <flux:error name="attachments.*" />
+                
+                @if(count($attachments) > 0)
+                    <div class="mt-3 space-y-2">
+                        @foreach($attachments as $index => $file)
+                            @if($file)
+                                <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <flux:icon name="paper-clip" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                                        <span class="text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $file->getClientOriginalName() }}</span>
+                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ number_format($file->getSize() / 1024, 2) }} KB)</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        wire:click="removeAttachment({{ $index }})"
+                                        class="ml-2 p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                        title="{{ __('Remove') }}"
+                                    >
+                                        <flux:icon name="x-mark" class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                @endif
+
+                @if(count($existingAttachments) > 0)
+                    <div class="mt-3 space-y-2">
+                        <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-2">{{ __('Existing Attachments') }}:</p>
+                        @foreach($existingAttachments as $index => $attachment)
+                            <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                                    <flux:icon name="paper-clip" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                                    <a 
+                                        href="{{ \Illuminate\Support\Facades\Storage::url($attachment['path']) }}" 
+                                        target="_blank"
+                                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                    >
+                                        {{ $attachment['name'] ?? 'Attachment' }}
+                                    </a>
+                                    @if(isset($attachment['size']))
+                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ number_format($attachment['size'] / 1024, 2) }} KB)</span>
+                                    @endif
+                                </div>
+                                <button
+                                    type="button"
+                                    wire:click="removeExistingAttachment({{ $index }})"
+                                    class="ml-2 p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                    title="{{ __('Remove') }}"
+                                >
+                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Assign To') }} <span class="text-red-500">*</span></flux:label>
+                
+                <!-- Search Input for Employees -->
+                <div class="mb-3">
+                    <flux:input 
+                        wire:model.live.debounce.300ms="employeeSearchTerm"
+                        placeholder="Search employees..."
+                        icon="magnifying-glass"
+                    />
+                </div>
+                
+                <div class="relative">
+                    <select 
+                        wire:model="form.assigned_to" 
+                        required
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                    >
+                        <option value="">{{ __('Select Employee') }}</option>
+                        @foreach($this->filteredEmployeeOptions as $option)
+                            <option value="{{ $option['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                                {{ $option['label'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <flux:description>{{ __('Select the employee to assign this task to.') }}</flux:description>
+                <flux:error name="form.assigned_to" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Due Date') }}</flux:label>
+                <flux:input type="date" wire:model="form.due_date" />
+                <flux:error name="form.due_date" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Frequency') }} <span class="text-red-500">*</span></flux:label>
+                <flux:select wire:model.live="form.frequency" required>
+                    <option value="one-time">{{ __('One-time') }}</option>
+                    <option value="daily">{{ __('Daily') }}</option>
+                    <option value="weekly">{{ __('Weekly') }}</option>
+                </flux:select>
+                <flux:error name="form.frequency" />
+                <flux:description>
+                    @if($form['frequency'] === 'daily')
+                        {{ __('This task will be automatically created daily for the selected employee.') }}
+                    @elseif($form['frequency'] === 'weekly')
+                        {{ __('This task will be automatically created weekly (every 7 days) for the selected employee.') }}
+                    @else
+                        {{ __('This task will be assigned once to the selected employee.') }}
+                    @endif
+                </flux:description>
+            </flux:field>
+
+            <flux:field>
+                <flux:checkbox wire:model="editForAll" />
+                <flux:label>{{ __('Edit task for all?') }}</flux:label>
+                <flux:description>{{ __('If checked, this will also update the master task template. Future tasks created from this template will use the updated values.') }}</flux:description>
+            </flux:field>
+
+            <div class="flex justify-end gap-3">
+                <flux:button variant="ghost" wire:click="closeEditFlyout" type="button">{{ __('Cancel') }}</flux:button>
+                <flux:button type="submit">{{ __('Update Task') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
     <!-- View Task Flyout -->
     <flux:modal variant="flyout" wire:model="showViewFlyout" title="{{ __('Task Details') }}" class="w-[40rem]">
         @if($selectedTask)
@@ -436,6 +677,31 @@
                         @endif
                     </div>
                 </div>
+
+                @if(!empty($selectedTask->attachments) && is_array($selectedTask->attachments))
+                    <div>
+                        <flux:subheading>{{ __('Attachments') }}</flux:subheading>
+                        <div class="mt-2 space-y-2">
+                            @foreach($selectedTask->attachments as $attachment)
+                                <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <flux:icon name="paper-clip" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                                        <a 
+                                            href="{{ \Illuminate\Support\Facades\Storage::url($attachment['path']) }}" 
+                                            target="_blank"
+                                            class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                        >
+                                            {{ $attachment['name'] ?? 'Attachment' }}
+                                        </a>
+                                        @if(isset($attachment['size']))
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ number_format($attachment['size'] / 1024, 2) }} KB)</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
 
                 @if($selectedTask->status === 'pending')
                     @php

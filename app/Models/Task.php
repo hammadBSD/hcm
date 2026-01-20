@@ -31,6 +31,7 @@ class Task extends Model
         'completion_notes',
         'custom_fields',
         'custom_field_values',
+        'attachments',
     ];
 
     protected $casts = [
@@ -42,6 +43,7 @@ class Task extends Model
         'template_employee_ids' => 'array',
         'custom_fields' => 'array',
         'custom_field_values' => 'array',
+        'attachments' => 'array',
     ];
 
     public function assignedTo(): BelongsTo

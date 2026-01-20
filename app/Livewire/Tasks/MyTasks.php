@@ -6,12 +6,14 @@ use App\Models\Task;
 use App\Models\Employee;
 use App\Models\TaskAssignmentPermission;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class MyTasks extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public $search = '';
     public $statusFilter = '';
@@ -21,9 +23,14 @@ class MyTasks extends Component
     public $perPage = 10;
 
     public $showViewFlyout = false;
+    public $showEditFlyout = false;
     public $showCreateFlyout = false;
     public $showActionModal = false;
     public $selectedTaskId = null;
+    public $editingTaskId = null;
+    public $editForAll = false; // Checkbox to edit parent/master task
+    public $attachments = []; // Array for multiple file uploads
+    public $existingAttachments = []; // Existing attachments when editing
     public $selectedTask = null;
     public $taskNotes = '';
     public $actionType = ''; // 'complete' or 'reject'
@@ -192,6 +199,188 @@ class MyTasks extends Component
         $this->actionType = '';
     }
 
+    public function openEditFlyout($taskId)
+    {
+        $task = Task::with(['assignedTo'])->findOrFail($taskId);
+        
+        // Check permission
+        $user = Auth::user();
+        if (!$user->hasRole('Super Admin') && !$user->can('tasks.edit')) {
+            session()->flash('error', __('You do not have permission to edit tasks.'));
+            return;
+        }
+
+        $this->editingTaskId = $taskId;
+        
+        // Load task data into form
+        $this->form = [
+            'name' => $task->name ?: $task->title,
+            'description' => $task->description,
+            'assigned_to' => [$task->assigned_to], // Array for compatibility
+            'due_date' => $task->due_date ? $task->due_date->format('Y-m-d') : '',
+            'frequency' => $task->frequency,
+            'custom_fields' => $task->custom_fields ?? [],
+        ];
+
+        // Convert custom fields from stored format to form format
+        if (!empty($this->form['custom_fields'])) {
+            $formattedFields = [];
+            foreach ($this->form['custom_fields'] as $field) {
+                $formattedFields[] = [
+                    'name' => $field['label'] ?? $field['name'], // Use label if available
+                    'type' => $field['type'] ?? 'text',
+                ];
+            }
+            $this->form['custom_fields'] = $formattedFields;
+        }
+
+        // Load existing attachments
+        $this->existingAttachments = $task->attachments ?? [];
+        $this->attachments = [];
+
+        $this->employeeSearchTerm = '';
+        $this->loadEmployeeOptions();
+        $this->showEditFlyout = true;
+    }
+
+    public function closeEditFlyout()
+    {
+        $this->showEditFlyout = false;
+        $this->editingTaskId = null;
+        $this->editForAll = false;
+        $this->attachments = [];
+        $this->existingAttachments = [];
+        $this->resetForm();
+    }
+
+    public function removeAttachment($index)
+    {
+        if (isset($this->attachments[$index])) {
+            unset($this->attachments[$index]);
+            $this->attachments = array_values($this->attachments);
+        }
+    }
+
+    public function removeExistingAttachment($index)
+    {
+        if (isset($this->existingAttachments[$index])) {
+            // Delete file from storage
+            $attachment = $this->existingAttachments[$index];
+            if (isset($attachment['path']) && Storage::disk('public')->exists($attachment['path'])) {
+                Storage::disk('public')->delete($attachment['path']);
+            }
+            unset($this->existingAttachments[$index]);
+            $this->existingAttachments = array_values($this->existingAttachments);
+        }
+    }
+
+    public function updateTask()
+    {
+        $this->validate([
+            'form.name' => 'required|string|max:255',
+            'form.description' => 'required|string',
+            'form.assigned_to' => 'required|array|min:1',
+            'form.assigned_to.*' => 'exists:employees,id',
+            'form.due_date' => 'nullable|date',
+            'form.frequency' => 'required|in:one-time,daily,weekly',
+            'attachments.*' => 'nullable|file|max:20480', // 20MB max per file
+        ]);
+
+        $user = Auth::user();
+        if (!$user->hasRole('Super Admin') && !$user->can('tasks.edit')) {
+            session()->flash('error', __('You do not have permission to edit tasks.'));
+            return;
+        }
+
+        $task = Task::findOrFail($this->editingTaskId);
+
+        // Handle assigned_to - it could be an array or single value
+        $assignedToId = is_array($this->form['assigned_to']) ? $this->form['assigned_to'][0] : $this->form['assigned_to'];
+        
+        // Check if user can assign to the selected employee
+        $targetEmployee = Employee::findOrFail($assignedToId);
+        if (!TaskAssignmentPermission::canAssignTo($user, $targetEmployee)) {
+            session()->flash('error', __('You do not have permission to assign tasks to the selected employee.'));
+            return;
+        }
+
+        // Generate title from name or description
+        $title = $this->form['name'] ?: \Illuminate\Support\Str::limit($this->form['description'], 50);
+
+        // Process custom fields - convert field names (spaces to underscores)
+        $customFields = [];
+        if (!empty($this->form['custom_fields'])) {
+            foreach ($this->form['custom_fields'] as $field) {
+                if (!empty($field['name'])) {
+                    $fieldName = str_replace(' ', '_', trim($field['name']));
+                    $customFields[] = [
+                        'name' => $fieldName,
+                        'type' => $field['type'] ?? 'text',
+                        'label' => $field['name'], // Keep original for display
+                    ];
+                }
+            }
+        }
+
+        // Process file uploads
+        $allAttachments = $this->existingAttachments ?? [];
+        if (!empty($this->attachments)) {
+            foreach ($this->attachments as $file) {
+                if ($file) {
+                    $path = $file->store('task-attachments', 'public');
+                    $allAttachments[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'size' => $file->getSize(),
+                        'mime_type' => $file->getMimeType(),
+                        'uploaded_at' => now()->toDateTimeString(),
+                    ];
+                }
+            }
+        }
+
+        // Update task
+        $task->update([
+            'name' => $this->form['name'],
+            'title' => $title,
+            'description' => $this->form['description'],
+            'assigned_to' => $assignedToId,
+            'due_date' => $this->form['due_date'] ?: null,
+            'frequency' => $this->form['frequency'],
+            'custom_fields' => !empty($customFields) ? $customFields : null,
+            'attachments' => !empty($allAttachments) ? $allAttachments : null,
+        ]);
+
+        // If "Edit for all" is checked, also update the parent/master task
+        if ($this->editForAll) {
+            if ($task->parent_task_id) {
+                // This is a child task, update the parent
+                $parentTask = Task::find($task->parent_task_id);
+                if ($parentTask) {
+                    $parentTask->update([
+                        'name' => $this->form['name'],
+                        'title' => $title,
+                        'description' => $this->form['description'],
+                        'due_date' => $this->form['due_date'] ?: null,
+                        'frequency' => $this->form['frequency'],
+                        'custom_fields' => !empty($customFields) ? $customFields : null,
+                        'attachments' => !empty($allAttachments) ? $allAttachments : null,
+                    ]);
+                }
+            } elseif ($task->auto_assign) {
+                // This is already a parent/master task, it's already updated above
+                // No additional action needed
+            }
+        }
+
+        $message = $this->editForAll 
+            ? __('Task and master template updated successfully. Future tasks will use the updated template.')
+            : __('Task updated successfully.');
+
+        session()->flash('success', $message);
+        $this->closeEditFlyout();
+    }
+
     public function openActionModal($taskId, $action)
     {
         $this->actionTaskId = $taskId;
@@ -353,6 +542,7 @@ class MyTasks extends Component
     public function closeCreateFlyout()
     {
         $this->showCreateFlyout = false;
+        $this->attachments = [];
         $this->resetForm();
     }
 
@@ -366,6 +556,8 @@ class MyTasks extends Component
             'frequency' => 'one-time',
             'custom_fields' => [],
         ];
+        $this->attachments = [];
+        $this->existingAttachments = [];
     }
 
     public function addCustomField()
@@ -391,6 +583,7 @@ class MyTasks extends Component
             'form.assigned_to.*' => 'exists:employees,id',
             'form.due_date' => 'nullable|date',
             'form.frequency' => 'required|in:one-time,daily,weekly',
+            'attachments.*' => 'nullable|file|max:20480', // 20MB max per file
         ]);
 
         $user = Auth::user();
@@ -423,6 +616,23 @@ class MyTasks extends Component
             }
         }
 
+        // Process file uploads
+        $taskAttachments = [];
+        if (!empty($this->attachments)) {
+            foreach ($this->attachments as $file) {
+                if ($file) {
+                    $path = $file->store('task-attachments', 'public');
+                    $taskAttachments[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'size' => $file->getSize(),
+                        'mime_type' => $file->getMimeType(),
+                        'uploaded_at' => now()->toDateTimeString(),
+                    ];
+                }
+            }
+        }
+
         // If frequency is daily or weekly, automatically enable auto-assign
         if (in_array($this->form['frequency'], ['daily', 'weekly'])) {
             // Create a parent task template
@@ -439,6 +649,7 @@ class MyTasks extends Component
                 'next_assign_date' => $this->form['frequency'] === 'daily' ? \Carbon\Carbon::today() : \Carbon\Carbon::today()->addDays(7),
                 'status' => 'pending',
                 'custom_fields' => !empty($customFields) ? $customFields : null,
+                'attachments' => !empty($taskAttachments) ? $taskAttachments : null,
             ]);
 
             // Create initial tasks for all selected employees
@@ -459,6 +670,8 @@ class MyTasks extends Component
                     'frequency' => 'one-time',
                     'auto_assign' => false,
                     'status' => 'pending',
+                    'custom_fields' => !empty($customFields) ? $customFields : null,
+                    'attachments' => !empty($taskAttachments) ? $taskAttachments : null,
                 ]);
             }
 
@@ -558,9 +771,13 @@ class MyTasks extends Component
 
         $isEmployeeRole = !($user->hasRole('Super Admin') || $user->can('tasks.view.all') || $user->can('tasks.view.company'));
 
+        // Check if user can edit tasks
+        $canEditTasks = $user->hasRole('Super Admin') || $user->can('tasks.edit');
+
         return view('livewire.tasks.my-tasks', [
             'tasks' => $tasks,
             'isEmployeeRole' => $isEmployeeRole,
+            'canEditTasks' => $canEditTasks,
         ]);
     }
 }

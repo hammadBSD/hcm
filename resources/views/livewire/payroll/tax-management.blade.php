@@ -79,25 +79,9 @@
                             <thead class="bg-zinc-50 dark:bg-zinc-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('employee_name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Employee') }}
-                                            @if($sortBy === 'employee_name')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('department')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Department') }}
-                                            @if($sortBy === 'department')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('annual_salary')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Annual Salary') }}
-                                            @if($sortBy === 'annual_salary')
+                                        <button wire:click="sort('salary_range')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Salary From - To') }}
+                                            @if($sortBy === 'salary_range')
                                                 <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                             @endif
                                         </button>
@@ -143,40 +127,24 @@
                                 @foreach ($taxRecords as $record)
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="flex items-center gap-3">
-                                                <flux:avatar size="sm" :initials="strtoupper(substr($record['employee_name'], 0, 1))" />
-                                                <div>
-                                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {{ $record['employee_name'] }}
-                                                    </div>
-                                                    <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                        {{ $record['employee_code'] }}
-                                                    </div>
-                                                </div>
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                @if(isset($record['salary_from']) && isset($record['salary_to']))
+                                                    {{ number_format($record['salary_from'], 0) }} - {{ number_format($record['salary_to'], 0) }}
+                                                @else
+                                                    {{ number_format($record['annual_salary'] ?? 0, 0) }}
+                                                @endif
                                             </div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $record['department'] }}
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($record['annual_salary'], 2) }}
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($record['taxable_income'], 2) }}
+                                                {{ number_format($record['taxable_income'], 2) }}
                                             </div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($record['income_tax'], 2) }}
+                                                {{ number_format($record['income_tax'], 2) }}
                                             </div>
                                         </td>
                                         
