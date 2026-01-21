@@ -146,6 +146,12 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     // Daily Logs Routes
     Route::get('tasks/daily-log', \App\Livewire\Tasks\DailyLog::class)->name('tasks.daily-log');
     
+    // Recruitment Routes
+    Route::get('recruitment', \App\Livewire\Recruitment\Index::class)->name('recruitment.index');
+    Route::get('recruitment/jobs/create', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.create');
+    Route::get('recruitment/jobs/{id}', \App\Livewire\Recruitment\Jobs\Show::class)->name('recruitment.jobs.show');
+    Route::get('recruitment/jobs/settings', \App\Livewire\Recruitment\Jobs\Settings::class)->name('recruitment.jobs.settings');
+    
     // Attendance Settings
     Route::get('system-management/attendance-settings/shift-schedule', \App\Livewire\SystemManagement\AttendanceSettings\ShiftSchedule\Index::class)->name('system-management.attendance-settings.shift-schedule');
     Route::get('system-management/attendance-settings/work-schedule', \App\Livewire\SystemManagement\AttendanceSettings\WorkSchedule\Index::class)->name('system-management.attendance-settings.work-schedule');

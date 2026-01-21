@@ -1951,7 +1951,7 @@ class Index extends Component
                                 $attendedDays += 0.5;
                             } else {
                                 // Full-day leave or no leave info - count as full day
-                                $attendedDays++;
+                        $attendedDays++;
                             }
                         } else {
                             // No leave request - count as full day
@@ -2211,7 +2211,7 @@ class Index extends Component
                         try {
                             $dateCarbon = Carbon::parse($date);
                             if ($dateCarbon->isWeekday()) {
-                                $onLeaveDays++;
+                    $onLeaveDays++;
                                 $countedLeaveDates[$date] = true;
                             }
                         } catch (\Exception $e) {

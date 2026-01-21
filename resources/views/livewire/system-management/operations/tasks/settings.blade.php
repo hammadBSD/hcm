@@ -6,7 +6,7 @@
             <!-- General Task Configuration -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                    <div>
+<div>
                         <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('General Task Configuration') }}</h3>
                         <p class="text-sm text-zinc-500 dark:text-zinc-400">
                             {{ __('Enable or disable daily task logging and configure basic rules.') }}
@@ -67,7 +67,7 @@
                         </div>
                     @endif
                 </div>
-            </div>
+</div>
 
             <!-- Save Button -->
             <div class="flex justify-end gap-3">

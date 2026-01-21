@@ -2414,7 +2414,7 @@ class Report extends Component
                         try {
                             $dateCarbon = Carbon::parse($date);
                             if ($dateCarbon->isWeekday()) {
-                                $onLeaveDays++;
+                    $onLeaveDays++;
                                 $countedLeaveDates[$date] = true;
                             }
                         } catch (\Exception $e) {

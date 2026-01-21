@@ -468,7 +468,7 @@
             @endif
 
             <!-- Add Field Button -->
-            <div>
+<div>
                 <flux:button type="button" variant="outline" wire:click="addCustomField" icon="plus">
                     {{ __('Add Field') }}
                 </flux:button>
@@ -552,7 +552,7 @@
                         placeholder="Search employees..."
                         icon="magnifying-glass"
                     />
-                </div>
+</div>
                 
                 <div class="relative">
                     <select 
