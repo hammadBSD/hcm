@@ -5,7 +5,12 @@ namespace App\Livewire\Recruitment\Jobs;
 use App\Models\Department;
 use App\Models\Designation;
 use App\Models\Employee;
+use App\Models\Recruitment\JobPost;
+use App\Models\Recruitment\Pipeline;
+use App\Models\Recruitment\PipelineStage;
+use App\Models\Recruitment\JobPostHistory;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Create extends Component
@@ -116,9 +121,114 @@ class Create extends Component
 
     public function save()
     {
-        // UI only - will implement functionality later
-        session()->flash('message', 'Job post created successfully!');
-        return $this->redirect(route('recruitment.index'), navigate: true);
+        // Validation
+        $this->validate([
+            'jobTitle' => 'required|string|max:255',
+            'jobDescription' => 'nullable|string',
+            'department' => 'required|exists:departments,id',
+            'designation' => 'required|exists:designations,id',
+            'entryLevel' => 'nullable|in:' . implode(',', array_keys($this->entryLevelOptions)),
+            'position' => 'required|in:' . implode(',', array_keys($this->positionOptions)),
+            'workType' => 'required|in:' . implode(',', array_keys($this->workTypeOptions)),
+            'hiringPriority' => 'required|in:' . implode(',', array_keys($this->hiringPriorityOptions)),
+            'numberOfPositions' => 'required|integer|min:1',
+            'location' => 'nullable|string|max:255',
+            'budget' => 'nullable|numeric|min:0',
+            'applicationDeadline' => 'nullable|date',
+            'startDate' => 'nullable|date',
+            'requiredSkills' => 'nullable|string',
+            'benefits' => 'nullable|string',
+            'reportingTo' => 'nullable|exists:employees,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            // Get or create default pipeline
+            $defaultPipeline = $this->getOrCreateDefaultPipeline($user->id);
+
+            // Create job post
+            $jobPost = JobPost::create([
+                'title' => $this->jobTitle,
+                'description' => $this->jobDescription ?: null,
+                'department_id' => $this->department,
+                'designation_id' => $this->designation,
+                'entry_level' => $this->entryLevel ?: null,
+                'position_type' => $this->position,
+                'work_type' => $this->workType,
+                'hiring_priority' => $this->hiringPriority,
+                'number_of_positions' => $this->numberOfPositions,
+                'status' => 'draft',
+                'location' => $this->location ?: null,
+                'budget' => $this->budget ? (float) $this->budget : null,
+                'application_deadline' => $this->applicationDeadline ?: null,
+                'start_date' => $this->startDate ?: null,
+                'required_skills' => $this->requiredSkills ?: null,
+                'benefits' => $this->benefits ?: null,
+                'reporting_to_id' => $this->reportingTo ?: null,
+                'created_by' => $user->id,
+                'default_pipeline_id' => $defaultPipeline->id,
+            ]);
+
+            // Create history entry
+            JobPostHistory::create([
+                'job_post_id' => $jobPost->id,
+                'action_type' => 'created',
+                'notes' => 'Job post created',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            session()->flash('message', 'Job post created successfully!');
+            return $this->redirect(route('recruitment.jobs.show', $jobPost->id), navigate: true);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to create job post: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get or create default pipeline with stages
+     */
+    private function getOrCreateDefaultPipeline($userId)
+    {
+        // Check if default pipeline exists
+        $pipeline = Pipeline::where('is_default', true)->first();
+
+        if (!$pipeline) {
+            // Create default pipeline
+            $pipeline = Pipeline::create([
+                'name' => 'Default Pipeline',
+                'description' => 'Default recruitment pipeline',
+                'is_default' => true,
+                'created_by' => $userId,
+            ]);
+
+            // Create default stages
+            $defaultStages = [
+                ['name' => 'Applied', 'color' => 'blue', 'order' => 1],
+                ['name' => 'Screening', 'color' => 'yellow', 'order' => 2],
+                ['name' => 'Interview', 'color' => 'purple', 'order' => 3],
+                ['name' => 'Offer', 'color' => 'green', 'order' => 4],
+                ['name' => 'Hired', 'color' => 'emerald', 'order' => 5],
+            ];
+
+            foreach ($defaultStages as $stage) {
+                PipelineStage::create([
+                    'pipeline_id' => $pipeline->id,
+                    'name' => $stage['name'],
+                    'color' => $stage['color'],
+                    'order' => $stage['order'],
+                    'is_default' => false,
+                ]);
+            }
+        }
+
+        return $pipeline;
     }
 
     public function render()

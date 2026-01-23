@@ -34,13 +34,25 @@
                 </div>
                 <div class="mb-3">
                     <flux:navlist.item 
-                        :href="route('recruitment.jobs.settings')" 
+                        :href="route('recruitment.settings')" 
                         wire:navigate
-                        :class="request()->routeIs('recruitment.jobs.settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        :class="request()->routeIs('recruitment.settings') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
                     >
                         <div class="flex items-center">
                             <flux:icon name="cog-6-tooth" class="w-4 h-4 mr-3" />
                             {{ __('Job Post Settings') }}
+                        </div>
+                    </flux:navlist.item>
+                </div>
+                <div class="mb-3">
+                    <flux:navlist.item 
+                        :href="route('recruitment.summary')" 
+                        wire:navigate
+                        :class="request()->routeIs('recruitment.summary') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="chart-bar" class="w-4 h-4 mr-3" />
+                            {{ __('Summary/Report') }}
                         </div>
                     </flux:navlist.item>
                 </div>

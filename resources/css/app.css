@@ -89,3 +89,77 @@ select:focus[data-flux-control] {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #737373;
 }
+
+/* Rating Component Styles (Small) */
+.rating {
+    display: inline-flex;
+    position: relative;
+    align-items: center;
+    gap: 0.125rem;
+    flex-direction: row-reverse;
+    direction: ltr;
+}
+
+.rating input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    position: relative;
+}
+
+.rating-sm input[type="radio"] {
+    width: 1rem;
+    height: 1rem;
+}
+
+.rating input[type="radio"].rating-hidden {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.rating input[type="radio"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    background-color: #d1d5db;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+}
+
+/* Only apply half-star clipping when needed - show full stars by default */
+/* Default: all stars are grey */
+.rating input[type="radio"]:not(.rating-hidden)::before {
+    background-color: #d1d5db;
+}
+
+/* When a star is checked, make it and all previous stars (in DOM order, which are higher values) yellow */
+.rating input[type="radio"]:checked::before,
+.rating input[type="radio"]:checked ~ input[type="radio"]:not(.rating-hidden)::before {
+    background-color: #fbbf24;
+}
+
+/* Hover effect */
+.rating input[type="radio"]:hover::before,
+.rating input[type="radio"]:hover ~ input[type="radio"]::before {
+    background-color: #fbbf24;
+}

@@ -3,6 +3,13 @@
 namespace App\Livewire\Recruitment\Jobs;
 
 use App\Models\Designation;
+use App\Models\Recruitment\JobPost;
+use App\Models\Recruitment\Pipeline;
+use App\Models\Recruitment\PipelineStage;
+use App\Models\Recruitment\Candidate;
+use App\Models\Recruitment\CandidateAttachment;
+use App\Models\Recruitment\CandidatePreviousCompany;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -52,15 +59,17 @@ class Apply extends Component
     {
         $this->jobId = $id;
         
-        // Load job data (mock for now, will be from database later)
+        // Load job post from database
+        $jobPost = JobPost::with(['department', 'designation'])->findOrFail($id);
+        
         $this->job = [
-            'id' => $id,
-            'title' => 'Senior Software Developer',
-            'description' => 'We are looking for an experienced Senior Software Developer to join our dynamic team. You will be responsible for designing, developing, and maintaining high-quality software solutions. The ideal candidate should have strong problem-solving skills, excellent communication abilities, and a passion for writing clean, efficient code.',
-            'department' => 'IT',
-            'entry_level' => 'Senior',
-            'position_type' => 'Full Time',
-            'work_type' => 'Remote',
+            'id' => $jobPost->id,
+            'title' => $jobPost->title,
+            'description' => $jobPost->description,
+            'department' => $jobPost->department?->title,
+            'entry_level' => $jobPost->entry_level,
+            'position_type' => $jobPost->position_type,
+            'work_type' => $jobPost->work_type,
         ];
         
         // Load designations
@@ -133,21 +142,137 @@ class Apply extends Component
             'candidateAttachments.*' => 'nullable|file|max:20480', // 20MB max per file
         ]);
 
-        // Handle file uploads
-        $attachmentPaths = [];
-        if (!empty($this->candidateAttachments)) {
-            foreach ($this->candidateAttachments as $attachment) {
-                $path = $attachment->store('candidate-attachments', 'public');
-                $attachmentPaths[] = $path;
+        try {
+            DB::beginTransaction();
+
+            // Get job post and default pipeline
+            $jobPost = JobPost::with('defaultPipeline.stages')->findOrFail($this->jobId);
+            $pipeline = $jobPost->defaultPipeline;
+            
+            if (!$pipeline) {
+                // Get or create default pipeline
+                $pipeline = Pipeline::where('is_default', true)->first();
+                if (!$pipeline) {
+                    // Create default pipeline
+                    $pipeline = Pipeline::create([
+                        'name' => 'Default Pipeline',
+                        'description' => 'Default recruitment pipeline',
+                        'is_default' => true,
+                        'created_by' => 1, // System user
+                    ]);
+
+                    $defaultStages = [
+                        ['name' => 'Applied', 'color' => 'blue', 'order' => 1],
+                        ['name' => 'Screening', 'color' => 'yellow', 'order' => 2],
+                        ['name' => 'Interview', 'color' => 'purple', 'order' => 3],
+                        ['name' => 'Offer', 'color' => 'green', 'order' => 4],
+                        ['name' => 'Hired', 'color' => 'emerald', 'order' => 5],
+                    ];
+
+                    foreach ($defaultStages as $stage) {
+                        PipelineStage::create([
+                            'pipeline_id' => $pipeline->id,
+                            'name' => $stage['name'],
+                            'color' => $stage['color'],
+                            'order' => $stage['order'],
+                            'is_default' => false,
+                        ]);
+                    }
+                }
+                
+                // Update job post to use this pipeline
+                $jobPost->update(['default_pipeline_id' => $pipeline->id]);
             }
+
+            // Get first stage (Applied)
+            $firstStage = $pipeline->stages()->orderBy('order')->first();
+            if (!$firstStage) {
+                throw new \Exception('No pipeline stages found');
+            }
+
+            // Get applicant number
+            $lastApplicant = Candidate::where('job_post_id', $this->jobId)
+                ->orderBy('applicant_number', 'desc')
+                ->first();
+            $applicantNumber = $lastApplicant ? ($lastApplicant->applicant_number + 1) : 1;
+
+            // Create candidate
+            $candidate = Candidate::create([
+                'job_post_id' => $this->jobId,
+                'pipeline_stage_id' => $firstStage->id,
+                'applicant_number' => $applicantNumber,
+                'first_name' => $this->candidateFirstName,
+                'last_name' => $this->candidateLastName,
+                'date_of_birth' => $this->candidateDob ?: null,
+                'description' => $this->candidateDescription ?: null,
+                'email' => $this->candidateEmail,
+                'phone' => $this->candidatePhone ?: null,
+                'linkedin_url' => $this->candidateLinkedIn ?: null,
+                'position' => $this->candidatePosition ?: null,
+                'designation_id' => $this->candidateDesignation ?: null,
+                'experience' => $this->candidateExperience ?: null,
+                'source' => $this->candidateSource ?: 'self',
+                'current_address' => $this->candidateCurrentAddress ?: null,
+                'city' => $this->candidateCity ?: null,
+                'country_id' => $this->candidateCountry ?: null,
+                'current_company' => $this->candidateCurrentCompany ?: null,
+                'notice_period' => $this->candidateNoticePeriod ?: null,
+                'expected_salary' => $this->candidateExpectedSalary ?: null,
+                'availability_date' => $this->candidateAvailabilityDate ?: null,
+                'rating' => 0,
+                'status' => 'active',
+                'created_by' => null, // Public application
+            ]);
+
+            // Handle file uploads
+            if (!empty($this->candidateAttachments)) {
+                foreach ($this->candidateAttachments as $attachment) {
+                    $path = $attachment->store('candidate-attachments', 'public');
+                    CandidateAttachment::create([
+                        'candidate_id' => $candidate->id,
+                        'file_path' => $path,
+                        'file_name' => $attachment->getClientOriginalName(),
+                        'file_type' => $attachment->getMimeType(),
+                        'file_size' => $attachment->getSize(),
+                    ]);
+                }
+            }
+
+            // Handle previous companies
+            if (!empty($this->previousCompanies)) {
+                foreach ($this->previousCompanies as $index => $company) {
+                    if (!empty($company['company'])) {
+                        // Parse duration if provided
+                        $fromDate = null;
+                        $toDate = null;
+                        if (!empty($company['duration'])) {
+                            $parts = explode(' - ', $company['duration']);
+                            if (count($parts) == 2) {
+                                $fromDate = !empty(trim($parts[0])) ? trim($parts[0]) . '-01' : null;
+                                $toDate = !empty(trim($parts[1])) ? trim($parts[1]) . '-01' : null;
+                            }
+                        }
+
+                        CandidatePreviousCompany::create([
+                            'candidate_id' => $candidate->id,
+                            'company_name' => $company['company'],
+                            'position' => $company['position'] ?? null,
+                            'from_date' => $fromDate,
+                            'to_date' => $toDate,
+                            'order' => $index,
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            $this->showSuccessMessage = true;
+            $this->resetForm();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to submit application: ' . $e->getMessage());
         }
-        
-        // TODO: Save application to database
-        // For now, just show success message
-        $this->showSuccessMessage = true;
-        
-        // Reset form after successful submission
-        $this->resetForm();
     }
     
     private function resetForm()

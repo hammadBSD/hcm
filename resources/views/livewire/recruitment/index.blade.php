@@ -79,8 +79,8 @@
                         <flux:label>{{ __('Department') }}</flux:label>
                         <flux:select wire:model.live="selectedDepartment">
                             <option value="">{{ __('All Departments') }}</option>
-                            @foreach($departments as $department)
-                                <option value="{{ $department }}">{{ $department }}</option>
+                            @foreach($departments as $id => $name)
+                                <option value="{{ $id }}">{{ $name }}</option>
                             @endforeach
                         </flux:select>
                     </flux:field>
@@ -128,9 +128,9 @@
                             {{ __('Search') }}: {{ $search }}
                         </flux:badge>
                     @endif
-                    @if($selectedDepartment)
+                    @if($selectedDepartment && isset($departments[$selectedDepartment]))
                         <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedDepartment', '')">
-                            {{ __('Department') }}: {{ $selectedDepartment }}
+                            {{ __('Department') }}: {{ $departments[$selectedDepartment] }}
                         </flux:badge>
                     @endif
                     @if($selectedStatus)
@@ -366,6 +366,12 @@
                                 @endforeach
                             </tbody>
                         </table>
+                        
+                        @if(isset($jobPosts) && method_exists($jobPosts, 'links'))
+                            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
+                                {{ $jobPosts->links() }}
+                            </div>
+                        @endif
                     </div>
                 </div>
             @else

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Recruitment;
 
+use App\Models\Department;
+use App\Models\Recruitment\JobPost;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -96,94 +98,77 @@ class Index extends Component
 
     public function render()
     {
-        // Mock data for now - will be replaced with actual database queries later
-        $jobs = collect([
-            [
-                'id' => 1,
-                'title' => 'Senior Software Developer',
-                'department' => 'IT',
-                'entry_level' => 'Senior',
-                'position_type' => 'Full Time',
-                'work_type' => 'Remote',
-                'hiring_priority' => 'Urgent',
-                'number_of_positions' => 2,
-                'applications_count' => 15,
-                'status' => 'active',
-                'created_at' => now()->subDays(5),
-            ],
-            [
-                'id' => 2,
-                'title' => 'Marketing Manager',
-                'department' => 'Marketing',
-                'entry_level' => 'Mid-Senior',
-                'position_type' => 'Full Time',
-                'work_type' => 'Hybrid',
-                'hiring_priority' => 'Medium',
-                'number_of_positions' => 1,
-                'applications_count' => 8,
-                'status' => 'active',
-                'created_at' => now()->subDays(10),
-            ],
-            [
-                'id' => 3,
-                'title' => 'HR Intern',
-                'department' => 'HR',
-                'entry_level' => 'Intern',
-                'position_type' => 'Part Time',
-                'work_type' => 'On-Site',
-                'hiring_priority' => 'Low',
-                'number_of_positions' => 3,
-                'applications_count' => 25,
-                'status' => 'active',
-                'created_at' => now()->subDays(2),
-            ],
-        ]);
+        // Build query with relationships
+        $query = JobPost::with(['department', 'candidates'])
+            ->withCount('candidates as applications_count');
 
-        // Apply filters
+        // Apply search filter
         if ($this->search) {
-            $jobs = $jobs->filter(function ($job) {
-                return stripos($job['title'], $this->search) !== false;
-            });
+            $query->where('title', 'like', '%' . $this->search . '%');
         }
 
+        // Apply department filter
         if ($this->selectedDepartment) {
-            $jobs = $jobs->filter(function ($job) {
-                return $job['department'] === $this->selectedDepartment;
-            });
+            $query->where('department_id', $this->selectedDepartment);
         }
 
+        // Apply status filter
         if ($this->selectedStatus) {
-            $jobs = $jobs->filter(function ($job) {
-                return $job['status'] === $this->selectedStatus;
-            });
+            $query->where('status', $this->selectedStatus);
         }
 
+        // Apply entry level filter
         if ($this->selectedEntryLevel) {
-            $jobs = $jobs->filter(function ($job) {
-                return strtolower($job['entry_level']) === strtolower($this->selectedEntryLevel);
-            });
+            $query->where('entry_level', $this->selectedEntryLevel);
         }
 
+        // Apply position type filter
         if ($this->selectedPositionType) {
-            $jobs = $jobs->filter(function ($job) {
-                return strtolower($job['position_type']) === strtolower($this->selectedPositionType);
-            });
+            $query->where('position_type', $this->selectedPositionType);
         }
 
+        // Apply work type filter
         if ($this->selectedWorkType) {
-            $jobs = $jobs->filter(function ($job) {
-                return strtolower($job['work_type']) === strtolower($this->selectedWorkType);
-            });
+            $query->where('work_type', $this->selectedWorkType);
         }
 
+        // Apply priority filter
         if ($this->selectedPriority) {
-            $jobs = $jobs->filter(function ($job) {
-                return strtolower($job['hiring_priority']) === strtolower($this->selectedPriority);
-            });
+            $query->where('hiring_priority', $this->selectedPriority);
         }
 
-        // Get unique departments for filter
-        $departments = ['IT', 'Marketing', 'HR', 'Finance', 'Operations'];
+        // Apply sorting
+        if ($this->sortBy) {
+            $query->orderBy($this->sortBy, $this->sortDirection);
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        // Get paginated results
+        $jobPosts = $query->paginate(10);
+
+        // Format jobs for view
+        $jobs = $jobPosts->map(function ($jobPost) {
+            return [
+                'id' => $jobPost->id,
+                'title' => $jobPost->title,
+                'department' => $jobPost->department?->title ?? 'N/A',
+                'entry_level' => $this->formatEntryLevel($jobPost->entry_level),
+                'position_type' => $this->formatPositionType($jobPost->position_type),
+                'work_type' => $this->formatWorkType($jobPost->work_type),
+                'hiring_priority' => $this->formatPriority($jobPost->hiring_priority),
+                'number_of_positions' => $jobPost->number_of_positions,
+                'applications_count' => $jobPost->applications_count,
+                'status' => $jobPost->status,
+                'created_at' => $jobPost->created_at,
+            ];
+        });
+
+        // Get departments from database
+        $departments = Department::where('status', 'active')
+            ->orderBy('title')
+            ->pluck('title', 'id')
+            ->toArray();
 
         // Filter options
         $entryLevelOptions = [
@@ -220,11 +205,60 @@ class Index extends Component
 
         return view('livewire.recruitment.index', [
             'jobs' => $jobs,
+            'jobPosts' => $jobPosts, // For pagination
             'departments' => $departments,
             'entryLevelOptions' => $entryLevelOptions,
             'positionTypeOptions' => $positionTypeOptions,
             'workTypeOptions' => $workTypeOptions,
             'priorityOptions' => $priorityOptions,
         ])->layout('components.layouts.app');
+    }
+
+    private function formatEntryLevel($level)
+    {
+        $levels = [
+            'intern' => 'Intern',
+            'junior' => 'Junior',
+            'mid-junior' => 'Mid-Junior',
+            'mid-level' => 'Mid Level',
+            'mid-senior' => 'Mid-Senior',
+            'senior' => 'Senior',
+            'team-lead' => 'Team Lead',
+            'above' => 'Team Lead and Above',
+        ];
+        return $levels[$level] ?? $level;
+    }
+
+    private function formatPositionType($type)
+    {
+        $types = [
+            'full-time' => 'Full Time',
+            'part-time' => 'Part Time',
+            'half-day' => 'Half Day',
+            'contract' => 'Contract',
+            'freelance' => 'Freelance',
+        ];
+        return $types[$type] ?? $type;
+    }
+
+    private function formatWorkType($type)
+    {
+        $types = [
+            'remote' => 'Remote',
+            'on-site' => 'On-Site',
+            'hybrid' => 'Hybrid',
+        ];
+        return $types[$type] ?? $type;
+    }
+
+    private function formatPriority($priority)
+    {
+        $priorities = [
+            'low' => 'Low',
+            'medium' => 'Medium',
+            'urgent' => 'Urgent',
+            'very-urgent' => 'Very Urgent',
+        ];
+        return $priorities[$priority] ?? $priority;
     }
 }

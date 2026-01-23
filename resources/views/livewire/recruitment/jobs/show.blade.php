@@ -125,6 +125,56 @@
         <!-- Grid View -->
         @if($viewMode === 'grid')
         <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
+            <!-- Search and Filters -->
+            <div class="p-4 border-b border-zinc-200 dark:border-zinc-700">
+                <div class="flex flex-row gap-3 items-end">
+                    <!-- Search Bar -->
+                    <div class="flex-1">
+                        <flux:field>
+                            <flux:input 
+                                type="text" 
+                                wire:model.live.debounce.300ms="searchQuery"
+                                placeholder="{{ __('Search candidates...') }}"
+                                icon="magnifying-glass"
+                            />
+                        </flux:field>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <!-- Stage Filter -->
+                    <flux:field class="w-48">
+                        <flux:select wire:model.live="filterStage" placeholder="{{ __('All Stages') }}">
+                            <option value="">{{ __('All Stages') }}</option>
+                            @if($this->selectedPipeline && isset($this->selectedPipeline['stages']))
+                                @foreach($this->selectedPipeline['stages'] as $stage)
+                                    <option value="{{ $stage['id'] }}">{{ $stage['name'] }}</option>
+                                @endforeach
+                            @endif
+                        </flux:select>
+                    </flux:field>
+                    
+                    <!-- Position Filter -->
+                    <flux:field class="w-48">
+                        <flux:select wire:model.live="filterPosition" placeholder="{{ __('All Positions') }}">
+                            <option value="">{{ __('All Positions') }}</option>
+                            @foreach($positionOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+                    
+                    <!-- Source Filter -->
+                    <flux:field class="w-48">
+                        <flux:select wire:model.live="filterSource" placeholder="{{ __('All Sources') }}">
+                            <option value="">{{ __('All Sources') }}</option>
+                            @foreach($sourceOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+                </div>
+            </div>
+            
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-zinc-50 dark:bg-zinc-700">
@@ -160,7 +210,10 @@
                                         <div class="flex items-center gap-3">
                                             <flux:avatar size="sm" :initials="substr($candidate['candidate_name'] ?? $candidate['title'] ?? 'N', 0, 2)" />
                                             <div class="space-y-1">
-                                                <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                <div 
+                                                    class="font-medium text-zinc-900 dark:text-zinc-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                                    onclick="event.stopPropagation(); @this.call('openCardDetail', {{ $candidate['id'] }}, {{ $candidate['stage_id'] }})"
+                                                >
                                                     {{ $candidate['candidate_name'] ?? $candidate['title'] ?? 'N/A' }}
                                                 </div>
                                                 @if(isset($candidate['description']))
@@ -216,7 +269,7 @@
                                             <flux:dropdown>
                                                 <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                 <flux:menu>
-                                                    <flux:menu.item icon="eye">
+                                                    <flux:menu.item icon="eye" wire:click.stop="openCardDetail({{ $candidate['id'] }}, {{ $candidate['stage_id'] }})">
                                                         {{ __('View Details') }}
                                                     </flux:menu.item>
                                                     <flux:menu.item icon="pencil">
@@ -1187,6 +1240,21 @@
                                     <flux:badge as="button" rounded icon="paper-clip" size="sm" color="zinc" class="cursor-pointer">
                                         {{ __('Attachment') }}
                                     </flux:badge>
+                                </div>
+                            </div>
+
+                            <!-- Rating Section -->
+                            <div class="space-y-2 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                                <flux:heading size="sm" class="text-zinc-700 dark:text-zinc-300 font-semibold mb-1 text-xs">
+                                    {{ __('Candidate Rating') }}
+                                </flux:heading>
+                                <div class="rating rating-sm">
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" class="rating-hidden" value="0" wire:model.live="cardRating" />
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="5" wire:model.live="cardRating" aria-label="5 star" />
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="4" wire:model.live="cardRating" aria-label="4 star" />
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="3" wire:model.live="cardRating" aria-label="3 star" />
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="2" wire:model.live="cardRating" aria-label="2 star" />
+                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="1" wire:model.live="cardRating" aria-label="1 star" />
                                 </div>
                             </div>
 

@@ -153,7 +153,8 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     Route::get('recruitment', \App\Livewire\Recruitment\Index::class)->name('recruitment.index');
     Route::get('recruitment/jobs/create', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.create');
     Route::get('recruitment/jobs/{id}', \App\Livewire\Recruitment\Jobs\Show::class)->name('recruitment.jobs.show');
-    Route::get('recruitment/jobs/settings', \App\Livewire\Recruitment\Jobs\Settings::class)->name('recruitment.jobs.settings');
+    Route::get('recruitment/settings', \App\Livewire\Recruitment\Jobs\Settings::class)->name('recruitment.settings');
+    Route::get('recruitment/summary', \App\Livewire\Recruitment\Summary::class)->name('recruitment.summary');
     
     // Attendance Settings
     Route::get('system-management/attendance-settings/shift-schedule', \App\Livewire\SystemManagement\AttendanceSettings\ShiftSchedule\Index::class)->name('system-management.attendance-settings.shift-schedule');

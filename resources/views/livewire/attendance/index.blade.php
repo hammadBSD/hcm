@@ -400,6 +400,58 @@
                                                         <div class="text-sm {{ ($record['total_hours'] ?? '-') === 'N/A' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-900 dark:text-zinc-100' }}">
                                                             {{ $record['total_hours'] ?? '-' }}
                                                         </div>
+                                                        @php
+                                                            // Calculate deficit/excess for work days only
+                                                            $showDifference = false;
+                                                            $difference = '';
+                                                            $isExcess = false;
+                                                            
+                                                            if (isset($record['total_hours']) && 
+                                                                $record['total_hours'] !== '-' && 
+                                                                $record['total_hours'] !== 'N/A' &&
+                                                                in_array($record['status'] ?? '', ['present', 'present_late', 'present_early', 'present_late_early'])) {
+                                                                
+                                                                // Parse total hours (format: "H:i" or "H:i:s")
+                                                                $totalHoursStr = $record['total_hours'];
+                                                                $parts = explode(':', $totalHoursStr);
+                                                                $totalMinutes = 0;
+                                                                
+                                                                if (count($parts) >= 2) {
+                                                                    $totalMinutes = (int)$parts[0] * 60 + (int)$parts[1];
+                                                                }
+                                                                
+                                                                // Expected: 9 hours = 540 minutes
+                                                                $expectedMinutes = 9 * 60;
+                                                                $differenceMinutes = $totalMinutes - $expectedMinutes;
+                                                                
+                                                                if ($differenceMinutes > 0) {
+                                                                    // Excess hours
+                                                                    $showDifference = true;
+                                                                    $isExcess = true;
+                                                                    $diffHours = floor($differenceMinutes / 60);
+                                                                    $diffMins = $differenceMinutes % 60;
+                                                                    $difference = sprintf('%d:%02d', $diffHours, $diffMins);
+                                                                } elseif ($differenceMinutes < 0) {
+                                                                    // Deficit hours
+                                                                    $showDifference = true;
+                                                                    $isExcess = false;
+                                                                    $diffHours = floor(abs($differenceMinutes) / 60);
+                                                                    $diffMins = abs($differenceMinutes) % 60;
+                                                                    $difference = sprintf('%d:%02d', $diffHours, $diffMins);
+                                                                }
+                                                            }
+                                                        @endphp
+                                                        @if($showDifference)
+                                                            @if($isExcess)
+                                                                <span class="text-sm text-green-600 dark:text-green-400 font-medium">
+                                                                    +{{ $difference }}
+                                                                </span>
+                                                            @else
+                                                                <span class="text-sm text-red-600 dark:text-red-400 font-medium">
+                                                                    -{{ $difference }}
+                                                                </span>
+                                                            @endif
+                                                        @endif
                                                         @if(isset($record['has_manual_entries']) && $record['has_manual_entries'])
                                                             <flux:tooltip>
                                                                 <flux:badge color="blue" size="xs" class="cursor-help">
