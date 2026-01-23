@@ -91,11 +91,11 @@
                             {{ __('Tasks/Logs') }}
                         </flux:navbar.item>
                     @endcanany
-                    @role('Super Admin')
+                    @hasanyrole('Super Admin|HR Manager')
                         <flux:navbar.item icon="briefcase" :href="route('recruitment.index')" :current="request()->routeIs('recruitment.*')" wire:navigate>
                             {{ __('Recruitment') }}
                         </flux:navbar.item>
-                    @endrole
+                    @endhasanyrole
                     <flux:separator vertical variant="subtle" class="my-2"/>
                     <flux:dropdown>
                         <flux:navbar.item icon:trailing="chevron-down">{{ __('More') }}</flux:navbar.item>
@@ -236,11 +236,11 @@
                         </flux:sidebar.item>
                     @endcanany
                 @endcanany
-                @role('Super Admin')
+                @hasanyrole('Super Admin|HR Manager')
                     <flux:sidebar.item icon="briefcase" :href="route('recruitment.index')" :current="request()->routeIs('recruitment.*')" wire:navigate>
                         {{ __('Recruitment') }}
                     </flux:sidebar.item>
-                @endrole
+                @endhasanyrole
                 <flux:sidebar.item icon="chart-bar" href="#" :current="request()->routeIs('performance.*')">
                     {{ __('Performance') }}
                 </flux:sidebar.item>

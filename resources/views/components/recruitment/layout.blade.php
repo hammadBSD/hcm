@@ -1,7 +1,7 @@
 @php
     $user = auth()->user();
-    // Only Super Admin can access recruitment module
-    $hasAnyRecruitmentMenu = $user && $user->hasRole('Super Admin');
+    // Super Admin and HR Manager can access recruitment module
+    $hasAnyRecruitmentMenu = $user && ($user->hasRole('Super Admin') || $user->hasRole('HR Manager'));
 @endphp
 
 <div class="flex items-start max-md:flex-col">

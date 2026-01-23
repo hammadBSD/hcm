@@ -11,9 +11,9 @@ class Settings extends Component
     {
         $user = Auth::user();
         
-        // Check if user is Super Admin
-        if (!$user || !$user->hasRole('Super Admin')) {
-            abort(403, 'Unauthorized access. Only Super Admin can access this module.');
+        // Check if user is Super Admin or HR Manager
+        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
+            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
         }
     }
 
