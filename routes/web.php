@@ -19,6 +19,9 @@ Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
+// Public Job Application Route (no auth required)
+Route::get('recruitment/jobs/{id}/apply', \App\Livewire\Recruitment\Jobs\Apply::class)->name('recruitment.jobs.apply');
+
 Route::middleware(['auth'])->group(function () {
     // Profile Route
     Route::get('profile', \App\Livewire\Profile::class)->name('profile');

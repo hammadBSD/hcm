@@ -56,6 +56,17 @@
                             <flux:input type="number" wire:model="numberOfPositions" min="1" />
                             @error('numberOfPositions') <flux:error>{{ $message }}</flux:error> @enderror
                         </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Line Manager') }}</flux:label>
+                            <flux:select wire:model="lineManager">
+                                <option value="">{{ __('Select Line Manager') }}</option>
+                                @foreach($lineManagers as $manager)
+                                    <option value="{{ $manager['id'] }}">{{ $manager['name'] }}</option>
+                                @endforeach
+                            </flux:select>
+                            @error('lineManager') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
                     </div>
 
                     <flux:field>

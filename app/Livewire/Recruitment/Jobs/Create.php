@@ -4,6 +4,7 @@ namespace App\Livewire\Recruitment\Jobs;
 
 use App\Models\Department;
 use App\Models\Designation;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -62,6 +63,8 @@ class Create extends Component
     public $departments = [];
     public $designations = [];
     public $reportingToOptions = [];
+    public $lineManagers = [];
+    public $lineManager = '';
 
     public function mount()
     {
@@ -91,6 +94,18 @@ class Create extends Component
                 return [
                     'id' => $designation->id,
                     'name' => $designation->name,
+                ];
+            })->toArray();
+
+        // Load active employees for Line Manager
+        $this->lineManagers = Employee::where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(function ($employee) {
+                return [
+                    'id' => $employee->id,
+                    'name' => trim($employee->first_name . ' ' . $employee->last_name) . ($employee->employee_code ? ' (' . $employee->employee_code . ')' : ''),
                 ];
             })->toArray();
 

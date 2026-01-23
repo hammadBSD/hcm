@@ -21,9 +21,11 @@ class Show extends Component
     public $newCardDescription = '';
     public $selectedColumn = null;
     public $job = null;
+    public $viewMode = 'kanban'; // 'kanban' or 'grid'
     
     // Candidate fields
-    public $candidateName = '';
+    public $candidateFirstName = '';
+    public $candidateLastName = '';
     public $candidateEmail = '';
     public $candidatePhone = '';
     public $candidateDob = '';
@@ -122,7 +124,7 @@ class Show extends Component
                             [
                                 'id' => 1,
                                 'title' => 'John Doe',
-                                'description' => 'Senior Developer with 5+ years experience',
+                                'description' => 'Senior Developer with 5+ years experience, Looking for an oppertunity to work. Senior Developer with 5+ years experience, Looking for an oppertunity to work. Senior Developer with 5+ years experience, Looking for an oppertunity to work.',
                                 'candidate_name' => 'John Doe',
                             ],
                             [
@@ -161,6 +163,11 @@ class Show extends Component
     public $moveCalloutCardTitle = '';
     public $moveCalloutFromStage = '';
     public $moveCalloutToStage = '';
+    
+    // Card detail view
+    public $showCardDetailModal = false;
+    public $selectedCard = null;
+    public $selectedCardStageId = null;
 
     public function dragStart($cardId, $stageId)
     {
@@ -256,12 +263,97 @@ class Show extends Component
         $this->moveCalloutToStage = '';
     }
 
+    public function openCardDetail($cardId, $stageId)
+    {
+        $pipeline = collect($this->pipelines)->firstWhere('id', $this->selectedPipelineId);
+        if (!$pipeline) {
+            return;
+        }
+
+        $stage = collect($pipeline['stages'])->firstWhere('id', $stageId);
+        if (!$stage || !isset($stage['cards'])) {
+            return;
+        }
+
+        $card = collect($stage['cards'])->firstWhere('id', $cardId);
+        if (!$card) {
+            return;
+        }
+
+        $this->selectedCard = $card;
+        $this->selectedCardStageId = $stageId;
+        $this->showCardDetailModal = true;
+    }
+
+    public function closeCardDetail()
+    {
+        $this->showCardDetailModal = false;
+        $this->selectedCard = null;
+        $this->selectedCardStageId = null;
+    }
+
+    public function updatedSelectedCardStageId($value)
+    {
+        if ($this->selectedCard && $this->selectedCardStageId && $value != $this->selectedCardStageId) {
+            $this->moveCardToStage($value);
+        }
+    }
+
+    public function moveCardToStage($targetStageId)
+    {
+        if (!$this->selectedCard || !$this->selectedCardStageId || !$targetStageId) {
+            return;
+        }
+
+        // Use the existing dropCard logic
+        $this->draggedCardId = $this->selectedCard['id'];
+        $this->draggedFromStageId = $this->selectedCardStageId;
+        $this->dropCard($targetStageId);
+        
+        // Refresh the selected card
+        $pipeline = collect($this->pipelines)->firstWhere('id', $this->selectedPipelineId);
+        if ($pipeline) {
+            $targetStage = collect($pipeline['stages'])->firstWhere('id', $targetStageId);
+            if ($targetStage && isset($targetStage['cards'])) {
+                $updatedCard = collect($targetStage['cards'])->firstWhere('id', $this->selectedCard['id']);
+                if ($updatedCard) {
+                    $this->selectedCard = $updatedCard;
+                    $this->selectedCardStageId = $targetStageId;
+                }
+            }
+        }
+    }
+
     public function getSelectedPipelineProperty()
     {
         if (empty($this->pipelines)) {
             return null;
         }
         return collect($this->pipelines)->firstWhere('id', $this->selectedPipelineId) ?? $this->pipelines[0] ?? null;
+    }
+
+    public function getAllCandidatesProperty()
+    {
+        if (!$this->selectedPipeline || !isset($this->selectedPipeline['stages'])) {
+            return collect();
+        }
+
+        $allCandidates = collect();
+        foreach ($this->selectedPipeline['stages'] as $stage) {
+            if (isset($stage['cards']) && count($stage['cards']) > 0) {
+                foreach ($stage['cards'] as $card) {
+                    $card['stage_name'] = $stage['name'] ?? 'Unknown';
+                    $card['stage_id'] = $stage['id'] ?? null;
+                    $allCandidates->push($card);
+                }
+            }
+        }
+        return $allCandidates;
+    }
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
     }
 
     public function openAddPipelineModal()
@@ -297,7 +389,8 @@ class Show extends Component
 
     private function resetCandidateFields()
     {
-        $this->candidateName = '';
+        $this->candidateFirstName = '';
+        $this->candidateLastName = '';
         $this->candidateEmail = '';
         $this->candidatePhone = '';
         $this->candidateDob = '';
@@ -344,7 +437,8 @@ class Show extends Component
     {
         // Validate required fields
         $this->validate([
-            'candidateName' => 'required|string|max:255',
+            'candidateFirstName' => 'required|string|max:255',
+            'candidateLastName' => 'required|string|max:255',
             'candidateEmail' => 'required|email|max:255',
             'candidatePhone' => 'nullable|string|max:20',
             'candidateDob' => 'nullable|date',
@@ -396,11 +490,14 @@ class Show extends Component
         }
         
         // Create new card
+        $fullName = trim($this->candidateFirstName . ' ' . $this->candidateLastName);
         $newCard = [
             'id' => $newCardId,
-            'title' => $this->candidateName,
+            'title' => $fullName,
             'description' => $this->newCardDescription ?: ($this->candidatePosition ? $this->candidatePosition : ''),
-            'candidate_name' => $this->candidateName,
+            'candidate_name' => $fullName,
+            'candidate_first_name' => $this->candidateFirstName,
+            'candidate_last_name' => $this->candidateLastName,
             'candidate_email' => $this->candidateEmail,
             'candidate_phone' => $this->candidatePhone,
             'candidate_dob' => $this->candidateDob,

@@ -106,9 +106,9 @@
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             @if($monthData['status'] === 'pending')
-                                                <flux:badge color="yellow" size="sm">
-                                                    {{ __('Pending') }}
-                                                </flux:badge>
+                                            <flux:badge color="yellow" size="sm">
+                                                {{ __('Pending') }}
+                                            </flux:badge>
                                             @else
                                                 <flux:badge color="green" size="sm">
                                                     {{ __('Processed') }}
@@ -128,7 +128,7 @@
                                                         @else
                                                             <flux:menu.item icon="eye" wire:click="openMonthEmployeesFlyout({{ $monthData['month'] }}, {{ $monthData['year'] }})">
                                                                 {{ __('View Payroll') }}
-                                                            </flux:menu.item>
+                                                        </flux:menu.item>
                                                         @endif
                                                         <flux:menu.item icon="arrow-down-tray">
                                                             {{ __('Export') }}

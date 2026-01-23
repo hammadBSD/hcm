@@ -11,6 +11,7 @@
 
         <!-- Search and Filter Controls -->
         <div class="my-6 w-full space-y-4">
+            <!-- Top Row: Search and Quick Filters -->
             <div class="flex flex-col sm:flex-row gap-4">
                 <!-- Search Input -->
                 <div class="flex-1">
@@ -23,19 +24,6 @@
                     />
                 </div>
                 
-                <!-- Department Filter -->
-                <div class="sm:w-64">
-                    <flux:field>
-                        <flux:label>{{ __('Department') }}</flux:label>
-                        <flux:select wire:model.live="selectedDepartment">
-                            <option value="">{{ __('All Departments') }}</option>
-                            @foreach($departments as $department)
-                                <option value="{{ $department }}">{{ $department }}</option>
-                            @endforeach
-                        </flux:select>
-                    </flux:field>
-                </div>
-
                 <!-- Status Filter -->
                 <div class="sm:w-48">
                     <flux:field>
@@ -48,7 +36,132 @@
                         </flux:select>
                     </flux:field>
                 </div>
+
+                <!-- Priority Filter -->
+                <div class="sm:w-48">
+                    <flux:field>
+                        <flux:label>{{ __('Priority') }}</flux:label>
+                        <flux:select wire:model.live="selectedPriority">
+                            <option value="">{{ __('All Priorities') }}</option>
+                            @foreach($priorityOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+                </div>
+
+                <!-- Toggle Filters Button -->
+                <div class="flex items-end">
+                    <flux:button 
+                        variant="ghost" 
+                        size="sm" 
+                        :icon="$showFilters ? 'funnel' : 'funnel'" 
+                        wire:click="$toggle('showFilters')"
+                    >
+                        {{ $showFilters ? __('Hide Filters') : __('More Filters') }}
+                    </flux:button>
+                </div>
             </div>
+
+            <!-- Expanded Filters Section -->
+            @if($showFilters)
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <flux:heading size="sm" level="3">{{ __('Advanced Filters') }}</flux:heading>
+                    <flux:button variant="ghost" size="xs" wire:click="clearFilters">
+                        {{ __('Clear All') }}
+                    </flux:button>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Department Filter -->
+                    <flux:field>
+                        <flux:label>{{ __('Department') }}</flux:label>
+                        <flux:select wire:model.live="selectedDepartment">
+                            <option value="">{{ __('All Departments') }}</option>
+                            @foreach($departments as $department)
+                                <option value="{{ $department }}">{{ $department }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+
+                    <!-- Entry Level Filter -->
+                    <flux:field>
+                        <flux:label>{{ __('Entry Level') }}</flux:label>
+                        <flux:select wire:model.live="selectedEntryLevel">
+                            <option value="">{{ __('All Levels') }}</option>
+                            @foreach($entryLevelOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+
+                    <!-- Position Type Filter -->
+                    <flux:field>
+                        <flux:label>{{ __('Position Type') }}</flux:label>
+                        <flux:select wire:model.live="selectedPositionType">
+                            <option value="">{{ __('All Types') }}</option>
+                            @foreach($positionTypeOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+
+                    <!-- Work Type Filter -->
+                    <flux:field>
+                        <flux:label>{{ __('Work Type') }}</flux:label>
+                        <flux:select wire:model.live="selectedWorkType">
+                            <option value="">{{ __('All Work Types') }}</option>
+                            @foreach($workTypeOptions as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+                </div>
+
+                <!-- Active Filters Display -->
+                @if($search || $selectedDepartment || $selectedStatus || $selectedEntryLevel || $selectedPositionType || $selectedWorkType || $selectedPriority)
+                <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Active Filters:') }}</span>
+                    @if($search)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('search', '')">
+                            {{ __('Search') }}: {{ $search }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedDepartment)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedDepartment', '')">
+                            {{ __('Department') }}: {{ $selectedDepartment }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedStatus)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedStatus', '')">
+                            {{ __('Status') }}: {{ ucfirst($selectedStatus) }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedEntryLevel)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedEntryLevel', '')">
+                            {{ __('Level') }}: {{ $entryLevelOptions[$selectedEntryLevel] ?? $selectedEntryLevel }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedPositionType)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedPositionType', '')">
+                            {{ __('Position') }}: {{ $positionTypeOptions[$selectedPositionType] ?? $selectedPositionType }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedWorkType)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedWorkType', '')">
+                            {{ __('Work Type') }}: {{ $workTypeOptions[$selectedWorkType] ?? $selectedWorkType }}
+                        </flux:badge>
+                    @endif
+                    @if($selectedPriority)
+                        <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedPriority', '')">
+                            {{ __('Priority') }}: {{ $priorityOptions[$selectedPriority] ?? $selectedPriority }}
+                        </flux:badge>
+                    @endif
+                </div>
+                @endif
+            </div>
+            @endif
 
             <!-- Action Buttons -->
             <div class="flex items-center justify-between">
@@ -58,8 +171,25 @@
                     </flux:button>
                 </div>
                 
-                <!-- Additional Actions -->
+                <!-- View Toggle and Additional Actions -->
                 <div class="flex items-center gap-2">
+                    <!-- View Mode Toggle -->
+                    <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-700 rounded-lg p-1">
+                        <flux:button 
+                            variant="{{ $viewMode === 'grid' ? 'primary' : 'ghost' }}" 
+                            size="sm" 
+                            icon="table-cells" 
+                            wire:click="setViewMode('grid')"
+                            class="min-w-0"
+                        />
+                        <flux:button 
+                            variant="{{ $viewMode === 'kanban' ? 'primary' : 'ghost' }}" 
+                            size="sm" 
+                            icon="squares-2x2" 
+                            wire:click="setViewMode('kanban')"
+                            class="min-w-0"
+                        />
+                    </div>
                     <flux:button variant="ghost" size="sm" icon="arrow-path" wire:click="$refresh">
                         {{ __('Refresh') }}
                     </flux:button>
@@ -67,6 +197,8 @@
             </div>
         </div>
 
+        <!-- Grid View -->
+        @if($viewMode === 'grid')
         <!-- Jobs Table -->
         <div class="mt-8">
             @if($jobs->count() > 0)
@@ -141,7 +273,10 @@
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                 @foreach ($jobs as $job)
-                                    <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
+                                    <tr 
+                                        class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150 cursor-pointer"
+                                        onclick="window.location.href='{{ route('recruitment.jobs.show', $job['id']) }}'"
+                                    >
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">
                                                 {{ $job['title'] }}
@@ -212,14 +347,11 @@
                                             @endif
                                         </td>
                                         
-                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium" onclick="event.stopPropagation()">
                                             <div class="flex items-center gap-1">
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        <flux:menu.item icon="eye" href="{{ route('recruitment.jobs.show', $job['id']) }}" wire:navigate>
-                                                            {{ __('View Board') }}
-                                                        </flux:menu.item>
                                                         <flux:menu.item icon="pencil">
                                                             {{ __('Edit') }}
                                                         </flux:menu.item>
@@ -254,5 +386,200 @@
                 </div>
             @endif
         </div>
+        @else
+        <!-- Kanban View -->
+        <div class="mt-8">
+            <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                <div class="p-6">
+                    <div class="overflow-x-auto -mx-6 px-6" style="scrollbar-width: thin;">
+                        <div class="flex gap-4 pb-4" style="min-width: max-content;">
+                            <!-- Active Jobs Column -->
+                            <div class="flex-shrink-0" style="width: 320px; min-width: 320px;">
+                                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm w-full">
+                                    <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-600">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                                <flux:heading size="sm" level="3" class="font-semibold text-zinc-900 dark:text-white">
+                                                    {{ __('Active Jobs') }}
+                                                </flux:heading>
+                                                <flux:badge size="sm" color="gray" class="ml-1">
+                                                    {{ $jobs->where('status', 'active')->count() }}
+                                                </flux:badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 flex-1 min-h-[400px] space-y-3 bg-zinc-50 dark:bg-zinc-900/50">
+                                        @foreach($jobs->where('status', 'active') as $job)
+                                            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='{{ route('recruitment.jobs.show', $job['id']) }}'">
+                                                <div class="flex items-start justify-between mb-2">
+                                                    <flux:heading size="sm" level="4" class="font-semibold text-zinc-900 dark:text-white pr-2">
+                                                        {{ $job['title'] }}
+                                                    </flux:heading>
+                                                </div>
+                                                <div class="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="building-office" class="w-4 h-4" />
+                                                        <span>{{ $job['department'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="user" class="w-4 h-4" />
+                                                        <span>{{ $job['entry_level'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                        <span class="text-xs">{{ $job['applications_count'] }} {{ __('applications') }}</span>
+                                                        @php
+                                                            $priorityColors = [
+                                                                'Low' => 'gray',
+                                                                'Medium' => 'blue',
+                                                                'Urgent' => 'yellow',
+                                                                'Very Urgent' => 'red',
+                                                            ];
+                                                            $color = $priorityColors[$job['hiring_priority']] ?? 'gray';
+                                                        @endphp
+                                                        <flux:badge color="{{ $color }}" size="xs">
+                                                            {{ $job['hiring_priority'] }}
+                                                        </flux:badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                        @if($jobs->where('status', 'active')->count() === 0)
+                                            <div class="flex flex-col items-center justify-center h-full min-h-[300px] text-zinc-400 dark:text-zinc-500">
+                                                <flux:icon name="briefcase" class="w-8 h-8 mb-2 opacity-50" />
+                                                <p class="text-sm">{{ __('No active jobs') }}</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Paused Jobs Column -->
+                            <div class="flex-shrink-0" style="width: 320px; min-width: 320px;">
+                                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm w-full">
+                                    <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-600">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                <flux:heading size="sm" level="3" class="font-semibold text-zinc-900 dark:text-white">
+                                                    {{ __('Paused') }}
+                                                </flux:heading>
+                                                <flux:badge size="sm" color="gray" class="ml-1">
+                                                    {{ $jobs->where('status', 'paused')->count() }}
+                                                </flux:badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 flex-1 min-h-[400px] space-y-3 bg-zinc-50 dark:bg-zinc-900/50">
+                                        @foreach($jobs->where('status', 'paused') as $job)
+                                            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='{{ route('recruitment.jobs.show', $job['id']) }}'">
+                                                <div class="flex items-start justify-between mb-2">
+                                                    <flux:heading size="sm" level="4" class="font-semibold text-zinc-900 dark:text-white pr-2">
+                                                        {{ $job['title'] }}
+                                                    </flux:heading>
+                                                </div>
+                                                <div class="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="building-office" class="w-4 h-4" />
+                                                        <span>{{ $job['department'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="user" class="w-4 h-4" />
+                                                        <span>{{ $job['entry_level'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                        <span class="text-xs">{{ $job['applications_count'] }} {{ __('applications') }}</span>
+                                                        @php
+                                                            $priorityColors = [
+                                                                'Low' => 'gray',
+                                                                'Medium' => 'blue',
+                                                                'Urgent' => 'yellow',
+                                                                'Very Urgent' => 'red',
+                                                            ];
+                                                            $color = $priorityColors[$job['hiring_priority']] ?? 'gray';
+                                                        @endphp
+                                                        <flux:badge color="{{ $color }}" size="xs">
+                                                            {{ $job['hiring_priority'] }}
+                                                        </flux:badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                        @if($jobs->where('status', 'paused')->count() === 0)
+                                            <div class="flex flex-col items-center justify-center h-full min-h-[300px] text-zinc-400 dark:text-zinc-500">
+                                                <flux:icon name="briefcase" class="w-8 h-8 mb-2 opacity-50" />
+                                                <p class="text-sm">{{ __('No paused jobs') }}</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Closed Jobs Column -->
+                            <div class="flex-shrink-0" style="width: 320px; min-width: 320px;">
+                                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm w-full">
+                                    <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-600">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-2 h-2 rounded-full bg-gray-500"></div>
+                                                <flux:heading size="sm" level="3" class="font-semibold text-zinc-900 dark:text-white">
+                                                    {{ __('Closed') }}
+                                                </flux:heading>
+                                                <flux:badge size="sm" color="gray" class="ml-1">
+                                                    {{ $jobs->where('status', 'closed')->count() }}
+                                                </flux:badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 flex-1 min-h-[400px] space-y-3 bg-zinc-50 dark:bg-zinc-900/50">
+                                        @foreach($jobs->where('status', 'closed') as $job)
+                                            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='{{ route('recruitment.jobs.show', $job['id']) }}'">
+                                                <div class="flex items-start justify-between mb-2">
+                                                    <flux:heading size="sm" level="4" class="font-semibold text-zinc-900 dark:text-white pr-2">
+                                                        {{ $job['title'] }}
+                                                    </flux:heading>
+                                                </div>
+                                                <div class="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="building-office" class="w-4 h-4" />
+                                                        <span>{{ $job['department'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:icon name="user" class="w-4 h-4" />
+                                                        <span>{{ $job['entry_level'] }}</span>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                        <span class="text-xs">{{ $job['applications_count'] }} {{ __('applications') }}</span>
+                                                        @php
+                                                            $priorityColors = [
+                                                                'Low' => 'gray',
+                                                                'Medium' => 'blue',
+                                                                'Urgent' => 'yellow',
+                                                                'Very Urgent' => 'red',
+                                                            ];
+                                                            $color = $priorityColors[$job['hiring_priority']] ?? 'gray';
+                                                        @endphp
+                                                        <flux:badge color="{{ $color }}" size="xs">
+                                                            {{ $job['hiring_priority'] }}
+                                                        </flux:badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                        @if($jobs->where('status', 'closed')->count() === 0)
+                                            <div class="flex flex-col items-center justify-center h-full min-h-[300px] text-zinc-400 dark:text-zinc-500">
+                                                <flux:icon name="briefcase" class="w-8 h-8 mb-2 opacity-50" />
+                                                <p class="text-sm">{{ __('No closed jobs') }}</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
     </x-recruitment.layout>
 </section>

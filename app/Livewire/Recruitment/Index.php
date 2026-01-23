@@ -13,8 +13,14 @@ class Index extends Component
     public $search = '';
     public $selectedDepartment = '';
     public $selectedStatus = '';
+    public $selectedEntryLevel = '';
+    public $selectedPositionType = '';
+    public $selectedWorkType = '';
+    public $selectedPriority = '';
     public $sortBy = '';
     public $sortDirection = 'asc';
+    public $viewMode = 'grid'; // 'grid' or 'kanban'
+    public $showFilters = false;
 
     public function mount()
     {
@@ -41,6 +47,38 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatedSelectedEntryLevel()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedPositionType()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedWorkType()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedPriority()
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters()
+    {
+        $this->search = '';
+        $this->selectedDepartment = '';
+        $this->selectedStatus = '';
+        $this->selectedEntryLevel = '';
+        $this->selectedPositionType = '';
+        $this->selectedWorkType = '';
+        $this->selectedPriority = '';
+        $this->resetPage();
+    }
+
     public function sort($field)
     {
         if ($this->sortBy === $field) {
@@ -49,6 +87,11 @@ class Index extends Component
             $this->sortBy = $field;
             $this->sortDirection = 'asc';
         }
+    }
+    
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
     }
 
     public function render()
@@ -115,12 +158,73 @@ class Index extends Component
             });
         }
 
+        if ($this->selectedEntryLevel) {
+            $jobs = $jobs->filter(function ($job) {
+                return strtolower($job['entry_level']) === strtolower($this->selectedEntryLevel);
+            });
+        }
+
+        if ($this->selectedPositionType) {
+            $jobs = $jobs->filter(function ($job) {
+                return strtolower($job['position_type']) === strtolower($this->selectedPositionType);
+            });
+        }
+
+        if ($this->selectedWorkType) {
+            $jobs = $jobs->filter(function ($job) {
+                return strtolower($job['work_type']) === strtolower($this->selectedWorkType);
+            });
+        }
+
+        if ($this->selectedPriority) {
+            $jobs = $jobs->filter(function ($job) {
+                return strtolower($job['hiring_priority']) === strtolower($this->selectedPriority);
+            });
+        }
+
         // Get unique departments for filter
         $departments = ['IT', 'Marketing', 'HR', 'Finance', 'Operations'];
+
+        // Filter options
+        $entryLevelOptions = [
+            'intern' => 'Intern',
+            'junior' => 'Junior',
+            'mid-junior' => 'Mid-Junior',
+            'mid-level' => 'Mid Level',
+            'mid-senior' => 'Mid-Senior',
+            'senior' => 'Senior',
+            'team-lead' => 'Team Lead',
+            'above' => 'Team Lead and Above',
+        ];
+
+        $positionTypeOptions = [
+            'full-time' => 'Full Time',
+            'part-time' => 'Part Time',
+            'half-day' => 'Half Day',
+            'contract' => 'Contract',
+            'freelance' => 'Freelance',
+        ];
+
+        $workTypeOptions = [
+            'remote' => 'Remote',
+            'on-site' => 'On-Site',
+            'hybrid' => 'Hybrid',
+        ];
+
+        $priorityOptions = [
+            'low' => 'Low',
+            'medium' => 'Medium',
+            'urgent' => 'Urgent',
+            'very-urgent' => 'Very Urgent',
+        ];
 
         return view('livewire.recruitment.index', [
             'jobs' => $jobs,
             'departments' => $departments,
+            'entryLevelOptions' => $entryLevelOptions,
+            'positionTypeOptions' => $positionTypeOptions,
+            'workTypeOptions' => $workTypeOptions,
+            'priorityOptions' => $priorityOptions,
         ])->layout('components.layouts.app');
     }
 }
