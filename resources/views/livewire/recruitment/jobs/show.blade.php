@@ -369,36 +369,16 @@
                                                         </span>
                                                     </div>
                                                     <div class="flex items-center gap-2">
+                                                        @if(isset($card['candidate_linkedin']) && $card['candidate_linkedin'])
+                                                            <a href="{{ $card['candidate_linkedin'] }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#0077b5] hover:bg-[#006399] transition-colors">
+                                                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                                                </svg>
+                                                            </a>
+                                                        @endif
                                                         <flux:heading size="sm" level="4" class="font-semibold text-zinc-900 dark:text-white pr-2">
                                                             {{ $card['candidate_name'] ?? $card['title'] ?? 'Card Title' }}
                                                         </flux:heading>
-                                                        <!-- Hardcoded Badges for Testing -->
-                                                        @if($loop->index === 0)
-                                                            <!-- LinkedIn Badge -->
-                                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#0077b5] border border-[#0077b5]">
-                                                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                                                                </svg>
-                                                                <span class="text-xs font-medium text-white">LinkedIn</span>
-                                                            </div>
-                                                        @elseif($loop->index === 1)
-                                                            <!-- Glassdoor Badge -->
-                                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#0CAA41] border border-[#0CAA41]">
-                                                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M17.144 20.572H3.43A3.43 3.43 0 0 1 0 17.14V6.43A3.43 3.43 0 0 1 3.429 3H17.14a3.43 3.43 0 0 1 3.429 3.43V17.14a3.43 3.43 0 0 1-3.43 3.43zM3.43 4.286a2.143 2.143 0 0 0-2.144 2.143V17.14a2.143 2.143 0 0 0 2.144 2.143H17.14a2.143 2.143 0 0 0 2.143-2.143V6.43a2.143 2.143 0 0 0-2.143-2.144z"/>
-                                                                    <path d="M5.143 8.571h13.714v1.714H5.143zm0 3.429h13.714v1.714H5.143zm0 3.428h9.143v1.715H5.143z"/>
-                                                                </svg>
-                                                                <span class="text-xs font-medium text-white">Glassdoor</span>
-                                                            </div>
-                                                        @else
-                                                            <!-- Indeed Badge -->
-                                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#003A9B]/10 dark:bg-[#003A9B]/20 border border-[#003A9B]/30 dark:border-[#003A9B]/40">
-                                                                <svg class="w-3 h-3 text-[#003A9B] dark:text-[#003A9B]" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M11.853 0C5.31 0 0 5.314 0 11.853c0 5.23 3.33 9.684 8.005 11.302.585.109.8-.254.8-.567 0-.28-.01-1.022-.015-2.005-3.233.703-3.917-1.56-3.917-1.56-.532-1.352-1.299-1.713-1.299-1.713-1.062-.726.08-.712.08-.712 1.175.083 1.793 1.206 1.793 1.206 1.044 1.79 2.74 1.273 3.404.974.106-.757.408-1.273.743-1.566-2.6-.295-5.332-1.3-5.332-5.79 0-1.28.457-2.326 1.206-3.145-.12-.295-.522-1.483.114-3.09 0 0 .984-.314 3.22 1.2.934-.26 1.937-.39 2.934-.394.997.004 2 .134 2.934.393 2.236-1.513 3.22-1.2 3.22-1.2.636 1.607.234 2.795.114 3.09.75.82 1.206 1.866 1.206 3.145 0 4.5-2.733 5.493-5.337 5.787.42.362.793 1.075.793 2.166 0 1.566-.014 2.826-.014 3.206 0 .315.214.68.805.566C20.67 21.537 24 17.083 24 11.853 24 5.314 18.69 0 11.853 0"/>
-                                                                </svg>
-                                                                <span class="text-xs font-medium text-[#003A9B] dark:text-[#003A9B]">Indeed</span>
-                                                            </div>
-                                                        @endif
                                                         @if(isset($card['candidate_source']) && $card['candidate_source'])
                                                             @php
                                                                 $sourceIcons = [
@@ -859,16 +839,16 @@
                                 </span>
                             </div>
                             <div class="flex items-center gap-2">
+                                @if(isset($selectedCard['candidate_linkedin']) && $selectedCard['candidate_linkedin'])
+                                    <a href="{{ $selectedCard['candidate_linkedin'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0077b5] hover:bg-[#006399] transition-colors">
+                                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                        </svg>
+                                    </a>
+                                @endif
                                 <flux:heading size="xl" level="2" class="mb-0 font-semibold">
                                     {{ $selectedCard['candidate_name'] ?? $selectedCard['title'] ?? 'Candidate' }}
                                 </flux:heading>
-                                <!-- Hardcoded LinkedIn Badge for Testing -->
-                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0077b5] border border-[#0077b5]">
-                                    <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                                    </svg>
-                                    <span class="px-1 text-xs font-medium text-white">LinkedIn</span>
-                                </div>
                                 @if(isset($selectedCard['candidate_source']) && $selectedCard['candidate_source'])
                                     @php
                                         $sourceIcons = [
@@ -926,17 +906,17 @@
                                     {{ __('Basic Information') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('First Name') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('First Name') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_first_name'] ?? ($selectedCard['candidate_name'] ? explode(' ', $selectedCard['candidate_name'])[0] : '-') }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Last Name') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Last Name') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_last_name'] ?? ($selectedCard['candidate_name'] ? (explode(' ', $selectedCard['candidate_name'])[1] ?? '-') : '-') }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Date of Birth') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Date of Birth') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_dob']) && $selectedCard['candidate_dob'])
                                                     {{ \Carbon\Carbon::parse($selectedCard['candidate_dob'])->format('M d, Y') }}
@@ -1017,24 +997,26 @@
                                     {{ __('Contact Information') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Email') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Email') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_email'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Phone') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Phone') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_phone'] ?? '-' }}</span>
                                         </div>
-                                        <div class="col-span-2">
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('LinkedIn') }}:</span>
-                                            @if(isset($selectedCard['candidate_linkedin']) && $selectedCard['candidate_linkedin'])
-                                                <a href="{{ $selectedCard['candidate_linkedin'] }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline ml-2">
-                                                    {{ __('View Profile') }}
-                                                </a>
-                                            @else
-                                                <span class="text-zinc-900 dark:text-zinc-100 ml-2">-</span>
-                                            @endif
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('LinkedIn') }} :</span>
+                                            <span class="ml-2">
+                                                @if(isset($selectedCard['candidate_linkedin']) && $selectedCard['candidate_linkedin'])
+                                                    <a href="{{ $selectedCard['candidate_linkedin'] }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                                        {{ __('View Profile') }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-zinc-900 dark:text-zinc-100">-</span>
+                                                @endif
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1046,17 +1028,17 @@
                                     {{ __('Professional Details') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Position') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Position') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_position'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Designation') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Designation') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_designation'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Experience') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Experience') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_experience']))
                                                     {{ $selectedCard['candidate_experience'] }} {{ __('years') }}
@@ -1065,8 +1047,8 @@
                                                 @endif
                                             </span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Source') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Source') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_source'] ?? '-' }}</span>
                                         </div>
                                     </div>
@@ -1079,17 +1061,17 @@
                                     {{ __('Location & Address') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div class="col-span-2">
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Current Address') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Current Address') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_current_address'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('City') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('City') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_city'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Country') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Country') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_country'] ?? '-' }}</span>
                                         </div>
                                     </div>
@@ -1102,13 +1084,13 @@
                                     {{ __('Current Employment') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Current Company') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Current Company') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">{{ $selectedCard['candidate_current_company'] ?? '-' }}</span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Notice Period') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Notice Period') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_notice_period']) && $selectedCard['candidate_notice_period'])
                                                     {{ $selectedCard['candidate_notice_period'] }} {{ __('days') }}
@@ -1160,19 +1142,19 @@
                                     {{ __('Additional Information') }}
                                 </flux:heading>
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Expected Salary') }}:</span>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Expected Salary') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_expected_salary']) && $selectedCard['candidate_expected_salary'])
-                                                    ${{ number_format($selectedCard['candidate_expected_salary'], 0) }}
+                                                    {{ number_format($selectedCard['candidate_expected_salary'], 0) }}
                                                 @else
                                                     -
                                                 @endif
                                             </span>
                                         </div>
-                                        <div>
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('Availability Date') }}:</span>
+                                        <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Availability Date') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_availability_date']) && $selectedCard['candidate_availability_date'])
                                                     {{ \Carbon\Carbon::parse($selectedCard['candidate_availability_date'])->format('M d, Y') }}
