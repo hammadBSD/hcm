@@ -11,6 +11,7 @@ use App\Models\Recruitment\PipelineStage;
 use App\Models\Recruitment\JobPostHistory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class Create extends Component
@@ -70,6 +71,7 @@ class Create extends Component
     public $reportingToOptions = [];
     public $lineManagers = [];
     public $lineManager = '';
+    public $applicationUrl = null;
 
     public function mount()
     {
@@ -149,8 +151,12 @@ class Create extends Component
             // Get or create default pipeline
             $defaultPipeline = $this->getOrCreateDefaultPipeline($user->id);
 
+            // Generate unique ID (16 characters)
+            $uniqueId = $this->generateUniqueId();
+
             // Create job post
             $jobPost = JobPost::create([
+                'unique_id' => $uniqueId,
                 'title' => $this->jobTitle,
                 'description' => $this->jobDescription ?: null,
                 'department_id' => $this->department,
@@ -160,7 +166,7 @@ class Create extends Component
                 'work_type' => $this->workType,
                 'hiring_priority' => $this->hiringPriority,
                 'number_of_positions' => $this->numberOfPositions,
-                'status' => 'draft',
+                'status' => 'active',
                 'location' => $this->location ?: null,
                 'budget' => $this->budget ? (float) $this->budget : null,
                 'application_deadline' => $this->applicationDeadline ?: null,
@@ -189,6 +195,19 @@ class Create extends Component
             DB::rollBack();
             session()->flash('error', 'Failed to create job post: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Generate a unique 16-character ID
+     */
+    private function generateUniqueId()
+    {
+        do {
+            // Generate a 16-character alphanumeric string with dashes for readability
+            $uniqueId = Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4) . '-' . Str::random(4);
+        } while (JobPost::where('unique_id', $uniqueId)->exists());
+
+        return $uniqueId;
     }
 
     /**

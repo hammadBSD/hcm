@@ -20,9 +20,28 @@ Route::view('dashboard', 'dashboard')
     ->name('dashboard');
 
 // Public Job Application Route (no auth required)
-Route::get('recruitment/jobs/{id}/apply', \App\Livewire\Recruitment\Jobs\Apply::class)->name('recruitment.jobs.apply');
+Route::get('recruitment/jobs/{uniqueId}/apply', \App\Livewire\Recruitment\Jobs\Apply::class)->name('recruitment.jobs.apply');
 
 Route::middleware(['auth'])->group(function () {
+    // Candidate Attachment Download Route
+    Route::get('recruitment/candidates/{candidateId}/attachments/download', function ($candidateId, \Illuminate\Http\Request $request) {
+        $filePath = base64_decode($request->query('file'));
+        
+        if (!$filePath) {
+            abort(404);
+        }
+        
+        $attachment = \App\Models\Recruitment\CandidateAttachment::where('candidate_id', $candidateId)
+            ->where('file_path', $filePath)
+            ->first();
+        
+        if (!$attachment || !\Illuminate\Support\Facades\Storage::disk('public')->exists($filePath)) {
+            abort(404);
+        }
+        
+        return \Illuminate\Support\Facades\Storage::disk('public')->download($filePath, $attachment->file_name);
+    })->name('recruitment.candidates.attachment.download');
+    
     // Profile Route
     Route::get('profile', \App\Livewire\Profile::class)->name('profile');
     

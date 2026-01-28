@@ -37,6 +37,7 @@ class Apply extends Component
     public $candidateNoticePeriod = '';
     public $candidateLinkedIn = '';
     public $candidateExpectedSalary = '';
+    public $candidateCurrentSalary = '';
     public $candidateAvailabilityDate = '';
     
     // Previous companies (dynamic array)
@@ -54,13 +55,19 @@ class Apply extends Component
     public $sourceOptions = [];
     
     public $showSuccessMessage = false;
+    public $referrerId = null;
 
-    public function mount($id)
+    public function mount($uniqueId)
     {
-        $this->jobId = $id;
+        // Load job post from database by unique_id
+        $jobPost = JobPost::where('unique_id', $uniqueId)
+            ->with(['department', 'designation'])
+            ->firstOrFail();
         
-        // Load job post from database
-        $jobPost = JobPost::with(['department', 'designation'])->findOrFail($id);
+        $this->jobId = $jobPost->id;
+        
+        // Capture referrer from query parameter
+        $this->referrerId = request()->query('ref');
         
         $this->job = [
             'id' => $jobPost->id,
@@ -135,6 +142,7 @@ class Apply extends Component
             'candidateNoticePeriod' => 'nullable|numeric|min:0|max:365',
             'candidateLinkedIn' => 'nullable|url|max:255',
             'candidateExpectedSalary' => 'nullable|numeric|min:0',
+            'candidateCurrentSalary' => 'nullable|numeric|min:0',
             'candidateAvailabilityDate' => 'nullable|date',
             'previousCompanies.*.company' => 'nullable|string|max:255',
             'previousCompanies.*.position' => 'nullable|string|max:255',
@@ -218,10 +226,11 @@ class Apply extends Component
                 'current_company' => $this->candidateCurrentCompany ?: null,
                 'notice_period' => $this->candidateNoticePeriod ?: null,
                 'expected_salary' => $this->candidateExpectedSalary ?: null,
+                'current_salary' => $this->candidateCurrentSalary ?: null,
                 'availability_date' => $this->candidateAvailabilityDate ?: null,
                 'rating' => 0,
                 'status' => 'active',
-                'created_by' => null, // Public application
+                'created_by' => $this->referrerId ?: null, // Set referrer if provided
             ]);
 
             // Handle file uploads
@@ -293,6 +302,7 @@ class Apply extends Component
         $this->candidateNoticePeriod = '';
         $this->candidateLinkedIn = '';
         $this->candidateExpectedSalary = '';
+        $this->candidateCurrentSalary = '';
         $this->candidateAvailabilityDate = '';
         $this->previousCompanies = [];
         $this->candidateAttachments = [];

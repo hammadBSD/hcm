@@ -30,7 +30,7 @@
                         <flux:label>{{ __('Status') }}</flux:label>
                         <flux:select wire:model.live="selectedStatus">
                             <option value="">{{ __('All Status') }}</option>
-                            <option value="active">{{ __('Active') }}</option>
+                            <option value="active">{{ __('Open') }}</option>
                             <option value="paused">{{ __('Paused') }}</option>
                             <option value="closed">{{ __('Closed') }}</option>
                         </flux:select>
@@ -135,7 +135,7 @@
                     @endif
                     @if($selectedStatus)
                         <flux:badge color="blue" size="sm" dismissible wire:click="$set('selectedStatus', '')">
-                            {{ __('Status') }}: {{ ucfirst($selectedStatus) }}
+                            {{ __('Status') }}: {{ $selectedStatus === 'active' ? __('Open') : ucfirst($selectedStatus) }}
                         </flux:badge>
                     @endif
                     @if($selectedEntryLevel)
@@ -334,7 +334,7 @@
                                         <td class="px-6 py-6 whitespace-nowrap">
                                             @if($job['status'] === 'active')
                                                 <flux:badge color="green" size="sm">
-                                                    {{ __('Active') }}
+                                                    {{ __('Open') }}
                                                 </flux:badge>
                                             @elseif($job['status'] === 'paused')
                                                 <flux:badge color="yellow" size="sm">
@@ -355,6 +355,33 @@
                                                         <flux:menu.item icon="pencil">
                                                             {{ __('Edit') }}
                                                         </flux:menu.item>
+                                                        <flux:menu.separator />
+                                                        <flux:menu.heading>{{ __('Change Status') }}</flux:menu.heading>
+                                                        <flux:menu.item 
+                                                            icon="check-circle" 
+                                                            wire:click="updateStatus({{ $job['id'] }}, 'active')"
+                                                            wire:confirm="{{ __('Are you sure you want to change the status to Open?') }}"
+                                                            :disabled="$job['status'] === 'active'"
+                                                        >
+                                                            {{ __('Open') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item 
+                                                            icon="pause-circle" 
+                                                            wire:click="updateStatus({{ $job['id'] }}, 'paused')"
+                                                            wire:confirm="{{ __('Are you sure you want to pause this job post?') }}"
+                                                            :disabled="$job['status'] === 'paused'"
+                                                        >
+                                                            {{ __('Paused') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item 
+                                                            icon="x-circle" 
+                                                            wire:click="updateStatus({{ $job['id'] }}, 'closed')"
+                                                            wire:confirm="{{ __('Are you sure you want to close this job post?') }}"
+                                                            :disabled="$job['status'] === 'closed'"
+                                                        >
+                                                            {{ __('Closed') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.separator />
                                                         <flux:menu.item icon="trash" variant="danger">
                                                             {{ __('Delete') }}
                                                         </flux:menu.item>
@@ -368,7 +395,7 @@
                         </table>
                         
                         @if(isset($jobPosts) && method_exists($jobPosts, 'links'))
-                            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
+                            <div class="px-6 py-4">
                                 {{ $jobPosts->links() }}
                             </div>
                         @endif
@@ -407,7 +434,7 @@
                                             <div class="flex items-center gap-2">
                                                 <div class="w-2 h-2 rounded-full bg-green-500"></div>
                                                 <flux:heading size="sm" level="3" class="font-semibold text-zinc-900 dark:text-white">
-                                                    {{ __('Active Jobs') }}
+                                                    {{ __('Open Jobs') }}
                                                 </flux:heading>
                                                 <flux:badge size="sm" color="gray" class="ml-1">
                                                     {{ $jobs->where('status', 'active')->count() }}
@@ -453,7 +480,7 @@
                                         @if($jobs->where('status', 'active')->count() === 0)
                                             <div class="flex flex-col items-center justify-center h-full min-h-[300px] text-zinc-400 dark:text-zinc-500">
                                                 <flux:icon name="briefcase" class="w-8 h-8 mb-2 opacity-50" />
-                                                <p class="text-sm">{{ __('No active jobs') }}</p>
+                                                <p class="text-sm">{{ __('No open jobs') }}</p>
                                             </div>
                                         @endif
                                     </div>

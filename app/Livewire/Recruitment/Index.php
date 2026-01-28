@@ -4,6 +4,7 @@ namespace App\Livewire\Recruitment;
 
 use App\Models\Department;
 use App\Models\Recruitment\JobPost;
+use App\Models\Recruitment\JobPostHistory;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -94,6 +95,46 @@ class Index extends Component
     public function setViewMode($mode)
     {
         $this->viewMode = $mode;
+    }
+
+    public function updateStatus($jobId, $status)
+    {
+        $user = Auth::user();
+        
+        // Check if user is Super Admin or HR Manager
+        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
+            session()->flash('error', 'Unauthorized access.');
+            return;
+        }
+
+        $validStatuses = ['active', 'paused', 'closed'];
+        if (!in_array($status, $validStatuses)) {
+            session()->flash('error', 'Invalid status.');
+            return;
+        }
+
+        try {
+            $jobPost = JobPost::findOrFail($jobId);
+            $oldStatus = $jobPost->status;
+            
+            $jobPost->update(['status' => $status]);
+            
+            // Create history entry
+            JobPostHistory::create([
+                'job_post_id' => $jobPost->id,
+                'action_type' => 'status_changed',
+                'notes' => "Status changed from {$oldStatus} to {$status}",
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            session()->flash('message', 'Job post status updated successfully.');
+            
+            // Reset pagination to first page to show updated data
+            $this->resetPage();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to update status: ' . $e->getMessage());
+        }
     }
 
     public function render()

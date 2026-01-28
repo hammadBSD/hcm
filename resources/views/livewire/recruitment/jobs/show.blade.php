@@ -5,17 +5,55 @@
         <!-- Job Header -->
         <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-start justify-between">
-                <div>
+                <div class="flex-1">
                     <div class="flex items-center gap-3 mb-2">
                         <flux:heading size="xl" level="2">
                             {{ $job['title'] ?? 'Job Title' }}
                         </flux:heading>
-                        @if($job && $job['status'] === 'active')
-                            <flux:badge color="green" size="sm">
-                                {{ __('Active') }}
+                        @if($job && isset($job['status']))
+                            @if($job['status'] === 'active')
+                                <flux:badge color="green" size="sm">
+                                    {{ __('Open') }}
+                                </flux:badge>
+                            @elseif($job['status'] === 'paused')
+                                <flux:badge color="yellow" size="sm">
+                                    {{ __('Paused') }}
+                                </flux:badge>
+                            @else
+                                <flux:badge color="gray" size="sm">
+                                    {{ __('Closed') }}
+                                </flux:badge>
+                            @endif
+                        @endif
+                        @if($job && isset($job['hiring_priority']))
+                            @php
+                                $priorityColors = [
+                                    'low' => 'gray',
+                                    'medium' => 'blue',
+                                    'urgent' => 'yellow',
+                                    'very-urgent' => 'red',
+                                ];
+                                $priorityLabels = [
+                                    'low' => 'Low',
+                                    'medium' => 'Medium',
+                                    'urgent' => 'Urgent',
+                                    'very-urgent' => 'Very Urgent',
+                                ];
+                                $color = $priorityColors[$job['hiring_priority']] ?? 'gray';
+                                $label = $priorityLabels[$job['hiring_priority']] ?? ucfirst($job['hiring_priority']);
+                            @endphp
+                            <flux:badge color="{{ $color }}" size="sm">
+                                {{ $label }}
                             </flux:badge>
                         @endif
                     </div>
+                    
+                    @if($job && isset($job['description']) && $job['description'])
+                        <div class="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+                            {{ \Illuminate\Support\Str::limit($job['description'], 200) }}
+                        </div>
+                    @endif
+                    
                     <div class="flex flex-wrap items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
                         <div class="flex items-center gap-1">
                             <flux:icon name="building-office" class="w-4 h-4" />
@@ -33,9 +71,21 @@
                             <flux:icon name="map-pin" class="w-4 h-4" />
                             <span>{{ $job['work_type'] ?? 'N/A' }}</span>
                         </div>
+                        @if($job && isset($job['candidates_count']))
+                            <div class="flex items-center gap-1">
+                                <flux:icon name="users" class="w-4 h-4" />
+                                <span>{{ $job['candidates_count'] }} {{ __('Applicants') }}</span>
+                            </div>
+                        @endif
+                        @if($job && isset($job['created_by_name']))
+                            <div class="flex items-center gap-1">
+                                <flux:icon name="user-circle" class="w-4 h-4" />
+                                <span>{{ __('Posted by') }}: {{ $job['created_by_name'] }}</span>
+                            </div>
+                        @endif
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 ml-4">
                     <flux:button variant="outline" icon="arrow-left" href="{{ route('recruitment.index') }}" wire:navigate>
                         {{ __('Back to Jobs') }}
                     </flux:button>
@@ -45,6 +95,70 @@
                 </div>
             </div>
         </div>
+
+        <!-- Application URL Section -->
+        @if($job && isset($job['unique_id']) && $job['unique_id'])
+            @php
+                $baseUrl = route('recruitment.jobs.apply', ['uniqueId' => $job['unique_id']]);
+                $displayUrl = $baseUrl;
+                if(auth()->check()) {
+                    $displayUrl .= '?ref=' . auth()->id();
+                }
+            @endphp
+            <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <flux:heading size="sm" class="mb-2 text-blue-900 dark:text-blue-100">
+                    {{ __('Application URL') }}
+                </flux:heading>
+                <div 
+                    class="flex items-center gap-2"
+                    x-data="{ 
+                        copied: false,
+                        url: @js($displayUrl),
+                        copyUrl() {
+                            const input = document.createElement('input');
+                            input.value = this.url;
+                            input.style.position = 'fixed';
+                            input.style.left = '-999999px';
+                            document.body.appendChild(input);
+                            input.select();
+                            input.setSelectionRange(0, 99999);
+                            try {
+                                document.execCommand('copy');
+                                this.copied = true;
+                                setTimeout(() => this.copied = false, 2000);
+                            } catch (err) {
+                                console.warn('Could not copy', err);
+                            }
+                            document.body.removeChild(input);
+                        }
+                    }"
+                >
+                    <flux:input 
+                        type="text" 
+                        value="{{ $displayUrl }}" 
+                        readonly 
+                        class="flex-1 font-mono text-sm"
+                    />
+                    <button 
+                        type="button"
+                        @click="copyUrl()"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+                    >
+                        <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        <svg x-show="copied" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span x-show="!copied">{{ __('Copy') }}</span>
+                        <span x-show="copied" class="text-green-500">{{ __('Copied!') }}</span>
+                    </button>
+                </div>
+                <flux:text class="mt-2 text-xs text-blue-700 dark:text-blue-300">
+                    {{ __('Share this URL with candidates to apply for this job. The ref parameter will automatically include the referrer ID when shared by logged-in employees.') }}
+                </flux:text>
+            </div>
+        @endif
 
         <!-- Pipeline Selector and Actions -->
         <div class="mb-6 flex items-center justify-between">
@@ -354,11 +468,17 @@
                                 >
                                 @if(isset($stage['cards']) && count($stage['cards']) > 0)
                                     @foreach($stage['cards'] as $card)
+                                        @php
+                                            $isRejected = isset($card['status']) && $card['status'] === 'rejected';
+                                            $canMove = !($settings && $settings->prevent_move_rejected_candidates && $isRejected);
+                                        @endphp
                                         <div 
-                                            class="bg-white dark:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-600 p-4 cursor-pointer hover:shadow-md transition-shadow"
-                                            draggable="true"
-                                            ondragstart="@this.call('dragStart', {{ $card['id'] }}, {{ $stage['id'] }}); event.dataTransfer.effectAllowed = 'move';"
-                                            ondragend="@this.call('dragEnd')"
+                                            class="bg-white dark:bg-zinc-700 rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow {{ $isRejected ? 'border-red-500 dark:border-red-600 border-2' : 'border-zinc-200 dark:border-zinc-600' }}"
+                                            draggable="{{ $canMove ? 'true' : 'false' }}"
+                                            @if($canMove)
+                                                ondragstart="@this.call('dragStart', {{ $card['id'] }}, {{ $stage['id'] }}); event.dataTransfer.effectAllowed = 'move';"
+                                                ondragend="@this.call('dragEnd')"
+                                            @endif
                                             onclick="event.stopPropagation(); @this.call('openCardDetail', {{ $card['id'] }}, {{ $stage['id'] }})"
                                         >
                                             <div class="flex items-start justify-between mb-2">
@@ -367,6 +487,9 @@
                                                         <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                                                             Applicant #{{ $card['applicant_number'] ?? $card['id'] ?? 'N/A' }}
                                                         </span>
+                                                        @if(isset($card['status']) && $card['status'] === 'rejected')
+                                                            <flux:badge color="red" size="sm">{{ __('Rejected') }}</flux:badge>
+                                                        @endif
                                                     </div>
                                                     <div class="flex items-center gap-2">
                                                         @if(isset($card['candidate_linkedin']) && $card['candidate_linkedin'])
@@ -730,6 +853,12 @@
                         </flux:field>
 
                         <flux:field>
+                            <flux:label>{{ __('Current Salary') }}</flux:label>
+                            <flux:input type="number" wire:model="candidateCurrentSalary" placeholder="e.g., 45000" min="0" step="0.01" />
+                            @error('candidateCurrentSalary') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Expected Salary') }}</flux:label>
                             <flux:input type="number" wire:model="candidateExpectedSalary" placeholder="e.g., 50000" min="0" step="0.01" />
                             @error('candidateExpectedSalary') <flux:error>{{ $message }}</flux:error> @enderror
@@ -823,7 +952,12 @@
                     <div class="flex-1 flex items-start gap-4">
                         <div class="flex items-center gap-2">
                             <flux:field class="mb-0">
-                                <flux:select wire:model.live="selectedCardStageId" class="w-40 text-sm">
+                                <flux:select 
+                                    wire:model="selectedCardStageId"
+                                    wire:change="moveCardToStage($event.target.value)"
+                                    class="w-40 text-sm"
+                                    :disabled="$settings && $settings->prevent_move_rejected_candidates && isset($selectedCard['status']) && $selectedCard['status'] === 'rejected'"
+                                >
                                     @if($this->selectedPipeline && isset($this->selectedPipeline['stages']))
                                         @foreach($this->selectedPipeline['stages'] as $stage)
                                             <option value="{{ $stage['id'] }}">{{ $stage['name'] }}</option>
@@ -833,10 +967,18 @@
                             </flux:field>
                         </div>
                         <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                                     Applicant #{{ $selectedCard['applicant_number'] ?? $selectedCard['id'] ?? 'N/A' }}
                                 </span>
+                                @if(isset($selectedCard['status']) && $selectedCard['status'] === 'rejected')
+                                    <flux:badge color="red" size="sm">{{ __('Rejected') }}</flux:badge>
+                                @endif
+                                @if(isset($selectedCard['referrer_name']) && $selectedCard['referrer_name'])
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        • {{ __('Referred by') }}: {{ $selectedCard['referrer_name'] }}
+                                    </span>
+                                @endif
                             </div>
                             <div class="flex items-center gap-2">
                                 @if(isset($selectedCard['candidate_linkedin']) && $selectedCard['candidate_linkedin'])
@@ -1144,6 +1286,16 @@
                                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
                                     <div class="space-y-3 text-sm">
                                         <div class="flex items-start">
+                                            <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Current Salary') }} :</span>
+                                            <span class="text-zinc-900 dark:text-zinc-100 ml-2">
+                                                @if(isset($selectedCard['candidate_current_salary']) && $selectedCard['candidate_current_salary'])
+                                                    {{ number_format($selectedCard['candidate_current_salary'], 0) }}
+                                                @else
+                                                    -
+                                                @endif
+                                            </span>
+                                        </div>
+                                        <div class="flex items-start">
                                             <span class="text-zinc-500 dark:text-zinc-400 font-medium min-w-[140px]">{{ __('Expected Salary') }} :</span>
                                             <span class="text-zinc-900 dark:text-zinc-100 ml-2">
                                                 @if(isset($selectedCard['candidate_expected_salary']) && $selectedCard['candidate_expected_salary'])
@@ -1173,25 +1325,57 @@
                                     <flux:heading size="sm" class="text-zinc-700 dark:text-zinc-300 font-semibold">
                                         {{ __('Attachments') }}
                                     </flux:heading>
-                                    <flux:button variant="ghost" size="xs" icon="plus" class="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
+                                    <flux:button variant="ghost" size="xs" icon="plus" class="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" wire:click="toggleAttachmentInput">
                                         {{ __('Add') }}
                                     </flux:button>
                                 </div>
+                                
+                                @if($showAttachmentInput)
+                                    <div class="space-y-2 p-3 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700">
+                                        <flux:field>
+                                            <flux:label>{{ __('Upload Files') }}</flux:label>
+                                            <flux:input type="file" wire:model="modalAttachments" multiple />
+                                            <flux:description>{{ __('Maximum 20MB per file. Accepted file types: PDF, DOC, DOCX, images, etc.') }}</flux:description>
+                                            @error('modalAttachments.*') <flux:error>{{ $message }}</flux:error> @enderror
+                                        </flux:field>
+                                        @if(!empty($modalAttachments))
+                                            <div class="space-y-1">
+                                                @foreach($modalAttachments as $index => $attachment)
+                                                    <div class="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-400">
+                                                        <span>{{ $attachment->getClientOriginalName() }}</span>
+                                                        <span class="text-xs">({{ number_format($attachment->getSize() / 1024, 2) }} KB)</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                        <div class="flex gap-2 justify-end">
+                                            <flux:button variant="ghost" size="sm" wire:click="toggleAttachmentInput">
+                                                {{ __('Cancel') }}
+                                            </flux:button>
+                                            <flux:button size="sm" wire:click="addAttachments" :disabled="empty($modalAttachments)">
+                                                {{ __('Upload') }}
+                                            </flux:button>
+                                        </div>
+                                    </div>
+                                @endif
+                                
                                 @if(isset($selectedCard['candidate_attachments']) && !empty($selectedCard['candidate_attachments']))
                                     <div class="space-y-2">
                                         @foreach($selectedCard['candidate_attachments'] as $attachment)
-                                            <div class="flex items-center justify-between p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                                <div class="flex items-center gap-2">
-                                                    <flux:icon name="document" class="w-4 h-4 text-zinc-500" />
-                                                    <span class="text-sm text-zinc-900 dark:text-zinc-100">{{ basename($attachment) }}</span>
+                                            <div class="flex items-center justify-between gap-2 p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                                    <flux:icon name="document" class="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                                                    <span class="text-sm text-zinc-900 dark:text-zinc-100 truncate" title="{{ basename($attachment) }}">{{ basename($attachment) }}</span>
                                                 </div>
-                                                <flux:button variant="ghost" size="xs" icon="arrow-down-tray" class="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-                                                    {{ __('Download') }}
-                                                </flux:button>
+                                                <a href="{{ route('recruitment.candidates.attachment.download', ['candidateId' => $selectedCard['id'], 'file' => base64_encode($attachment)]) }}" target="_blank" class="inline-flex">
+                                                    <flux:button variant="ghost" size="xs" icon="arrow-down-tray" class="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 flex-shrink-0">
+                                                        {{ __('Download') }}
+                                                    </flux:button>
+                                                </a>
                                             </div>
                                         @endforeach
                                     </div>
-                                @else
+                                @elseif(!$showAttachmentInput)
                                     <div class="bg-white dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 italic">
                                         {{ __('No attachments') }}
                                     </div>
@@ -1207,21 +1391,56 @@
                                     {{ __('Add to card') }}
                                 </flux:heading>
                                 <div class="flex flex-wrap gap-2">
-                                    <flux:badge as="button" rounded icon="user-plus" size="sm" color="zinc" class="cursor-pointer">
+                                    <flux:badge as="button" rounded icon="user-plus" size="sm" color="zinc" class="cursor-pointer" wire:click="handleCardAction('members')">
                                         {{ __('Members') }}
                                     </flux:badge>
-                                    <flux:badge as="button" rounded icon="tag" size="sm" color="zinc" class="cursor-pointer">
+                                    <flux:badge as="button" rounded icon="tag" size="sm" color="zinc" class="cursor-pointer" wire:click="handleCardAction('labels')">
                                         {{ __('Labels') }}
                                     </flux:badge>
-                                    <flux:badge as="button" rounded icon="calendar" size="sm" color="zinc" class="cursor-pointer">
+                                    <flux:badge as="button" rounded icon="calendar" size="sm" color="zinc" class="cursor-pointer" wire:click="handleCardAction('dates')">
                                         {{ __('Dates') }}
                                     </flux:badge>
-                                    <flux:badge as="button" rounded icon="check-circle" size="sm" color="zinc" class="cursor-pointer">
+                                    <flux:badge as="button" rounded icon="check-circle" size="sm" color="zinc" class="cursor-pointer" wire:click="handleCardAction('checklist')">
                                         {{ __('Checklist') }}
                                     </flux:badge>
-                                    <flux:badge as="button" rounded icon="paper-clip" size="sm" color="zinc" class="cursor-pointer">
+                                    <flux:badge as="button" rounded icon="paper-clip" size="sm" color="zinc" class="cursor-pointer" wire:click="handleCardAction('attachment')">
                                         {{ __('Attachment') }}
                                     </flux:badge>
+                                </div>
+                                @php
+                                    $isRejected = isset($selectedCard['status']) && $selectedCard['status'] === 'rejected';
+                                    $showHireButton = !$isRejected; // Hide hire button if rejected
+                                    if (!$isRejected && $settings && $settings->show_hire_button_last_stage_only && isset($selectedCardStageId)) {
+                                        // Get the pipeline and check if current stage is the last one
+                                        $pipeline = collect($pipelines)->firstWhere('id', $selectedPipelineId);
+                                        if ($pipeline && isset($pipeline['stages']) && count($pipeline['stages']) > 0) {
+                                            // Sort stages by order and get the last one
+                                            $stages = collect($pipeline['stages'])->sortByDesc(function($stage) {
+                                                // Try to get order from stage data, or use ID as fallback
+                                                return $stage['order'] ?? ($stage['id'] ?? 0);
+                                            });
+                                            $lastStage = $stages->first();
+                                            $showHireButton = $lastStage && ($lastStage['id'] ?? null) == $selectedCardStageId;
+                                        } else {
+                                            $showHireButton = false;
+                                        }
+                                    }
+                                @endphp
+                                <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700 justify-end">
+                                    @if($showHireButton)
+                                        <flux:button size="sm" color="green" icon="check-circle" wire:click="hireCandidate">
+                                            {{ __('Hire') }}
+                                        </flux:button>
+                                    @endif
+                                    @if($isRejected)
+                                        <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoRejectCandidate">
+                                            {{ __('Undo Reject') }}
+                                        </flux:button>
+                                    @else
+                                        <flux:button variant="danger" size="sm" icon="x-circle" wire:click="rejectCandidate">
+                                            {{ __('Reject') }}
+                                        </flux:button>
+                                    @endif
                                 </div>
                             </div>
 
@@ -1230,13 +1449,56 @@
                                 <flux:heading size="sm" class="text-zinc-700 dark:text-zinc-300 font-semibold mb-1 text-xs">
                                     {{ __('Candidate Rating') }}
                                 </flux:heading>
-                                <div class="rating rating-sm">
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" class="rating-hidden" value="0" wire:model.live="cardRating" />
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="5" wire:model.live="cardRating" aria-label="5 star" />
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="4" wire:model.live="cardRating" aria-label="4 star" />
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="3" wire:model.live="cardRating" aria-label="3 star" />
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="2" wire:model.live="cardRating" aria-label="2 star" />
-                                    <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="1" wire:model.live="cardRating" aria-label="1 star" />
+                                <div class="flex items-center gap-3">
+                                    <div class="rating rating-sm">
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" class="rating-hidden" value="0" wire:model.live="cardRating" />
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="5" wire:model.live="cardRating" aria-label="5 star" />
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="4" wire:model.live="cardRating" aria-label="4 star" />
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="3" wire:model.live="cardRating" aria-label="3 star" />
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="2" wire:model.live="cardRating" aria-label="2 star" />
+                                        <input type="radio" name="card-rating-{{ $selectedCard['id'] ?? 'default' }}" value="1" wire:model.live="cardRating" aria-label="1 star" />
+                                    </div>
+                                    <span class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+                                        {{ (int) round($cardRating ?? 0) }}/5
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Salary Section -->
+                            <div class="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                                <flux:heading size="sm" class="text-zinc-700 dark:text-zinc-300 font-semibold mb-2 text-xs">
+                                    {{ __('Salary Information') }}
+                                </flux:heading>
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <flux:field>
+                                            <flux:label>{{ __('Negotiated Salary') }}</flux:label>
+                                            <flux:input 
+                                                type="number" 
+                                                step="0.01"
+                                                wire:model.defer="negotiatedSalary" 
+                                                placeholder="{{ __('Enter negotiated salary') }}"
+                                            />
+                                        </flux:field>
+                                        <flux:field>
+                                            <flux:label>{{ __('Offered Salary') }}</flux:label>
+                                            <flux:input 
+                                                type="number" 
+                                                step="0.01"
+                                                wire:model.defer="offeredSalary" 
+                                                placeholder="{{ __('Enter offered salary') }}"
+                                            />
+                                        </flux:field>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <flux:button 
+                                            size="sm" 
+                                            color="blue"
+                                            wire:click="saveSalaries"
+                                        >
+                                            {{ __('Update') }}
+                                        </flux:button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1264,9 +1526,28 @@
                                                     rows="2" 
                                                     placeholder="{{ __('Write a comment...') }}"
                                                     class="text-sm"
+                                                    wire:model="commentText"
                                                 />
                                             </flux:field>
                                         </div>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <flux:button 
+                                            size="sm" 
+                                            color="blue"
+                                            wire:click="addComment"
+                                            wire:loading.attr="disabled"
+                                            wire:target="addComment"
+                                            :disabled="empty(trim($commentText ?? ''))"
+                                        >
+                                            <span wire:loading.remove wire:target="addComment">
+                                                {{ __('Save') }}
+                                            </span>
+                                            <span wire:loading wire:target="addComment" class="flex items-center gap-2">
+                                                <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" />
+                                                {{ __('Saving...') }}
+                                            </span>
+                                        </flux:button>
                                     </div>
                                 </div>
 
@@ -1276,19 +1557,63 @@
                                         {{ __('Activity') }}
                                     </div>
                                     <div class="space-y-3 text-sm">
-                                        <div class="flex items-start gap-2">
-                                            <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <span class="text-xs font-medium text-blue-700 dark:text-blue-300">JD</span>
+                                        @if(!empty($activities))
+                                            @foreach($activities as $activity)
+                                                <div class="flex items-start gap-2">
+                                                    @php
+                                                        $initials = $activity['user_initials'] ?? 'U';
+                                                        $colorClasses = [
+                                                            'comment' => 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
+                                                            'hired' => 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
+                                                            'rejected' => 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
+                                                            'rating_changed' => 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300',
+                                                            'salary_changed' => 'bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300',
+                                                            'card_action' => 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300',
+                                                            'stage_move' => 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300',
+                                                            'created' => 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300',
+                                                        ];
+                                                        $activityType = $activity['type'] === 'stage_move' ? 'stage_move' : ($activity['action_type'] ?? 'created');
+                                                        $bgColor = $colorClasses[$activityType] ?? $colorClasses['created'];
+                                                    @endphp
+                                                    <div class="w-6 h-6 rounded-full {{ $bgColor }} flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                        <span class="text-xs font-medium">{{ $initials }}</span>
+                                                    </div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-zinc-900 dark:text-zinc-100">
+                                                            @if($activity['type'] === 'stage_move')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> moved from <span class="font-medium">{{ $activity['from_stage'] }}</span> to <span class="font-medium">{{ $activity['to_stage'] }}</span>
+                                                            @elseif($activity['action_type'] === 'comment')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> commented: <span class="italic">{{ $activity['notes'] }}</span>
+                                                            @elseif($activity['action_type'] === 'hired')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-green-600 dark:text-green-400 font-medium">hired</span> this candidate
+                                                            @elseif($activity['action_type'] === 'rejected')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-red-600 dark:text-red-400 font-medium">rejected</span> this candidate
+                                                            @elseif($activity['action_type'] === 'rating_changed')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> changed rating from <span class="font-medium">{{ $activity['old_value'] }}</span> to <span class="font-medium">{{ $activity['new_value'] }}</span>
+                                                            @elseif($activity['action_type'] === 'salary_changed')
+                                                                @php
+                                                                    $fieldLabel = $activity['field_name'] === 'negotiated_salary' ? 'Negotiated Salary' : 'Offered Salary';
+                                                                @endphp
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> updated <span class="font-medium">{{ $fieldLabel }}</span> from <span class="font-medium">{{ $activity['old_value'] ?? 'N/A' }}</span> to <span class="font-medium">{{ $activity['new_value'] ?? 'N/A' }}</span>
+                                                            @elseif($activity['action_type'] === 'card_action')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> {{ strtolower($activity['notes']) }}
+                                                            @elseif($activity['action_type'] === 'created')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> added this candidate to <span class="font-medium">{{ $activity['new_value'] ?? 'Applied' }}</span>
+                                                            @else
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> {{ $activity['notes'] ?? 'performed an action' }}
+                                                            @endif
+                                                        </p>
+                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                                            {{ $activity['formatted_time'] ?? 'Just now' }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        @else
+                                            <div class="text-sm text-zinc-400 dark:text-zinc-500 italic">
+                                                {{ __('No activity yet.') }}
                                             </div>
-                                            <div class="flex-1 min-w-0">
-                                                <p class="text-zinc-900 dark:text-zinc-100">
-                                                    <span class="font-medium">John Doe</span> was added to <span class="font-medium">Applied</span>
-                                                </p>
-                                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                                                    {{ __('Just now') }}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>

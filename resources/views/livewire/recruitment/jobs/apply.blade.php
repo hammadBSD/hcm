@@ -294,6 +294,12 @@
                         </flux:field>
 
                         <flux:field>
+                            <flux:label>{{ __('Current Salary') }}</flux:label>
+                            <flux:input type="number" wire:model="candidateCurrentSalary" placeholder="e.g., 45000" min="0" step="0.01" />
+                            @error('candidateCurrentSalary') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Expected Salary') }}</flux:label>
                             <flux:input type="number" wire:model="candidateExpectedSalary" placeholder="e.g., 50000" min="0" step="0.01" />
                             @error('candidateExpectedSalary') <flux:error>{{ $message }}</flux:error> @enderror

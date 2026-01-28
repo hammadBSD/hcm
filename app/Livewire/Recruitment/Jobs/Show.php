@@ -11,6 +11,7 @@ use App\Models\Recruitment\CandidateAttachment;
 use App\Models\Recruitment\CandidatePreviousCompany;
 use App\Models\Recruitment\CandidateHistory;
 use App\Models\Recruitment\CandidateStageHistory;
+use App\Models\Recruitment\RecruitmentSetting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +57,7 @@ class Show extends Component
     public $candidateNoticePeriod = '';
     public $candidateLinkedIn = '';
     public $candidateExpectedSalary = '';
+    public $candidateCurrentSalary = '';
     public $candidateAvailabilityDate = '';
     
     // Previous companies (dynamic array)
@@ -79,6 +81,9 @@ class Show extends Component
         }
 
         $this->jobId = $id;
+        
+        // Load recruitment settings
+        $this->settings = RecruitmentSetting::getInstance();
         
         // Load designations
         $this->designations = Designation::where('status', 'active')
@@ -114,7 +119,8 @@ class Show extends Component
         ];
 
         // Load job post from database
-        $jobPost = JobPost::with(['department', 'designation', 'defaultPipeline.stages'])
+        $jobPost = JobPost::with(['department', 'designation', 'defaultPipeline.stages', 'createdBy'])
+            ->withCount('candidates')
             ->findOrFail($id);
         
         $this->job = [
@@ -128,6 +134,9 @@ class Show extends Component
             'hiring_priority' => $jobPost->hiring_priority,
             'number_of_positions' => $jobPost->number_of_positions,
             'status' => $jobPost->status,
+            'candidates_count' => $jobPost->candidates_count ?? 0,
+            'created_by_name' => $jobPost->createdBy ? $jobPost->createdBy->name : 'Unknown',
+            'unique_id' => $jobPost->unique_id,
         ];
 
         // Load pipelines - use default pipeline for this job post
@@ -160,6 +169,13 @@ class Show extends Component
     public $selectedCard = null;
     public $selectedCardStageId = null;
     public $cardRating = 0; // Rating for the selected card (0-5, can be 0.5 increments)
+    public $commentText = ''; // Comment input text
+    public $activities = []; // Activity feed for selected card
+    public $settings = null; // Recruitment settings
+    public $negotiatedSalary = null; // Negotiated salary
+    public $offeredSalary = null; // Offered salary
+    public $modalAttachments = []; // Attachments for the modal (existing candidate)
+    public $showAttachmentInput = false; // Toggle for showing attachment input
 
     public function dragStart($cardId, $stageId)
     {
@@ -189,6 +205,33 @@ class Show extends Component
             if (!$candidate || $candidate->job_post_id != $this->jobId) {
                 DB::rollBack();
                 return;
+            }
+
+            // Check access restriction
+            if ($this->settings && $this->settings->restrict_applicant_access) {
+                if ($candidate->created_by != $user->id) {
+                    DB::rollBack();
+                    session()->flash('error', 'You do not have permission to move this applicant. Only the user who added this applicant can move it.');
+                    return;
+                }
+            }
+
+            // Check rating requirement
+            if ($this->settings && $this->settings->require_rating_before_move) {
+                if (!$candidate->rating || $candidate->rating == 0) {
+                    DB::rollBack();
+                    session()->flash('error', 'Please rate this candidate before moving to the next stage.');
+                    return;
+                }
+            }
+
+            // Check if rejected candidates can be moved
+            if ($this->settings && $this->settings->prevent_move_rejected_candidates) {
+                if ($candidate->status === 'rejected') {
+                    DB::rollBack();
+                    session()->flash('error', 'Rejected candidates cannot be moved to any stage.');
+                    return;
+                }
             }
 
             // Get stage names for callout
@@ -225,6 +268,11 @@ class Show extends Component
 
             DB::commit();
 
+            // Reload activities if modal is open
+            if ($this->showCardDetailModal && $this->selectedCard && $this->selectedCard['id'] == $candidate->id) {
+                $this->loadActivities($candidate->id);
+            }
+
             // Reload pipelines to reflect changes
             $this->loadPipelines();
 
@@ -259,11 +307,20 @@ class Show extends Component
     public function openCardDetail($cardId, $stageId)
     {
         // Load candidate from database
-        $candidate = Candidate::with(['designation', 'country', 'province', 'previousCompanies', 'attachments', 'pipelineStage'])
+        $candidate = Candidate::with(['designation', 'country', 'province', 'previousCompanies', 'attachments', 'pipelineStage', 'createdBy'])
             ->find($cardId);
 
         if (!$candidate || $candidate->job_post_id != $this->jobId) {
             return;
+        }
+
+        // Check access restriction
+        if ($this->settings && $this->settings->restrict_applicant_access) {
+            $user = Auth::user();
+            if ($candidate->created_by != $user->id) {
+                session()->flash('error', 'You do not have permission to view this applicant. Only the user who added this applicant can access it.');
+                return;
+            }
         }
 
         // Format candidate as card
@@ -271,7 +328,11 @@ class Show extends Component
 
         $this->selectedCard = $card;
         $this->selectedCardStageId = $candidate->pipeline_stage_id;
-        $this->cardRating = $candidate->rating ?? 0;
+        $this->cardRating = (int) round($candidate->rating ?? 0);
+        $this->commentText = '';
+        $this->negotiatedSalary = $candidate->negotiated_salary;
+        $this->offeredSalary = $candidate->offered_salary;
+        $this->loadActivities($cardId);
         $this->showCardDetailModal = true;
     }
 
@@ -286,6 +347,12 @@ class Show extends Component
         $this->selectedCard = null;
         $this->selectedCardStageId = null;
         $this->cardRating = 0;
+        $this->commentText = '';
+        $this->negotiatedSalary = null;
+        $this->offeredSalary = null;
+        $this->modalAttachments = [];
+        $this->showAttachmentInput = false;
+        $this->activities = [];
     }
 
     public function saveCardRating()
@@ -307,11 +374,15 @@ class Show extends Component
             }
 
             $oldRating = $candidate->rating ?? 0;
+            $newRating = (int) round($this->cardRating);
 
             // Update rating
             $candidate->update([
-                'rating' => $this->cardRating,
+                'rating' => $newRating,
             ]);
+            
+            // Update local property to match saved value
+            $this->cardRating = $newRating;
 
             // Create history entry if rating changed
             if ($oldRating != $this->cardRating) {
@@ -332,6 +403,9 @@ class Show extends Component
             // Update selected card
             $this->selectedCard['rating'] = $this->cardRating;
 
+            // Reload activities
+            $this->loadActivities($candidate->id);
+
             // Reload pipelines to reflect changes
             $this->loadPipelines();
         } catch (\Exception $e) {
@@ -348,34 +422,42 @@ class Show extends Component
 
     public function updatedSelectedCardStageId($value)
     {
-        if ($this->selectedCard && $this->selectedCardStageId && $value != $this->selectedCardStageId) {
-            $this->moveCardToStage($value);
-        }
+        // This method is called when selectedCardStageId is updated via wire:model
+        // But we'll handle the move via wire:change instead
     }
 
     public function moveCardToStage($targetStageId)
     {
-        if (!$this->selectedCard || !$this->selectedCardStageId || !$targetStageId) {
+        if (!$this->selectedCard || !isset($this->selectedCard['id']) || !$targetStageId) {
+            return;
+        }
+
+        // Get the current candidate to find the current stage
+        $candidate = Candidate::find($this->selectedCard['id']);
+        if (!$candidate || $candidate->job_post_id != $this->jobId) {
+            return;
+        }
+
+        $fromStageId = $candidate->pipeline_stage_id;
+        
+        // Don't move if already in the target stage
+        if ($fromStageId == $targetStageId) {
             return;
         }
 
         // Use the existing dropCard logic
         $this->draggedCardId = $this->selectedCard['id'];
-        $this->draggedFromStageId = $this->selectedCardStageId;
+        $this->draggedFromStageId = $fromStageId;
         $this->dropCard($targetStageId);
         
-        // Refresh the selected card
-        $pipeline = collect($this->pipelines)->firstWhere('id', $this->selectedPipelineId);
-        if ($pipeline) {
-            $targetStage = collect($pipeline['stages'])->firstWhere('id', $targetStageId);
-            if ($targetStage && isset($targetStage['cards'])) {
-                $updatedCard = collect($targetStage['cards'])->firstWhere('id', $this->selectedCard['id']);
-                if ($updatedCard) {
-                    $this->selectedCard = $updatedCard;
-                    $this->selectedCardStageId = $targetStageId;
-                }
-            }
-        }
+        // After dropCard completes, refresh the selected card
+        $candidate->refresh();
+        $candidate->load(['designation', 'country', 'province', 'previousCompanies', 'attachments', 'pipelineStage', 'createdBy']);
+        
+        $card = $this->formatCandidateForCard($candidate);
+        $this->selectedCard = $card;
+        $this->selectedCardStageId = $candidate->pipeline_stage_id;
+        $this->loadActivities($candidate->id);
     }
 
     public function getSelectedPipelineProperty()
@@ -484,6 +566,7 @@ class Show extends Component
         $this->candidateNoticePeriod = '';
         $this->candidateLinkedIn = '';
         $this->candidateExpectedSalary = '';
+        $this->candidateCurrentSalary = '';
         $this->candidateAvailabilityDate = '';
         $this->previousCompanies = [];
         $this->candidateAttachments = [];
@@ -532,6 +615,7 @@ class Show extends Component
             'candidateNoticePeriod' => 'nullable|string|max:100',
             'candidateLinkedIn' => 'nullable|url|max:255',
             'candidateExpectedSalary' => 'nullable|numeric|min:0',
+            'candidateCurrentSalary' => 'nullable|numeric|min:0',
             'candidateAvailabilityDate' => 'nullable|date',
             'previousCompanies.*.company' => 'nullable|string|max:255',
             'previousCompanies.*.position' => 'nullable|string|max:255',
@@ -576,6 +660,7 @@ class Show extends Component
                 'current_company' => $this->candidateCurrentCompany ?: null,
                 'notice_period' => $this->candidateNoticePeriod ?: null,
                 'expected_salary' => $this->candidateExpectedSalary ?: null,
+                'current_salary' => $this->candidateCurrentSalary ?: null,
                 'availability_date' => $this->candidateAvailabilityDate ?: null,
                 'rating' => 0,
                 'status' => 'active',
@@ -659,7 +744,7 @@ class Show extends Component
 
         // Load candidates for this job post grouped by stage
         $candidates = Candidate::where('job_post_id', $this->jobId)
-            ->with(['designation', 'previousCompanies', 'attachments'])
+            ->with(['designation', 'previousCompanies', 'attachments', 'createdBy'])
             ->get();
 
         // Build stages with candidates
@@ -675,6 +760,7 @@ class Show extends Component
                 'id' => $stage->id,
                 'name' => $stage->name,
                 'color' => $stage->color,
+                'order' => $stage->order,
                 'cards' => $stageCandidates,
             ];
         })->toArray();
@@ -712,6 +798,7 @@ class Show extends Component
             'candidate_notice_period' => $candidate->notice_period,
             'candidate_linkedin' => $candidate->linkedin_url,
             'candidate_expected_salary' => $candidate->expected_salary,
+            'candidate_current_salary' => $candidate->current_salary,
             'candidate_availability_date' => $candidate->availability_date?->format('Y-m-d'),
             'candidate_previous_companies' => $candidate->previousCompanies->map(function ($pc) {
                 return [
@@ -724,7 +811,463 @@ class Show extends Component
             'applicant_number' => $candidate->applicant_number,
             'rating' => $candidate->rating ?? 0,
             'stage_id' => $candidate->pipeline_stage_id,
+            'status' => $candidate->status,
+            'referrer_id' => $candidate->created_by,
+            'referrer_name' => $candidate->createdBy?->name ?? null,
         ];
+    }
+
+    /**
+     * Add a comment to the candidate
+     */
+    public function addComment()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id']) || empty(trim($this->commentText))) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            // Create comment history entry
+            CandidateHistory::create([
+                'candidate_id' => $this->selectedCard['id'],
+                'action_type' => 'comment',
+                'notes' => trim($this->commentText),
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities
+            $this->loadActivities($this->selectedCard['id']);
+            $this->commentText = '';
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to add comment: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Hire the candidate
+     */
+    public function hireCandidate()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            // Update candidate status
+            $candidate->update([
+                'status' => 'hired',
+                'is_hired' => true,
+                'hired_by' => $user->id,
+                'hired_at' => now(),
+            ]);
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'hired',
+                'notes' => 'Candidate was hired',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+            
+            session()->flash('message', 'Candidate has been hired successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to hire candidate: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reject the candidate
+     */
+    public function rejectCandidate()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            // Update candidate status
+            $candidate->update([
+                'status' => 'rejected',
+            ]);
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'rejected',
+                'notes' => 'Candidate was rejected',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+            
+            session()->flash('message', 'Candidate has been rejected.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to reject candidate: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Undo reject - change candidate status back to active
+     */
+    public function undoRejectCandidate()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            // Update candidate status back to active
+            $candidate->update([
+                'status' => 'active',
+            ]);
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'status_changed',
+                'notes' => ' undone Rejection, candidate status changed back to active',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+            
+            session()->flash('message', 'Candidate rejection has been undone.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to undo reject: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Save negotiated and offered salary
+     */
+    public function saveSalaries()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            $oldNegotiated = $candidate->negotiated_salary;
+            $oldOffered = $candidate->offered_salary;
+            
+            // Convert empty strings to null
+            $newNegotiated = $this->negotiatedSalary ? (float) $this->negotiatedSalary : null;
+            $newOffered = $this->offeredSalary ? (float) $this->offeredSalary : null;
+
+            // Update candidate salaries
+            $candidate->update([
+                'negotiated_salary' => $newNegotiated,
+                'offered_salary' => $newOffered,
+            ]);
+
+            // Create history entries for changes
+            if ((float) ($oldNegotiated ?? 0) != (float) ($newNegotiated ?? 0)) {
+                CandidateHistory::create([
+                    'candidate_id' => $candidate->id,
+                    'field_name' => 'negotiated_salary',
+                    'old_value' => $oldNegotiated ? number_format((float) $oldNegotiated, 2) : 'N/A',
+                    'new_value' => $newNegotiated ? number_format($newNegotiated, 2) : 'N/A',
+                    'action_type' => 'salary_changed',
+                    'notes' => 'Negotiated salary updated',
+                    'changed_by' => $user->id,
+                    'changed_at' => now(),
+                ]);
+            }
+
+            if ((float) ($oldOffered ?? 0) != (float) ($newOffered ?? 0)) {
+                CandidateHistory::create([
+                    'candidate_id' => $candidate->id,
+                    'field_name' => 'offered_salary',
+                    'old_value' => $oldOffered ? number_format((float) $oldOffered, 2) : 'N/A',
+                    'new_value' => $newOffered ? number_format($newOffered, 2) : 'N/A',
+                    'action_type' => 'salary_changed',
+                    'notes' => 'Offered salary updated',
+                    'changed_by' => $user->id,
+                    'changed_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $candidate->load(['attachments']);
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            
+            session()->flash('message', 'Salaries saved successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to save salaries: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle card action (Members, Labels, Dates, Checklist, Attachment)
+     */
+    public function handleCardAction($action)
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $actionLabels = [
+                'members' => 'Added members',
+                'labels' => 'Added labels',
+                'dates' => 'Added dates',
+                'checklist' => 'Added checklist',
+                'attachment' => 'Added attachment',
+            ];
+
+            $actionLabel = $actionLabels[$action] ?? ucfirst($action);
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $this->selectedCard['id'],
+                'action_type' => 'card_action',
+                'field_name' => $action,
+                'notes' => $actionLabel,
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities
+            $this->loadActivities($this->selectedCard['id']);
+            
+            session()->flash('message', $actionLabel . ' action recorded.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to record action: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Add attachments to existing candidate
+     */
+    public function addAttachments()
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id']) || empty($this->modalAttachments)) {
+            return;
+        }
+
+        // Validate attachments
+        $this->validate([
+            'modalAttachments.*' => 'nullable|file|max:20480', // 20MB max per file
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            // Handle file uploads
+            foreach ($this->modalAttachments as $attachment) {
+                $path = $attachment->store('candidate-attachments', 'public');
+                CandidateAttachment::create([
+                    'candidate_id' => $candidate->id,
+                    'file_path' => $path,
+                    'file_name' => $attachment->getClientOriginalName(),
+                    'file_type' => $attachment->getMimeType(),
+                    'file_size' => $attachment->getSize(),
+                ]);
+            }
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'attachment_added',
+                'notes' => 'Added ' . count($this->modalAttachments) . ' attachment(s)',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Clear attachments and refresh
+            $this->modalAttachments = [];
+            $this->showAttachmentInput = false;
+            
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $candidate->load(['attachments']);
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            
+            session()->flash('message', 'Attachments added successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to add attachments: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Toggle attachment input visibility
+     */
+    public function toggleAttachmentInput()
+    {
+        $this->showAttachmentInput = !$this->showAttachmentInput;
+        if (!$this->showAttachmentInput) {
+            $this->modalAttachments = [];
+        }
+    }
+
+    /**
+     * Load activities for the selected candidate
+     */
+    private function loadActivities($candidateId)
+    {
+        // Load history entries (exclude stage_changed as we show those from CandidateStageHistory)
+        $history = CandidateHistory::where('candidate_id', $candidateId)
+            ->where('action_type', '!=', 'stage_changed')
+            ->with('changedBy')
+            ->orderBy('changed_at', 'desc')
+            ->get();
+
+        // Load stage history entries
+        $stageHistory = CandidateStageHistory::where('candidate_id', $candidateId)
+            ->with(['movedBy', 'fromStage', 'toStage'])
+            ->orderBy('moved_at', 'desc')
+            ->get();
+
+        // Merge and format activities
+        $activities = collect();
+
+        // Add history entries
+        foreach ($history as $entry) {
+            $activities->push([
+                'type' => 'history',
+                'action_type' => $entry->action_type,
+                'field_name' => $entry->field_name,
+                'old_value' => $entry->old_value,
+                'new_value' => $entry->new_value,
+                'notes' => $entry->notes,
+                'user' => $entry->changedBy,
+                'user_name' => $entry->changedBy->name ?? 'Unknown',
+                'user_initials' => $this->getUserInitials($entry->changedBy),
+                'timestamp' => $entry->changed_at,
+                'formatted_time' => $entry->changed_at->diffForHumans(),
+            ]);
+        }
+
+        // Add stage history entries
+        foreach ($stageHistory as $entry) {
+            $activities->push([
+                'type' => 'stage_move',
+                'from_stage' => $entry->fromStage?->name ?? 'Unknown',
+                'to_stage' => $entry->toStage?->name ?? 'Unknown',
+                'notes' => $entry->notes,
+                'user' => $entry->movedBy,
+                'user_name' => $entry->movedBy->name ?? 'Unknown',
+                'user_initials' => $this->getUserInitials($entry->movedBy),
+                'timestamp' => $entry->moved_at,
+                'formatted_time' => $entry->moved_at->diffForHumans(),
+            ]);
+        }
+
+        // Sort by timestamp (newest first)
+        $this->activities = $activities->sortByDesc('timestamp')->values()->toArray();
+    }
+
+    /**
+     * Get user initials for avatar
+     */
+    private function getUserInitials($user)
+    {
+        if (!$user || !$user->name) {
+            return 'U';
+        }
+        $nameParts = explode(' ', $user->name);
+        if (count($nameParts) >= 2) {
+            return strtoupper(substr($nameParts[0], 0, 1) . substr($nameParts[1], 0, 1));
+        }
+        return strtoupper(substr($user->name, 0, 2));
     }
 
     /**
@@ -762,6 +1305,50 @@ class Show extends Component
         }
 
         return $pipeline;
+    }
+
+    /**
+     * Check if hire button should be shown
+     */
+    public function shouldShowHireButton()
+    {
+        if (!$this->settings || !$this->selectedCard || !$this->selectedCardStageId) {
+            return false;
+        }
+
+        // If setting is disabled, always show
+        if (!$this->settings->show_hire_button_last_stage_only) {
+            return true;
+        }
+
+        // Get the pipeline and check if current stage is the last one
+        $pipeline = Pipeline::with('stages')->find($this->selectedPipelineId);
+        if (!$pipeline || !$pipeline->stages->count()) {
+            return false;
+        }
+
+        $lastStage = $pipeline->stages->sortByDesc('order')->first();
+        return $lastStage && $lastStage->id == $this->selectedCardStageId;
+    }
+
+    /**
+     * Check if user can access this candidate
+     */
+    public function canAccessCandidate($candidateId)
+    {
+        if (!$this->settings || !$this->settings->restrict_applicant_access) {
+            return true; // No restriction
+        }
+
+        $user = Auth::user();
+        $candidate = Candidate::find($candidateId);
+        
+        if (!$candidate) {
+            return false;
+        }
+
+        // Check if user is the creator
+        return $candidate->created_by == $user->id;
     }
 
     public function render()

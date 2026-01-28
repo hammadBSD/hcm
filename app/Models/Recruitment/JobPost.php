@@ -37,6 +37,7 @@ class JobPost extends Model
         'reporting_to_id',
         'created_by',
         'default_pipeline_id',
+        'unique_id',
     ];
 
     protected $casts = [
