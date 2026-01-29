@@ -185,16 +185,35 @@ class Index extends Component
                                 'employee_id' => $employee->id,
                                 'employee_name' => optional($employee->user)->name,
                                 'reason' => 'missing_joining_date',
+                                'leave_type_name' => $leaveType->name,
                             ];
                             continue;
                         }
 
                         if (! empty($policy->assign_only_to_permanent) && ($orgInfo->employee_status ?? '') !== 'permanent') {
+                            // Not permanent: clear existing entitlement for this policy so they don't retain old balance
+                            $existing = $employee->leaveBalances
+                                ->firstWhere('leave_type_id', $leaveType->id);
+
+                            if ($existing) {
+                                $existing->entitled = 0;
+                                $existing->carried_forward = 0;
+                                $existing->manual_adjustment = 0;
+                                $existing->balance = round(
+                                    ($existing->entitled + $existing->carried_forward + $existing->manual_adjustment)
+                                    - ($existing->used + $existing->pending),
+                                    2
+                                );
+                                $existing->save();
+                                $updated++;
+                            }
+
                             $skipped++;
                             $this->skipReasons[] = [
                                 'employee_id' => $employee->id,
                                 'employee_name' => optional($employee->user)->name,
                                 'reason' => 'not_permanent_employee',
+                                'leave_type_name' => $leaveType->name,
                             ];
                             continue;
                         }
@@ -211,9 +230,10 @@ class Index extends Component
                                 ->firstWhere('leave_type_id', $leaveType->id);
                             
                             if ($existing) {
-                                // Clear entitled leave for employees in probation
-                                // Balance will be negative if they have used/pending leaves (which is correct)
+                                // Clear entitled leave for employees in probation; reset manual/carried so balance reflects 0 entitlement
                                 $existing->entitled = 0;
+                                $existing->carried_forward = 0;
+                                $existing->manual_adjustment = 0;
                                 $existing->balance = round(
                                     ($existing->entitled + $existing->carried_forward + $existing->manual_adjustment)
                                     - ($existing->used + $existing->pending),
@@ -222,13 +242,14 @@ class Index extends Component
                                 $existing->save();
                                 $updated++; // Count as updated since we're clearing it
                             }
-                            
+
                             $skipped++;
                             $this->skipReasons[] = [
                                 'employee_id' => $employee->id,
                                 'employee_name' => optional($employee->user)->name,
                                 'reason' => 'still_in_probation',
                                 'eligible_after' => $eligibleDate->toDateString(),
+                                'leave_type_name' => $leaveType->name,
                             ];
                             continue;
                         }
@@ -243,6 +264,7 @@ class Index extends Component
                                 'employee_id' => $employee->id,
                                 'employee_name' => optional($employee->user)->name,
                                 'reason' => 'outside_policy_window',
+                                'leave_type_name' => $leaveType->name,
                             ];
                             continue;
                         }
@@ -270,12 +292,25 @@ class Index extends Component
                         ];
 
                         if ($existing) {
+                            $policyChanged = (int) $existing->leave_policy_id !== (int) $policy->id;
+
+                            if ($policyChanged) {
+                                // New policy period: reset usage and adjustments so the new period starts fresh
+                                $payload['carried_forward'] = 0;
+                                $payload['manual_adjustment'] = 0;
+                                $payload['used'] = 0;
+                                $payload['pending'] = 0;
+                                $payload['balance'] = $entitled;
+                            } else {
+                                // Same policy: only recalculate balance from current values
+                                $payload['balance'] = round(
+                                    ($entitled + $existing->carried_forward + $existing->manual_adjustment)
+                                    - ($existing->used + $existing->pending),
+                                    2
+                                );
+                            }
+
                             $existing->fill($payload);
-                            $existing->balance = round(
-                                ($existing->entitled + $existing->carried_forward + $existing->manual_adjustment)
-                                - ($existing->used + $existing->pending),
-                                2
-                            );
                             $existing->save();
                             $updated++;
                         } else {
@@ -302,6 +337,26 @@ class Index extends Component
                     }
                 }
             });
+
+            // Group skip reasons by employee + reason so each name appears once, with leave types combined
+            $grouped = [];
+            foreach ($this->skipReasons as $item) {
+                $key = $item['employee_id'] . '|' . $item['reason'] . '|' . ($item['eligible_after'] ?? '');
+                if (! isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'employee_id' => $item['employee_id'],
+                        'employee_name' => $item['employee_name'],
+                        'reason' => $item['reason'],
+                        'eligible_after' => $item['eligible_after'] ?? null,
+                        'leave_type_names' => [],
+                    ];
+                }
+                $name = $item['leave_type_name'] ?? null;
+                if ($name && ! in_array($name, $grouped[$key]['leave_type_names'], true)) {
+                    $grouped[$key]['leave_type_names'][] = $name;
+                }
+            }
+            $this->skipReasons = array_values($grouped);
 
             $this->generationSummary = [
                 'created' => $created,

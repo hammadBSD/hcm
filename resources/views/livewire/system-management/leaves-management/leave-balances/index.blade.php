@@ -60,10 +60,16 @@
                                         @case('outside_policy_window')
                                             — {{ __('outside the policy date window') }}
                                             @break
+                                        @case('not_permanent_employee')
+                                            — {{ __('not eligible (permanent employees only)') }}
+                                            @break
                                         @case('missing_joining_date')
                                         @default
                                             — {{ __('missing joining details') }}
                                     @endswitch
+                                    @if(!empty($item['leave_type_names']))
+                                        <strong> ({{ implode(', ', $item['leave_type_names']) }})</strong>
+                                    @endif
                                 </li>
                             @endforeach
                         </ul>
