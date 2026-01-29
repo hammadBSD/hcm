@@ -382,7 +382,7 @@ class EmployeeList extends Component
         // Start with base query - join employees table directly for proper sorting
         $query = User::select('users.*')
             ->join('employees', 'users.id', '=', 'employees.user_id')
-            ->with(['employee.shift', 'employee.department', 'employee.group']);
+            ->with(['employee.shift', 'employee.department', 'employee.group', 'employee.organizationalInfo']);
 
         // Apply search filter
         if ($this->search) {
@@ -525,5 +525,27 @@ class EmployeeList extends Component
         $employee->save();
         
         session()->flash('message', 'Employee deactivated successfully!');
+    }
+
+    public function makePermanent($userId): void
+    {
+        $employee = Employee::where('user_id', $userId)->first();
+
+        if (! $employee) {
+            session()->flash('error', __('Employee not found.'));
+            return;
+        }
+
+        $org = $employee->organizationalInfo()->firstOrCreate(
+            ['employee_id' => $employee->id],
+            ['employee_status' => 'permanent']
+        );
+
+        if ($org->employee_status !== 'permanent') {
+            $org->employee_status = 'permanent';
+            $org->save();
+        }
+
+        session()->flash('message', __('Employee status set to Permanent.'));
     }
 }

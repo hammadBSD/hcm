@@ -522,7 +522,7 @@
                                             @endif
                                         </td>
                                         
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-6">
                                             @php
                                                 $employeeStatus = $employee->employee->status ?? 'active';
                                                 $statusColor = match($employeeStatus) {
@@ -532,10 +532,18 @@
                                                     'terminated' => 'red',
                                                     default => 'green'
                                                 };
+                                                $orgEmployeeStatus = optional($employee->employee->organizationalInfo)->employee_status;
                                             @endphp
-                                            <flux:badge color="{{ $statusColor }}" size="sm">
-                                                {{ ucfirst($employeeStatus) }}
-                                            </flux:badge>
+                                            <div class="flex flex-col gap-1">
+                                                <flux:badge color="{{ $statusColor }}" size="sm">
+                                                    {{ ucfirst($employeeStatus) }}
+                                                </flux:badge>
+                                                @if($orgEmployeeStatus)
+                                                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ ucfirst($orgEmployeeStatus) }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
@@ -560,6 +568,11 @@
                                                         <flux:menu.item icon="shield-check" wire:click="openAssignRoleFlyout({{ $employee->id }})">
                                                             {{ __('Assign Role') }}
                                                         </flux:menu.item>
+                                                        @if(optional($employee->employee->organizationalInfo)->employee_status === 'probation')
+                                                            <flux:menu.item icon="check-badge" wire:click="makePermanent({{ $employee->id }})">
+                                                                {{ __('Make Permanent') }}
+                                                            </flux:menu.item>
+                                                        @endif
                                                         <!-- <flux:menu.item icon="key" wire:click="resetPassword({{ $employee->id }})">
                                                             {{ __('Reset Password') }}
                                                         </flux:menu.item> -->

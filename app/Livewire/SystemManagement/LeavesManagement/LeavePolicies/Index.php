@@ -32,6 +32,7 @@ class Index extends Component
         'encashment_enabled' => false,
         'encashment_cap' => null,
         'allow_negative_balance' => false,
+        'assign_only_to_permanent' => false,
     ];
 
     public $tiers = [];
@@ -76,6 +77,7 @@ class Index extends Component
             'encashment_enabled' => (bool) $policy->encashment_enabled,
             'encashment_cap' => $policy->encashment_cap,
             'allow_negative_balance' => (bool) $policy->allow_negative_balance,
+            'assign_only_to_permanent' => (bool) ($policy->assign_only_to_permanent ?? false),
         ];
 
         $this->tiers = $policy->tiers
@@ -113,6 +115,7 @@ class Index extends Component
         $payload['carry_forward_enabled'] = (bool) $payload['carry_forward_enabled'];
         $payload['encashment_enabled'] = (bool) $payload['encashment_enabled'];
         $payload['allow_negative_balance'] = (bool) $payload['allow_negative_balance'];
+        $payload['assign_only_to_permanent'] = (bool) ($payload['assign_only_to_permanent'] ?? false);
         if (! $payload['carry_forward_enabled']) {
             $payload['carry_forward_cap'] = null;
             $payload['carry_forward_expiry_days'] = null;
@@ -182,6 +185,7 @@ class Index extends Component
             'policyForm.encashment_enabled' => ['boolean'],
             'policyForm.encashment_cap' => ['nullable', 'numeric', 'min:0'],
             'policyForm.allow_negative_balance' => ['boolean'],
+            'policyForm.assign_only_to_permanent' => ['boolean'],
             'tiers.*.year_of_service' => ['nullable', 'integer', 'min:1', 'distinct'],
             'tiers.*.additional_quota' => ['nullable', 'numeric'],
         ], [], [
@@ -207,6 +211,7 @@ class Index extends Component
             'encashment_enabled' => false,
             'encashment_cap' => null,
             'allow_negative_balance' => false,
+            'assign_only_to_permanent' => false,
         ];
 
         $this->tiers = [];

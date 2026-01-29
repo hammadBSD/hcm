@@ -726,10 +726,10 @@
                                         <flux:label>{{ __('Employee Status') }}</flux:label>
                                         <flux:select wire:model="employee_status">
                                             <option value="">{{ __('Select Status') }}</option>
-                                            <option value="active">{{ __('Active') }}</option>
-                                            <option value="inactive">{{ __('Inactive') }}</option>
-                                            <option value="on-leave">{{ __('On Leave') }}</option>
+                                            <option value="permanent">{{ __('Permanent') }}</option>
+                                            <option value="probation">{{ __('Probation') }}</option>
                                             <option value="terminated">{{ __('Terminated') }}</option>
+                                            <option value="resigned">{{ __('Resigned') }}</option>
                                         </flux:select>
                                     </flux:field>
                                 </div>

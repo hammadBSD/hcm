@@ -299,6 +299,14 @@
 
                 <div class="space-y-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                     <flux:switch
+                        label="{{ __('Assign only to Permanent Employees') }}"
+                        description="{{ __('When generating balances, only employees with Permanent employee status will receive this policy.') }}"
+                        wire:model.defer="policyForm.assign_only_to_permanent"
+                    />
+                </div>
+
+                <div class="space-y-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                    <flux:switch
                     label="{{ __('Prorate on Joining') }}"
                         description="{{ __('Distributes quota based on hire date in the first cycle.') }}"
                         wire:model.defer="policyForm.prorate_on_joining"

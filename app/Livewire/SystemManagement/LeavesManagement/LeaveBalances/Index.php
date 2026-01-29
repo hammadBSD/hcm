@@ -189,6 +189,16 @@ class Index extends Component
                             continue;
                         }
 
+                        if (! empty($policy->assign_only_to_permanent) && ($orgInfo->employee_status ?? '') !== 'permanent') {
+                            $skipped++;
+                            $this->skipReasons[] = [
+                                'employee_id' => $employee->id,
+                                'employee_name' => optional($employee->user)->name,
+                                'reason' => 'not_permanent_employee',
+                            ];
+                            continue;
+                        }
+
                         $joiningDate = Carbon::parse($orgInfo->joining_date);
 
                         $eligibleDate = $orgInfo->confirmation_date
