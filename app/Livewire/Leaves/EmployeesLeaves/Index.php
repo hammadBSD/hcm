@@ -857,6 +857,19 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function deleteRequest(int $id): void
+    {
+        $this->authorizeAllManagement();
+
+        /** @var LeaveRequestModel $request */
+        $request = LeaveRequestModel::query()->findOrFail($id);
+
+        $request->delete();
+
+        session()->flash('success', __('Leave request has been deleted.'));
+        $this->resetPage();
+    }
+
     public function createLeaveRequest(): void
     {
         $this->authorizeAllManagement();

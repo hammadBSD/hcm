@@ -294,6 +294,9 @@
                                                             <flux:menu.item icon="pencil" wire:click="editRequest({{ $request['id'] }})">
                                                                 {{ __('Edit Request') }}
                                                             </flux:menu.item>
+                                                            <flux:menu.item icon="trash" wire:click="deleteRequest({{ $request['id'] }})" wire:confirm="{{ __('Are you sure you want to delete this leave request? This action cannot be undone.') }}" class="text-red-600 dark:text-red-400">
+                                                                {{ __('Delete Request') }}
+                                                            </flux:menu.item>
                                                         @endif
                                                     </flux:menu>
                                                 </flux:dropdown>

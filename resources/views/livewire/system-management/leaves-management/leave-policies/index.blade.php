@@ -100,6 +100,9 @@
                                             {{ __('Encashment') }}
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
+                                            {{ __('Status') }}
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
                                             {{ __('Tiers') }}
                                         </th>
                                         <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
@@ -162,6 +165,11 @@
                                                     </div>
                                                 @endif
                                             </td>
+                                            <td class="px-6 py-6">
+                                                <flux:badge :color="($policy->is_active ?? true) ? 'green' : 'zinc'" size="sm">
+                                                    {{ ($policy->is_active ?? true) ? __('Active') : __('Inactive') }}
+                                                </flux:badge>
+                                            </td>
                                             <td class="px-6 py-6 align-top">
                                                 @if($policy->tiers->isEmpty())
                                                     <div class="text-xs text-zinc-400 dark:text-zinc-500">
@@ -185,6 +193,22 @@
                                                             <flux:menu.item icon="pencil" wire:click="openEditPolicyModal({{ $policy->id }})">
                                                                 {{ __('Edit Policy') }}
                                                             </flux:menu.item>
+                                                            <flux:menu.item
+                                                                icon="{{ ($policy->is_active ?? true) ? 'pause' : 'play' }}"
+                                                                wire:click="togglePolicyStatus({{ $policy->id }})"
+                                                                class="{{ ($policy->is_active ?? true) ? '' : 'text-green-600 dark:text-green-400' }}"
+                                                            >
+                                                                {{ ($policy->is_active ?? true) ? __('Deactivate') : __('Activate') }}
+                                                            </flux:menu.item>
+                                                            <flux:menu.separator />
+                                                            <flux:menu.item
+                                                                icon="trash"
+                                                                wire:click="deletePolicy({{ $policy->id }})"
+                                                                wire:confirm="{{ __('Are you sure you want to delete this policy? This action cannot be undone.') }}"
+                                                                class="text-red-600 dark:text-red-400"
+                                                            >
+                                                                {{ __('Delete') }}
+                                                            </flux:menu.item>
                                                         </flux:menu>
                                                     </flux:dropdown>
                                                 </div>
@@ -192,7 +216,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="px-6 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                            <td colspan="7" class="px-6 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                                 <div class="flex flex-col items-center gap-3">
                                                     <flux:icon name="inbox" class="w-10 h-10 text-zinc-400 dark:text-zinc-600" />
                                                     <flux:heading size="sm" class="text-zinc-500 dark:text-zinc-400">

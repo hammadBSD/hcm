@@ -213,6 +213,23 @@ class Index extends Component
         $this->editingPolicyId = null;
     }
 
+    public function deletePolicy(int $policyId): void
+    {
+        $policy = LeavePolicy::where('leave_type_id', $this->selectedTypeId)->findOrFail($policyId);
+        $policy->delete();
+
+        $this->dispatch('notify', type: 'success', message: __('Policy deleted successfully.'));
+    }
+
+    public function togglePolicyStatus(int $policyId): void
+    {
+        $policy = LeavePolicy::where('leave_type_id', $this->selectedTypeId)->findOrFail($policyId);
+        $policy->update(['is_active' => ! $policy->is_active]);
+
+        $label = $policy->is_active ? __('Policy activated.') : __('Policy deactivated.');
+        $this->dispatch('notify', type: 'success', message: $label);
+    }
+
     public function getPoliciesProperty()
     {
         if (! $this->selectedTypeId) {

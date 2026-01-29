@@ -25,6 +25,7 @@ class LeavePolicy extends Model
         'encashment_enabled',
         'encashment_cap',
         'allow_negative_balance',
+        'is_active',
         'eligibility_rules',
         'additional_settings',
     ];
@@ -40,6 +41,7 @@ class LeavePolicy extends Model
         'encashment_enabled' => 'boolean',
         'encashment_cap' => 'float',
         'allow_negative_balance' => 'boolean',
+        'is_active' => 'boolean',
         'eligibility_rules' => 'array',
         'additional_settings' => 'array',
     ];
