@@ -233,7 +233,7 @@
                                             <flux:icon name="check-circle" class="w-4 h-4" />
                                             {{ __('Resolved') }} ({{ $selectedSuggestion->responded_at->format('M d, Y h:i A') }})
                                         </span>
-                                    @elseif($isResolver || $canResolveAny)
+                                    @elseif(!$isLodger && ($isResolver || $canResolveAny))
                                         <flux:button type="button" size="sm" variant="primary" wire:click="resolverResolve" icon="check-circle" class="!bg-green-600 hover:!bg-green-700">
                                             {{ __('Mark as Resolved') }}
                                         </flux:button>
@@ -268,8 +268,8 @@
                         @endif
                     </div>
 
-                    <!-- Status Selection (only if user can edit) -->
-                    @if($canEdit)
+                    <!-- Status + Notes: show when user has resolve or acknowledge_resolution -->
+                    @if($canChangeStatus)
                     <div>
                         <flux:label for="newStatus" class="mb-2">{{ __('Status') }}</flux:label>
                         @if($selectedSuggestion->status === 'resolved')
@@ -306,6 +306,7 @@
                     </div>
                     @endif
                     @else
+                    <!-- Read-only status when user cannot change status -->
                     <div>
                         <flux:label class="mb-2">{{ __('Status') }}</flux:label>
                         <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
@@ -354,7 +355,7 @@
                     <!-- Action Buttons -->
                     <div class="flex items-center justify-between gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                         <div class="flex items-center gap-2">
-                            @if($canEdit)
+                            @if($canShowEditButton)
                                 <flux:button variant="ghost" size="sm" wire:click="startEdit" type="button" icon="pencil">
                                     {{ __('Edit') }}
                                 </flux:button>
@@ -372,7 +373,7 @@
                             <flux:button variant="ghost" wire:click="closeStatusFlyout" type="button">
                                 {{ __('Cancel') }}
                             </flux:button>
-                            @if($canEdit && $selectedSuggestion->status !== 'resolved')
+                            @if($canChangeStatus && $selectedSuggestion->status !== 'resolved')
                             <flux:button type="submit" wire:loading.attr="disabled">
                                 <span wire:loading.remove wire:target="updateStatus">
                                     {{ __('Update Status') }}

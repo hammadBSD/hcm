@@ -138,7 +138,9 @@ class Suggestions extends Component
     public function updateStatus()
     {
         $user = Auth::user();
-        if (!$user->can('complaints.edit') && !$user->can('employees.manage.suggestions')) {
+        $canUpdate = $user->can('complaints.edit') || $user->can('employees.manage.suggestions')
+            || $user->can('complaints.resolve') || $user->can('complaints.acknowledge_resolution');
+        if (!$canUpdate) {
             session()->flash('error', __('You are not allowed to update status.'));
             return;
         }
@@ -348,6 +350,8 @@ class Suggestions extends Component
             $isLodger = (int) $this->selectedSuggestion->employee_id === (int) $currentEmployee->id;
             $isResolver = !$isLodger && $this->selectedSuggestion->department_id && (int) $this->selectedSuggestion->department_id === (int) $currentEmployee->department_id;
         }
+        $canShowEditButton = $user->can('complaints.edit');
+        $canChangeStatus = $user->can('complaints.resolve') || $user->can('complaints.acknowledge_resolution');
         $canEdit = $user->can('complaints.edit') || $user->can('employees.manage.suggestions');
         $canDelete = $user->can('complaints.delete') || $user->can('employees.manage.suggestions');
         $canResolveAny = $user->can('complaints.resolve');
@@ -361,6 +365,8 @@ class Suggestions extends Component
             'currentEmployee' => $currentEmployee,
             'isLodger' => $isLodger,
             'isResolver' => $isResolver,
+            'canShowEditButton' => $canShowEditButton,
+            'canChangeStatus' => $canChangeStatus,
             'canEdit' => $canEdit,
             'canDelete' => $canDelete,
             'canResolveAny' => $canResolveAny,
