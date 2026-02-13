@@ -41,7 +41,12 @@
                         'employee.edit',
                         'employee.delete',
                     ])
-                        <flux:navbar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
+                        @php
+                            $employeesNavUrl = (Auth::user() && (Auth::user()->can('employees.manage.directory') || Auth::user()->hasRole('Super Admin')))
+                                ? route('employees.list')
+                                : route('employees.suggestions');
+                        @endphp
+                        <flux:navbar.item icon="users" :href="$employeesNavUrl" :current="request()->routeIs('employees.*')" wire:navigate>
                             {{ __('Employees') }}
                         </flux:navbar.item>
                     @endcanany
@@ -97,7 +102,7 @@
                         </flux:navbar.item>
                     @endhasanyrole
                     <flux:separator vertical variant="subtle" class="my-2"/>
-                    <flux:dropdown>
+                    <!-- <flux:dropdown>
                         <flux:navbar.item icon:trailing="chevron-down">{{ __('More') }}</flux:navbar.item>
                         <flux:navmenu>
                             <flux:navmenu.item href="#" :current="request()->routeIs('performance.*')">
@@ -113,7 +118,7 @@
                             <flux:navmenu.item href="#">Positions</flux:navmenu.item>
                             <flux:navmenu.item href="#">Benefits</flux:navmenu.item>
                         </flux:navmenu>
-                    </flux:dropdown>
+                    </flux:dropdown> -->
                 </div>
             </flux:navbar>
             
@@ -183,7 +188,12 @@
                     'employee.edit',
                     'employee.delete',
                 ])
-                    <flux:sidebar.item icon="users" :href="route('employees.list')" :current="request()->routeIs('employees.*')" wire:navigate>
+                    @php
+                        $employeesSidebarUrl = (Auth::user() && (Auth::user()->can('employees.manage.directory') || Auth::user()->hasRole('Super Admin')))
+                            ? route('employees.list')
+                            : route('employees.suggestions');
+                    @endphp
+                    <flux:sidebar.item icon="users" :href="$employeesSidebarUrl" :current="request()->routeIs('employees.*')" wire:navigate>
                         {{ __('Employees') }}
                     </flux:sidebar.item>
                 @endcanany

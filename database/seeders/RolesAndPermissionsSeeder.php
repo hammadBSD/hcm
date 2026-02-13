@@ -71,6 +71,15 @@ class RolesAndPermissionsSeeder extends Seeder
             'employees.manage.amend_department',
             'employees.manage.suggestions',
 
+            // Complaints (Suggestions & Complaints) Module
+            'complaints.view.self',
+            'complaints.view.all',
+            'complaints.view.own_department',
+            'complaints.edit',
+            'complaints.delete',
+            'complaints.acknowledge_resolution',
+            'complaints.resolve',
+
             // Attendance Module
             'attendance.sidebar.my_attendance',
             'attendance.sidebar.requests',
@@ -289,6 +298,20 @@ class RolesAndPermissionsSeeder extends Seeder
             'employees.manage.suggestions',
         ];
 
+        $complaintsFull = [
+            'complaints.view.self',
+            'complaints.view.all',
+            'complaints.view.own_department',
+            'complaints.edit',
+            'complaints.delete',
+            'complaints.acknowledge_resolution',
+            'complaints.resolve',
+        ];
+        $complaintsViewSelfAndDepartment = [
+            'complaints.view.self',
+            'complaints.view.own_department',
+        ];
+
         $attendanceSelf = [
             'attendance.sidebar.my_attendance',
             'attendance.sidebar.requests',
@@ -402,6 +425,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardCompany,
             $employeesSidebarExtended,
             $employeesManageFull,
+            $complaintsFull,
             $attendanceApprover,
             $systemSidebarFull,
             $systemManageFull,
@@ -443,6 +467,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardTeam,
             $employeesSidebarExtended,
             $employeesManageFull,
+            $complaintsFull,
             $attendanceApprover,
             $systemSidebarFull,
             ['system.manage.roles', 'system.manage.users'],
@@ -480,6 +505,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardSelf,
             $employeesSidebarExtended,
             $employeesManageFull,
+            $complaintsFull,
             $attendanceTeam,
             $systemSidebarFull,
             $leavesManager,
@@ -575,6 +601,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $employeesSidebarBasic,
             ['employees.sidebar.directory', 'employees.sidebar.delegation', 'employees.sidebar.suggestions'],
             ['employees.manage.directory', 'employees.manage.delegation', 'employees.manage.suggestions'],
+            $complaintsFull,
             $attendanceTeam,
             $leavesManager,
             [
@@ -600,9 +627,10 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardSelf,
             $employeesSidebarBasic,
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
-            ['employees.manage.delegation', 'employees.manage.suggestions'],
+            ['employees.manage.delegation'],
+            $complaintsViewSelfAndDepartment,
             $attendanceSelf,
-            $leavesManager,
+            $leavesSelf,
             $tasksSelf,
             $dailyLogsSelf,
             [
@@ -631,7 +659,8 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardSelf,
             $employeesSidebarBasic,
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
-            ['employees.manage.delegation', 'employees.manage.suggestions'],
+            ['employees.manage.delegation'],
+            $complaintsViewSelfAndDepartment,
             $attendanceSelf,
             $leavesManager,
             [
@@ -659,7 +688,8 @@ class RolesAndPermissionsSeeder extends Seeder
             $dashboardSelf,
             $employeesSidebarBasic,
             ['employees.sidebar.delegation', 'employees.sidebar.suggestions'],
-            ['employees.manage.delegation', 'employees.manage.suggestions'],
+            ['employees.manage.delegation'],
+            $complaintsViewSelfAndDepartment,
             $attendanceSelf,
             $leavesManager,
             [

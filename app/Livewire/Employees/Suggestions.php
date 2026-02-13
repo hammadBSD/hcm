@@ -15,7 +15,7 @@ class Suggestions extends Component
 
     protected $paginationTheme = 'tailwind';
 
-    public $filterType = '';
+    public $filterPriority = '';
     public $filterStatus = '';
     public $filterMonth = '';
 
@@ -25,8 +25,13 @@ class Suggestions extends Component
     public $selectedSuggestion = null;
     public $newStatus = '';
     public $statusNotes = '';
+    // Edit complaint flyout (separate from status flyout)
+    public $showEditFlyout = false;
+    public $editMessage = '';
+    public $editPriority = '';
+    public $editDepartmentId = '';
 
-    public function updatingFilterType()
+    public function updatingFilterPriority()
     {
         $this->resetPage();
     }
@@ -44,9 +49,10 @@ class Suggestions extends Component
     public function openStatusFlyout($suggestionId)
     {
         $this->selectedSuggestionId = $suggestionId;
-        $this->selectedSuggestion = EmployeeSuggestion::with(['employee.user', 'statusHistory.changedBy'])->find($suggestionId);
+        $this->selectedSuggestion = EmployeeSuggestion::with(['employee.user', 'statusHistory.changedBy', 'department'])->find($suggestionId);
         $this->newStatus = $this->selectedSuggestion->status;
         $this->statusNotes = '';
+        $this->showEditFlyout = false;
         $this->showStatusFlyout = true;
     }
 
@@ -57,13 +63,88 @@ class Suggestions extends Component
         $this->selectedSuggestion = null;
         $this->newStatus = '';
         $this->statusNotes = '';
+        $this->showEditFlyout = false;
+        $this->resetEditForm();
         $this->resetErrorBag();
+    }
+
+    public function startEdit(): void
+    {
+        if (!$this->selectedSuggestion) {
+            return;
+        }
+        $s = $this->selectedSuggestion;
+        $this->editMessage = $s->message ?? '';
+        $this->editPriority = $s->priority ?? 'medium';
+        $this->editDepartmentId = $s->department_id ? (string) $s->department_id : '';
+        $this->showStatusFlyout = false;
+        $this->showEditFlyout = true;
+    }
+
+    protected function resetEditForm(): void
+    {
+        $this->editMessage = '';
+        $this->editPriority = 'medium';
+        $this->editDepartmentId = '';
+    }
+
+    public function closeEditFlyout(): void
+    {
+        $this->showEditFlyout = false;
+        $this->resetEditForm();
+        $this->resetErrorBag();
+    }
+
+    public function saveEditComplaint(): void
+    {
+        $user = Auth::user();
+        if (!$user->can('complaints.edit') && !$user->can('employees.manage.suggestions')) {
+            session()->flash('error', __('You are not allowed to edit this complaint.'));
+            return;
+        }
+        $this->validate([
+            'editMessage' => 'required|string|max:5000',
+            'editPriority' => 'required|in:low,medium,high,urgent',
+            'editDepartmentId' => 'nullable|exists:departments,id',
+        ]);
+        $suggestion = EmployeeSuggestion::find($this->selectedSuggestionId);
+        if ($suggestion) {
+            $suggestion->message = $this->editMessage;
+            $suggestion->priority = $this->editPriority;
+            $suggestion->department_id = $this->editDepartmentId ?: null;
+            $suggestion->save();
+            $this->selectedSuggestion = $suggestion->load(['employee.user', 'statusHistory.changedBy', 'department']);
+            $this->showEditFlyout = false;
+            $this->resetEditForm();
+            session()->flash('success', __('Complaint updated.'));
+        }
+    }
+
+    public function deleteSuggestion(): void
+    {
+        $user = Auth::user();
+        if (!$user->can('complaints.delete') && !$user->can('employees.manage.suggestions')) {
+            session()->flash('error', __('You are not allowed to delete this complaint.'));
+            return;
+        }
+        $suggestion = EmployeeSuggestion::find($this->selectedSuggestionId);
+        if ($suggestion) {
+            $suggestion->delete();
+            session()->flash('success', __('Suggestion/complaint deleted.'));
+            $this->closeStatusFlyout();
+        }
     }
 
     public function updateStatus()
     {
+        $user = Auth::user();
+        if (!$user->can('complaints.edit') && !$user->can('employees.manage.suggestions')) {
+            session()->flash('error', __('You are not allowed to update status.'));
+            return;
+        }
+
         $this->validate([
-            'newStatus' => 'required|in:pending,in_progress,resolved,dismissed',
+            'newStatus' => 'required|in:pending,in_progress,dismissed',
             'statusNotes' => 'nullable|string|max:1000',
         ]);
 
@@ -81,13 +162,8 @@ class Suggestions extends Component
             // Update the suggestion status
             $suggestion->status = $this->newStatus;
             
-            // If status is resolved or dismissed, also update admin_response
-            if (in_array($this->newStatus, ['resolved', 'dismissed']) && !$suggestion->admin_response) {
-                $suggestion->admin_response = $this->statusNotes;
-                $suggestion->responded_by = Auth::id();
-                $suggestion->responded_at = now();
-            } elseif ($this->statusNotes && $this->newStatus === 'resolved') {
-                // Update response if notes provided
+            // If status is dismissed, also update admin_response
+            if ($this->newStatus === 'dismissed' && !$suggestion->admin_response) {
                 $suggestion->admin_response = $this->statusNotes;
                 $suggestion->responded_by = Auth::id();
                 $suggestion->responded_at = now();
@@ -114,6 +190,83 @@ class Suggestions extends Component
 
         session()->flash('success', 'Status updated successfully!');
         $this->closeStatusFlyout();
+    }
+
+    public function resolverResolve(): void
+    {
+        $suggestion = EmployeeSuggestion::with('department')->find($this->selectedSuggestionId);
+        if (!$suggestion) {
+            session()->flash('error', __('Suggestion not found.'));
+            return;
+        }
+
+        $user = Auth::user();
+        $employee = \App\Models\Employee::where('user_id', $user->id)->first();
+        $canResolveAny = $user->can('complaints.resolve');
+        $isDepartmentResolver = $employee && $suggestion->department_id && (int) $suggestion->department_id === (int) $employee->department_id && $suggestion->employee_id !== $employee->id;
+
+        if (!$canResolveAny && !$isDepartmentResolver) {
+            session()->flash('error', __('You are not allowed to resolve this complaint.'));
+            return;
+        }
+
+        if (!$canResolveAny && $suggestion->employee_id === $employee->id) {
+            session()->flash('error', __('As the lodger you cannot use this button. Use "I acknowledge resolution" instead.'));
+            return;
+        }
+
+        if ($suggestion->status === 'resolved') {
+            session()->flash('info', __('Already resolved.'));
+            return;
+        }
+
+        $suggestion->status = 'resolved';
+        $suggestion->responded_by = Auth::id();
+        $suggestion->responded_at = now();
+        $suggestion->admin_response = $suggestion->admin_response ?: __('Resolved by department.');
+        $suggestion->save();
+
+        EmployeeSuggestionStatusHistory::create([
+            'employee_suggestion_id' => $suggestion->id,
+            'status' => 'resolved',
+            'notes' => __('Marked resolved by department.'),
+            'changed_by' => Auth::id(),
+        ]);
+
+        $this->selectedSuggestion = $suggestion->load(['employee.user', 'statusHistory.changedBy', 'department']);
+        session()->flash('success', __('Complaint marked as resolved.'));
+    }
+
+    public function lodgerAcknowledge(): void
+    {
+        $suggestion = EmployeeSuggestion::find($this->selectedSuggestionId);
+        if (!$suggestion) {
+            session()->flash('error', __('Suggestion not found.'));
+            return;
+        }
+
+        $user = Auth::user();
+        $employee = \App\Models\Employee::where('user_id', $user->id)->first();
+        $isLodger = $employee && (int) $suggestion->employee_id === (int) $employee->id;
+        $canAcknowledgeAny = $user->can('complaints.acknowledge_resolution');
+
+        if (!$canAcknowledgeAny && !$isLodger) {
+            session()->flash('error', __('Only the person who lodged the complaint can acknowledge resolution.'));
+            return;
+        }
+
+        $suggestion->lodger_acknowledged_at = now();
+        $suggestion->save();
+
+        EmployeeSuggestionStatusHistory::create([
+            'employee_suggestion_id' => $suggestion->id,
+            'status' => 'lodger_acknowledged',
+            'notes' => __('Lodger acknowledged resolution.'),
+            'changed_by' => Auth::id(),
+        ]);
+
+        $this->selectedSuggestion = $suggestion->load(['employee.user', 'statusHistory.changedBy', 'department']);
+        session()->flash('success', __('You have acknowledged resolution.'));
     }
 
     public function getAvailableMonths()
@@ -144,21 +297,36 @@ class Suggestions extends Component
         $user = Auth::user();
         $employee = \App\Models\Employee::where('user_id', $user->id)->first();
 
-        $query = EmployeeSuggestion::with(['employee.user', 'respondedBy', 'statusHistory.changedBy'])
+        $query = EmployeeSuggestion::with(['employee.user', 'respondedBy', 'statusHistory.changedBy', 'department'])
             ->orderBy('created_at', 'desc');
 
-        // If user is not admin, only show their own suggestions/complaints
-        if (!$user->hasRole('Super Admin') && !$user->can('employees.manage.suggestions')) {
-            if ($employee) {
+        // Visibility: Super Admin / view.all = all; view.own_department = own + department's; view.self = own only
+        if ($user->hasRole('Super Admin') || $user->can('complaints.view.all')) {
+            // see all
+        } elseif ($user->can('complaints.view.own_department') && $employee) {
+            $query->where(function ($q) use ($employee) {
+                $q->where('employee_id', $employee->id)
+                    ->orWhere('department_id', $employee->department_id);
+            });
+        } elseif ($user->can('complaints.view.self') && $employee) {
+            $query->where('employee_id', $employee->id);
+        } else {
+            // Legacy: employees.manage.suggestions = own + department
+            if ($user->can('employees.manage.suggestions') && $employee) {
+                $query->where(function ($q) use ($employee) {
+                    $q->where('employee_id', $employee->id)
+                        ->orWhere('department_id', $employee->department_id);
+                });
+            } elseif ($employee) {
                 $query->where('employee_id', $employee->id);
             } else {
-                $query->whereRaw('1 = 0'); // No results if no employee record
+                $query->whereRaw('1 = 0');
             }
         }
 
         // Apply filters
-        if ($this->filterType) {
-            $query->where('type', $this->filterType);
+        if ($this->filterPriority) {
+            $query->where('priority', $this->filterPriority);
         }
 
         if ($this->filterStatus) {
@@ -173,9 +341,31 @@ class Suggestions extends Component
 
         $suggestions = $query->paginate(15);
 
+        $currentEmployee = $employee;
+        $isLodger = false;
+        $isResolver = false;
+        if ($this->selectedSuggestion && $currentEmployee) {
+            $isLodger = (int) $this->selectedSuggestion->employee_id === (int) $currentEmployee->id;
+            $isResolver = !$isLodger && $this->selectedSuggestion->department_id && (int) $this->selectedSuggestion->department_id === (int) $currentEmployee->department_id;
+        }
+        $canEdit = $user->can('complaints.edit') || $user->can('employees.manage.suggestions');
+        $canDelete = $user->can('complaints.delete') || $user->can('employees.manage.suggestions');
+        $canResolveAny = $user->can('complaints.resolve');
+        $canAcknowledgeAny = $user->can('complaints.acknowledge_resolution');
+
+        $departments = \App\Models\Department::where('status', 'active')->orderBy('title')->get();
+
         return view('livewire.employees.suggestions', [
             'suggestions' => $suggestions,
             'availableMonths' => $this->getAvailableMonths(),
+            'currentEmployee' => $currentEmployee,
+            'isLodger' => $isLodger,
+            'isResolver' => $isResolver,
+            'canEdit' => $canEdit,
+            'canDelete' => $canDelete,
+            'canResolveAny' => $canResolveAny,
+            'canAcknowledgeAny' => $canAcknowledgeAny,
+            'departments' => $departments,
         ])->layout('components.layouts.app');
     }
 }

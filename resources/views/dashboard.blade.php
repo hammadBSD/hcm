@@ -69,9 +69,11 @@
                         <flux:icon name="exclamation-triangle" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
                     </div>
                 </div>
-            </div> -->
+</div> --> 
         </div>
 
+        <!-- Active complaints alert: scrolls to complaints table when clicked -->
+        <livewire:dashboard.active-complaints-alert />
 
         <!-- Monthly Attendance Chart -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 md:p-6">
@@ -118,8 +120,8 @@
             </div>
         </div> --}}
 
-        <!-- Bottom Section - Recent Activity & Absent/Late Employees -->
-         <div class="grid gap-6 lg:grid-cols-2">
+        <!-- Bottom Section - Recent Activity & Absent/Late Employees & Suggestions -->
+         <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
             <!-- Tasks -->
             <livewire:dashboard.tasks />
 
@@ -127,6 +129,11 @@
             @can('dashboard.view.absent_late')
                 <livewire:dashboard.absent-late-employees />
             @endcan
+
+            <!-- Suggestions & Complaints shortcut (scroll target for active complaints alert) -->
+            <div id="dashboard-suggestions-section">
+                <livewire:dashboard.suggestions-shortcut />
+            </div>
 
             <!-- Quick Actions -->
             {{-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">

@@ -1,4 +1,20 @@
 <div>
+    @if (session()->has('success'))
+        <div
+            x-data="{ visible: true }"
+            x-init="setTimeout(() => visible = false, 2000)"
+            x-show="visible"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="mb-4"
+        >
+            <flux:callout variant="success" icon="check-circle" dismissible>
+                {{ session('success') }}
+            </flux:callout>
+        </div>
+    @endif
+
     <!-- Card -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
         <div class="flex items-center justify-between">
@@ -8,11 +24,11 @@
                         <flux:icon name="light-bulb" class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
                         <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Suggestions / Complaints') }}</span>
                     </div>
-                    @can('employees.manage.suggestions')
+                    @if(auth()->user()->can('employees.manage.suggestions') || auth()->user()->can('complaints.view.all') || auth()->user()->can('complaints.view.own_department') || auth()->user()->can('complaints.view.self'))
                         <a href="{{ route('employees.suggestions') }}" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1">
-                            {{ __('View All') }} <flux:icon name="arrow-right" class="w-4 h-4" />
+                            {{ __('View') }} <flux:icon name="arrow-right" class="w-4 h-4" />
                         </a>
-                    @endcan
+                    @endif
                 </div>
                 <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
                     {{ __('Share Feedback') }}
@@ -23,7 +39,7 @@
             </div>
             <div class="flex items-center justify-end ml-4 pr-2">
                 <flux:button variant="primary" icon="chat-bubble-left-right" wire:click="openFlyout">
-                    {{ __('Share') }}
+                    {{ __('Complain') }}
                 </flux:button>
             </div>
         </div>
@@ -47,14 +63,32 @@
         @endif
 
         <form wire:submit="submit" class="space-y-6">
-            <!-- Type Selection -->
+            <input type="hidden" wire:model="type" value="complaint" />
+
+            <!-- Department -->
             <div>
-                <flux:label for="type" class="mb-2">{{ __('Type') }}</flux:label>
-                <flux:select wire:model.live="type" id="type" placeholder="{{ __('Select type') }}">
-                    <option value="suggestion">{{ __('Suggestion') }}</option>
-                    <option value="complaint">{{ __('Complaint') }}</option>
+                <flux:label for="departmentId" class="mb-2">{{ __('Department') }} <span class="text-red-500">*</span></flux:label>
+                <flux:select wire:model="departmentId" id="departmentId" placeholder="{{ __('Select department') }}">
+                    <option value="">{{ __('Select department') }}</option>
+                    @foreach($departments as $dept)
+                        <option value="{{ $dept['id'] }}">{{ $dept['label'] }}</option>
+                    @endforeach
                 </flux:select>
-                @error('type')
+                @error('departmentId')
+                    <flux:error class="mt-1">{{ $message }}</flux:error>
+                @enderror
+            </div>
+
+            <!-- Priority -->
+            <div>
+                <flux:label for="priority" class="mb-2">{{ __('Priority') }}</flux:label>
+                <flux:select wire:model="priority" id="priority" placeholder="{{ __('Select priority') }}">
+                    <option value="low">{{ __('Low') }}</option>
+                    <option value="medium">{{ __('Medium') }}</option>
+                    <option value="high">{{ __('High') }}</option>
+                    <option value="urgent">{{ __('Urgent') }}</option>
+                </flux:select>
+                @error('priority')
                     <flux:error class="mt-1">{{ $message }}</flux:error>
                 @enderror
             </div>
@@ -81,18 +115,12 @@
 
             <!-- Message Textarea -->
             <div>
-                <flux:label for="message" class="mb-2">
-                    @if($type === 'suggestion')
-                        {{ __('Your Suggestion') }}
-                    @else
-                        {{ __('Your Complaint') }}
-                    @endif
-                </flux:label>
+                <flux:label for="message" class="mb-2">{{ __('Your Complaint') }}</flux:label>
                 <flux:textarea 
                     wire:model="message" 
                     id="message" 
                     rows="6"
-                    placeholder="{{ $type === 'suggestion' ? __('Please share your suggestion...') : __('Please describe your complaint...') }}"
+                    placeholder="{{ __('Please describe your complaint...') }}"
                 ></flux:textarea>
                 @error('message')
                     <flux:error class="mt-1">{{ $message }}</flux:error>

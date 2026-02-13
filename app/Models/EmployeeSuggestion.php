@@ -14,20 +14,29 @@ class EmployeeSuggestion extends Model
         'employee_id',
         'type',
         'complaint_type',
+        'department_id',
+        'priority',
         'message',
         'status',
         'admin_response',
         'responded_by',
         'responded_at',
+        'lodger_acknowledged_at',
     ];
 
     protected $casts = [
         'responded_at' => 'datetime',
+        'lodger_acknowledged_at' => 'datetime',
     ];
 
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function respondedBy(): BelongsTo
