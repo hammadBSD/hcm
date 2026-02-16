@@ -137,6 +137,25 @@ class Index extends Component
         }
     }
 
+    public function deleteJobPost($jobId)
+    {
+        $user = Auth::user();
+
+        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
+            session()->flash('error', 'Unauthorized access.');
+            return;
+        }
+
+        try {
+            $jobPost = JobPost::findOrFail($jobId);
+            $jobPost->delete();
+            session()->flash('message', 'Job post deleted successfully.');
+            $this->resetPage();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to delete job post: ' . $e->getMessage());
+        }
+    }
+
     public function render()
     {
         // Build query with relationships

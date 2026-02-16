@@ -470,10 +470,14 @@
                                     @foreach($stage['cards'] as $card)
                                         @php
                                             $isRejected = isset($card['status']) && $card['status'] === 'rejected';
-                                            $canMove = !($settings && $settings->prevent_move_rejected_candidates && $isRejected);
+                                            $isNoShow = isset($card['status']) && $card['status'] === 'no_show';
+                                            $isNotInterested = isset($card['status']) && $card['status'] === 'not_interested';
+                                            $isNotReachable = isset($card['status']) && $card['status'] === 'not_reachable';
+                                            $isOutcomeStatus = $isRejected || $isNoShow || $isNotInterested || $isNotReachable;
+                                            $canMove = !($settings && $settings->prevent_move_rejected_candidates && $isOutcomeStatus);
                                         @endphp
                                         <div 
-                                            class="bg-white dark:bg-zinc-700 rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow {{ $isRejected ? 'border-red-500 dark:border-red-600 border-2' : 'border-zinc-200 dark:border-zinc-600' }}"
+                                            class="bg-white dark:bg-zinc-700 rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow @if($isRejected) border-2 border-red-500 dark:border-red-600 @elseif($isNoShow) border-2 border-yellow-500 dark:border-yellow-600 @elseif($isNotInterested) border-2 border-rose-300 dark:border-rose-300 @elseif($isNotReachable) border-2 border-orange-400 dark:border-orange-500 @else border border-zinc-200 dark:border-zinc-600 @endif"
                                             draggable="{{ $canMove ? 'true' : 'false' }}"
                                             @if($canMove)
                                                 ondragstart="@this.call('dragStart', {{ $card['id'] }}, {{ $stage['id'] }}); event.dataTransfer.effectAllowed = 'move';"
@@ -489,6 +493,12 @@
                                                         </span>
                                                         @if(isset($card['status']) && $card['status'] === 'rejected')
                                                             <flux:badge color="red" size="sm">{{ __('Rejected') }}</flux:badge>
+                                                        @elseif(isset($card['status']) && $card['status'] === 'no_show')
+                                                            <flux:badge color="yellow" size="sm">{{ __('No Show') }}</flux:badge>
+                                                        @elseif(isset($card['status']) && $card['status'] === 'not_interested')
+                                                            <flux:badge color="rose" size="sm">{{ __('Not Interested') }}</flux:badge>
+                                                        @elseif(isset($card['status']) && $card['status'] === 'not_reachable')
+                                                            <flux:badge color="orange" size="sm">{{ __('Not Reachable') }}</flux:badge>
                                                         @endif
                                                     </div>
                                                     <div class="flex items-center gap-2">
@@ -973,6 +983,12 @@
                                 </span>
                                 @if(isset($selectedCard['status']) && $selectedCard['status'] === 'rejected')
                                     <flux:badge color="red" size="sm">{{ __('Rejected') }}</flux:badge>
+                                @elseif(isset($selectedCard['status']) && $selectedCard['status'] === 'no_show')
+                                    <flux:badge color="yellow" size="sm">{{ __('No Show') }}</flux:badge>
+                                @elseif(isset($selectedCard['status']) && $selectedCard['status'] === 'not_interested')
+                                    <flux:badge color="zinc" size="sm">{{ __('Not Interested') }}</flux:badge>
+                                @elseif(isset($selectedCard['status']) && $selectedCard['status'] === 'not_reachable')
+                                    <flux:badge color="amber" size="sm">{{ __('Not Reachable') }}</flux:badge>
                                 @endif
                                 @if(isset($selectedCard['referrer_name']) && $selectedCard['referrer_name'])
                                     <span class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -1409,14 +1425,15 @@
                                 </div>
                                 @php
                                     $isRejected = isset($selectedCard['status']) && $selectedCard['status'] === 'rejected';
-                                    $showHireButton = !$isRejected; // Hide hire button if rejected
-                                    if (!$isRejected && $settings && $settings->show_hire_button_last_stage_only && isset($selectedCardStageId)) {
-                                        // Get the pipeline and check if current stage is the last one
+                                    $isNoShow = isset($selectedCard['status']) && $selectedCard['status'] === 'no_show';
+                                    $isNotReachable = isset($selectedCard['status']) && $selectedCard['status'] === 'not_reachable';
+                                    $isNotInterested = isset($selectedCard['status']) && $selectedCard['status'] === 'not_interested';
+                                    $hasOutcomeStatus = $isRejected || $isNoShow || $isNotReachable || $isNotInterested;
+                                    $showHireButton = !$hasOutcomeStatus;
+                                    if (!$hasOutcomeStatus && $settings && $settings->show_hire_button_last_stage_only && isset($selectedCardStageId)) {
                                         $pipeline = collect($pipelines)->firstWhere('id', $selectedPipelineId);
                                         if ($pipeline && isset($pipeline['stages']) && count($pipeline['stages']) > 0) {
-                                            // Sort stages by order and get the last one
                                             $stages = collect($pipeline['stages'])->sortByDesc(function($stage) {
-                                                // Try to get order from stage data, or use ID as fallback
                                                 return $stage['order'] ?? ($stage['id'] ?? 0);
                                             });
                                             $lastStage = $stages->first();
@@ -1426,21 +1443,52 @@
                                         }
                                     }
                                 @endphp
-                                <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700 justify-end">
-                                    @if($showHireButton)
-                                        <flux:button size="sm" color="green" icon="check-circle" wire:click="hireCandidate">
-                                            {{ __('Hire') }}
-                                        </flux:button>
-                                    @endif
-                                    @if($isRejected)
-                                        <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoRejectCandidate">
-                                            {{ __('Undo Reject') }}
-                                        </flux:button>
-                                    @else
-                                        <flux:button variant="danger" size="sm" icon="x-circle" wire:click="rejectCandidate">
-                                            {{ __('Reject') }}
-                                        </flux:button>
-                                    @endif
+                                <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700 justify-between items-center">
+                                    <div class="flex flex-wrap gap-2">
+                                        @if($hasOutcomeStatus)
+                                            @if($isNotReachable)
+                                                <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoNotReachable">
+                                                    {{ __('Undo Not Reachable') }}
+                                                </flux:button>
+                                            @elseif($isNotInterested)
+                                                <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoNotInterested">
+                                                    {{ __('Undo Not Interested') }}
+                                                </flux:button>
+                                            @elseif($isNoShow)
+                                                <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoNoShow">
+                                                    {{ __('Undo No Show') }}
+                                                </flux:button>
+                                            @endif
+                                        @else
+                                            <flux:button size="sm" variant="ghost" icon="phone" wire:click="markCandidateNotReachable">
+                                                {{ __('Not Reachable') }}
+                                            </flux:button>
+                                            <flux:button size="sm" variant="ghost" icon="heart" wire:click="markCandidateNotInterested">
+                                                {{ __('Not Interested') }}
+                                            </flux:button>
+                                            <flux:button size="sm" variant="ghost" icon="minus-circle" wire:click="markCandidateNoShow">
+                                                {{ __('No Show') }}
+                                            </flux:button>
+                                        @endif
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        @if($hasOutcomeStatus)
+                                            @if($isRejected)
+                                                <flux:button size="sm" color="blue" icon="arrow-path" wire:click="undoRejectCandidate">
+                                                    {{ __('Undo Reject') }}
+                                                </flux:button>
+                                            @endif
+                                        @else
+                                            @if($showHireButton)
+                                                <flux:button size="sm" color="green" icon="check-circle" wire:click="hireCandidate">
+                                                    {{ __('Hire') }}
+                                                </flux:button>
+                                            @endif
+                                            <flux:button variant="danger" size="sm" icon="x-circle" wire:click="rejectCandidate">
+                                                {{ __('Reject') }}
+                                            </flux:button>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
 
@@ -1566,6 +1614,9 @@
                                                             'comment' => 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
                                                             'hired' => 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
                                                             'rejected' => 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
+                                                            'not_reachable' => 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300',
+                                                            'not_interested' => 'bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300',
+                                                            'no_show' => 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300',
                                                             'rating_changed' => 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300',
                                                             'salary_changed' => 'bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300',
                                                             'card_action' => 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300',
@@ -1588,6 +1639,12 @@
                                                                 <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-green-600 dark:text-green-400 font-medium">hired</span> this candidate
                                                             @elseif($activity['action_type'] === 'rejected')
                                                                 <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-red-600 dark:text-red-400 font-medium">rejected</span> this candidate
+                                                            @elseif($activity['action_type'] === 'not_reachable')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-amber-600 dark:text-amber-400 font-medium">marked candidate as not reachable</span>
+                                                            @elseif($activity['action_type'] === 'not_interested')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-zinc-600 dark:text-zinc-400 font-medium">marked candidate as not interested</span>
+                                                            @elseif($activity['action_type'] === 'no_show')
+                                                                <span class="font-medium">{{ $activity['user_name'] }}</span> <span class="text-yellow-600 dark:text-yellow-400 font-medium">marked candidate as no show</span>
                                                             @elseif($activity['action_type'] === 'rating_changed')
                                                                 <span class="font-medium">{{ $activity['user_name'] }}</span> changed rating from <span class="font-medium">{{ $activity['old_value'] }}</span> to <span class="font-medium">{{ $activity['new_value'] }}</span>
                                                             @elseif($activity['action_type'] === 'salary_changed')

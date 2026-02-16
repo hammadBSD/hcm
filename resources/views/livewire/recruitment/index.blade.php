@@ -352,7 +352,7 @@
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        <flux:menu.item icon="pencil">
+                                                        <flux:menu.item icon="pencil" href="{{ route('recruitment.jobs.show', $job['id']) }}" wire:navigate>
                                                             {{ __('Edit') }}
                                                         </flux:menu.item>
                                                         <flux:menu.separator />
@@ -382,7 +382,12 @@
                                                             {{ __('Closed') }}
                                                         </flux:menu.item>
                                                         <flux:menu.separator />
-                                                        <flux:menu.item icon="trash" variant="danger">
+                                                        <flux:menu.item 
+                                                            icon="trash" 
+                                                            variant="danger"
+                                                            wire:click="deleteJobPost({{ $job['id'] }})"
+                                                            wire:confirm="{{ __('Are you sure you want to delete this job post? This cannot be undone.') }}"
+                                                        >
                                                             {{ __('Delete') }}
                                                         </flux:menu.item>
                                                     </flux:menu>

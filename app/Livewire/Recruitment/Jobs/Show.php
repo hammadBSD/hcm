@@ -747,11 +747,18 @@ class Show extends Component
             ->with(['designation', 'previousCompanies', 'attachments', 'createdBy'])
             ->get();
 
-        // Build stages with candidates
-        $stages = $pipeline->stages->map(function ($stage) use ($candidates) {
+        $outcomeStatuses = ['rejected', 'no_show', 'not_reachable', 'not_interested'];
+
+        // Build stages with candidates: cards with no outcome status first, outcome-status cards last
+        $stages = $pipeline->stages->map(function ($stage) use ($candidates, $outcomeStatuses) {
             $stageCandidates = $candidates->where('pipeline_stage_id', $stage->id)
                 ->map(function ($candidate) {
                     return $this->formatCandidateForCard($candidate);
+                })
+                ->sortBy(function ($card) use ($outcomeStatuses) {
+                    $status = $card['status'] ?? '';
+                    // No status / active / any non-outcome → 0 (show first). Outcome status → 1 (show last).
+                    return in_array($status, $outcomeStatuses) ? 1 : 0;
                 })
                 ->values()
                 ->toArray();
@@ -998,6 +1005,184 @@ class Show extends Component
         } catch (\Exception $e) {
             DB::rollBack();
             session()->flash('error', 'Failed to undo reject: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mark candidate as Not Reachable
+     */
+    public function markCandidateNotReachable()
+    {
+        $this->setCandidateOutcomeStatus('not_reachable', 'Not Reachable', 'Candidate marked as not reachable.');
+    }
+
+    /**
+     * Mark candidate as Not Interested
+     */
+    public function markCandidateNotInterested()
+    {
+        $this->setCandidateOutcomeStatus('not_interested', 'Not Interested', 'Candidate marked as not interested.');
+    }
+
+    /**
+     * Mark candidate as No Show
+     */
+    public function markCandidateNoShow()
+    {
+        // $this->setCandidateOutcomeStatus('no_show', 'No Show', 'Candidate marked as no show.');
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            // Update candidate status
+            $candidate->update([
+                'status' => 'no_show',
+            ]);
+
+            // Create history entry
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'no_show',
+                'notes' => 'Candidate marked as no show',
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Reload activities and refresh card
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+            
+            session()->flash('message', 'Candidate is a No Show.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to set no show for candidate: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Undo No Show - change candidate status back to active
+     */
+    public function undoNoShow()
+    {
+        $this->undoOutcomeStatus('no_show', 'No Show');
+    }
+
+    /**
+     * Undo Not Reachable - change candidate status back to active
+     */
+    public function undoNotReachable()
+    {
+        $this->undoOutcomeStatus('not_reachable', 'Not Reachable');
+    }
+
+    /**
+     * Undo Not Interested - change candidate status back to active
+     */
+    public function undoNotInterested()
+    {
+        $this->undoOutcomeStatus('not_interested', 'Not Interested');
+    }
+
+    /**
+     * Shared undo logic for outcome statuses (no_show, not_reachable, not_interested)
+     */
+    private function undoOutcomeStatus(string $fromStatus, string $label)
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId || $candidate->status !== $fromStatus) {
+                DB::rollBack();
+                return;
+            }
+
+            $candidate->update(['status' => 'active']);
+
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => 'status_changed',
+                'notes' => "Undone {$label}, candidate status changed back to active",
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+
+            session()->flash('message', __(":label has been undone.", ['label' => $label]));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', __('Failed to undo: ') . $e->getMessage());
+        }
+    }
+
+    /**
+     * Set candidate outcome status (shared logic for not_reachable, not_interested, no_show)
+     */
+    private function setCandidateOutcomeStatus(string $status, string $actionLabel, string $historyNotes)
+    {
+        if (!$this->selectedCard || !isset($this->selectedCard['id'])) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+
+            $candidate = Candidate::find($this->selectedCard['id']);
+            if (!$candidate || $candidate->job_post_id != $this->jobId) {
+                DB::rollBack();
+                return;
+            }
+
+            $candidate->update(['status' => $status]);
+
+            CandidateHistory::create([
+                'candidate_id' => $candidate->id,
+                'action_type' => $status,
+                'notes' => $historyNotes,
+                'changed_by' => $user->id,
+                'changed_at' => now(),
+            ]);
+
+            DB::commit();
+
+            $this->loadActivities($candidate->id);
+            $candidate->refresh();
+            $this->selectedCard = $this->formatCandidateForCard($candidate);
+            $this->loadPipelines();
+
+            session()->flash('message', __('Candidate has been marked as :status.', ['status' => $actionLabel]));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', __('Failed to update: ') . $e->getMessage());
         }
     }
 
