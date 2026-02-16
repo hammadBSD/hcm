@@ -120,11 +120,8 @@
             </div>
         </div> --}}
 
-        <!-- Bottom Section - Recent Activity & Absent/Late Employees & Suggestions -->
-         <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            <!-- Tasks -->
-            <livewire:dashboard.tasks />
-
+        <!-- Bottom Section - 2 cards per row; My Tasks last -->
+        <div class="grid gap-6 grid-cols-1 md:grid-cols-2">
             <!-- Absent & Late Employees -->
             @can('dashboard.view.absent_late')
                 <livewire:dashboard.absent-late-employees />
@@ -134,6 +131,9 @@
             <div id="dashboard-suggestions-section">
                 <livewire:dashboard.suggestions-shortcut />
             </div>
+
+            <!-- My Tasks (last) -->
+            <livewire:dashboard.tasks />
 
             <!-- Quick Actions -->
             {{-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">

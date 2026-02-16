@@ -352,7 +352,7 @@
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        <flux:menu.item icon="pencil" href="{{ route('recruitment.jobs.show', $job['id']) }}" wire:navigate>
+                                                        <flux:menu.item icon="pencil" href="{{ route('recruitment.jobs.edit', $job['id']) }}" wire:navigate>
                                                             {{ __('Edit') }}
                                                         </flux:menu.item>
                                                         <flux:menu.separator />

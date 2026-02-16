@@ -4,9 +4,9 @@
     <x-recruitment.layout>
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
             <div class="p-6 border-b border-zinc-200 dark:border-zinc-700">
-                <flux:heading size="lg">{{ __('Create Job Post') }}</flux:heading>
+                <flux:heading size="lg">{{ $id ? __('Edit Job Post') : __('Create Job Post') }}</flux:heading>
                 <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
-                    {{ __('Fill in the details to create a new job posting') }}
+                    {{ $id ? __('Update the job posting details') : __('Fill in the details to create a new job posting') }}
                 </flux:text>
             </div>
 
@@ -103,12 +103,6 @@
                             <flux:textarea wire:model="requiredSkills" rows="3" placeholder="List required skills, separated by commas or new lines" />
                             @error('requiredSkills') <flux:error>{{ $message }}</flux:error> @enderror
                         </flux:field>
-
-                        <flux:field>
-                            <flux:label>{{ __('Reporting To') }}</flux:label>
-                            <flux:input wire:model="reportingTo" placeholder="Manager name or position" />
-                            @error('reportingTo') <flux:error>{{ $message }}</flux:error> @enderror
-                        </flux:field>
                     </div>
                 </div>
 
@@ -194,7 +188,7 @@
                         {{ __('Cancel') }}
                     </flux:button>
                     <flux:button variant="primary" type="submit">
-                        {{ __('Create Job Post') }}
+                        {{ $id ? __('Update Job Post') : __('Create Job Post') }}
                     </flux:button>
                 </div>
             </form>

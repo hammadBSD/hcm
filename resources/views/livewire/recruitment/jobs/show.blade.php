@@ -89,7 +89,7 @@
                     <flux:button variant="outline" icon="arrow-left" href="{{ route('recruitment.index') }}" wire:navigate>
                         {{ __('Back to Jobs') }}
                     </flux:button>
-                    <flux:button variant="ghost" size="sm" icon="pencil">
+                    <flux:button variant="ghost" size="sm" icon="pencil" href="{{ route('recruitment.jobs.edit', $jobId) }}" wire:navigate>
                         {{ __('Edit') }}
                     </flux:button>
                 </div>

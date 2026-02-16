@@ -171,6 +171,7 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     // Recruitment Routes
     Route::get('recruitment', \App\Livewire\Recruitment\Index::class)->name('recruitment.index');
     Route::get('recruitment/jobs/create', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.create');
+    Route::get('recruitment/jobs/{id}/edit', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.edit');
     Route::get('recruitment/jobs/{id}', \App\Livewire\Recruitment\Jobs\Show::class)->name('recruitment.jobs.show');
     Route::get('recruitment/settings', \App\Livewire\Recruitment\Jobs\Settings::class)->name('recruitment.settings');
     Route::get('recruitment/summary', \App\Livewire\Recruitment\Summary::class)->name('recruitment.summary');

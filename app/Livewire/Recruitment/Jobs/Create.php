@@ -16,6 +16,9 @@ use Livewire\Component;
 
 class Create extends Component
 {
+    /** When set, component is in edit mode and loads this job post. */
+    public $id = null;
+
     public $jobTitle = '';
     public $jobDescription = '';
     public $budget = '';
@@ -116,9 +119,34 @@ class Create extends Component
                 ];
             })->toArray();
 
-        // Set default values
-        $this->hiringPriority = 'medium';
-        $this->workType = 'on-site';
+        // Set default values or load job for edit
+        if ($this->id) {
+            $job = JobPost::find($this->id);
+            if (!$job) {
+                abort(404, 'Job post not found.');
+            }
+            $this->jobTitle = $job->title ?? '';
+            $this->jobDescription = $job->description ?? '';
+            $this->designation = $job->designation_id ? (string) $job->designation_id : '';
+            $this->department = $job->department_id ? (string) $job->department_id : '';
+            $this->numberOfPositions = (int) $job->number_of_positions;
+            $this->lineManager = $job->reporting_to_id ? (string) $job->reporting_to_id : '';
+            $this->reportingTo = $this->lineManager;
+            $this->entryLevel = $job->entry_level ?? '';
+            $this->position = $job->position_type ?? 'full-time';
+            $this->workType = $job->work_type ?? 'on-site';
+            $this->hiringPriority = $job->hiring_priority ?? 'medium';
+            $this->location = $job->location ?? '';
+            $this->budget = $job->budget !== null ? (string) $job->budget : '';
+            $this->applicationDeadline = $job->application_deadline?->format('Y-m-d') ?? '';
+            $this->startDate = $job->start_date?->format('Y-m-d') ?? '';
+            $this->requiredSkills = $job->required_skills ?? '';
+            $this->benefits = $job->benefits ?? '';
+            $this->candidateExperience = '';
+        } else {
+            $this->hiringPriority = 'medium';
+            $this->workType = 'on-site';
+        }
     }
 
     public function save()
@@ -148,13 +176,50 @@ class Create extends Component
 
             $user = Auth::user();
 
-            // Get or create default pipeline
-            $defaultPipeline = $this->getOrCreateDefaultPipeline($user->id);
+            if ($this->id) {
+                // Update existing job post
+                $jobPost = JobPost::findOrFail($this->id);
+                $updateData = [
+                    'title' => $this->jobTitle,
+                    'description' => $this->jobDescription ?: null,
+                    'department_id' => $this->department,
+                    'designation_id' => $this->designation,
+                    'entry_level' => $this->entryLevel ?: null,
+                    'position_type' => $this->position,
+                    'work_type' => $this->workType,
+                    'hiring_priority' => $this->hiringPriority,
+                    'number_of_positions' => $this->numberOfPositions,
+                    'location' => $this->location ?: null,
+                    'budget' => $this->budget ? (float) $this->budget : null,
+                    'application_deadline' => $this->applicationDeadline ?: null,
+                    'start_date' => $this->startDate ?: null,
+                    'required_skills' => $this->requiredSkills ?: null,
+                    'benefits' => $this->benefits ?: null,
+                    'reporting_to_id' => $this->lineManager ?: $this->reportingTo ?: null,
+                ];
+                // Ensure job has a unique_id so Application URL appears on job show page (e.g. old jobs created before unique_id existed)
+                if (empty($jobPost->unique_id)) {
+                    $updateData['unique_id'] = $this->generateUniqueId();
+                }
+                $jobPost->update($updateData);
 
-            // Generate unique ID (16 characters)
+                JobPostHistory::create([
+                    'job_post_id' => $jobPost->id,
+                    'action_type' => 'updated',
+                    'notes' => 'Job post updated',
+                    'changed_by' => $user->id,
+                    'changed_at' => now(),
+                ]);
+
+                DB::commit();
+                session()->flash('message', __('Job post updated successfully.'));
+                return $this->redirect(route('recruitment.jobs.show', $jobPost->id), navigate: true);
+            }
+
+            // Create new job post
+            $defaultPipeline = $this->getOrCreateDefaultPipeline($user->id);
             $uniqueId = $this->generateUniqueId();
 
-            // Create job post
             $jobPost = JobPost::create([
                 'unique_id' => $uniqueId,
                 'title' => $this->jobTitle,
@@ -173,12 +238,11 @@ class Create extends Component
                 'start_date' => $this->startDate ?: null,
                 'required_skills' => $this->requiredSkills ?: null,
                 'benefits' => $this->benefits ?: null,
-                'reporting_to_id' => $this->reportingTo ?: null,
+                'reporting_to_id' => $this->lineManager ?: $this->reportingTo ?: null,
                 'created_by' => $user->id,
                 'default_pipeline_id' => $defaultPipeline->id,
             ]);
 
-            // Create history entry
             JobPostHistory::create([
                 'job_post_id' => $jobPost->id,
                 'action_type' => 'created',
@@ -188,12 +252,11 @@ class Create extends Component
             ]);
 
             DB::commit();
-
             session()->flash('message', 'Job post created successfully!');
             return $this->redirect(route('recruitment.jobs.show', $jobPost->id), navigate: true);
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'Failed to create job post: ' . $e->getMessage());
+            session()->flash('error', $this->id ? __('Failed to update job post: ') . $e->getMessage() : 'Failed to create job post: ' . $e->getMessage());
         }
     }
 
