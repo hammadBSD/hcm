@@ -62,6 +62,18 @@
                             </div>
                         </flux:navlist.item>
                     </div>
+                    <div class="mb-3">
+                        <flux:navlist.item 
+                            :href="route('payroll.gross-salary-report')" 
+                            wire:navigate
+                            :class="request()->routeIs('payroll.gross-salary-report') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        >
+                            <div class="flex items-center">
+                                <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                                {{ __('Gross Salary Report') }}
+                            </div>
+                        </flux:navlist.item>
+                    </div>
                 @endif
 
                 @if($canManageBonus)
