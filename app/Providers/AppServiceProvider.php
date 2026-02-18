@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\ZktecoSyncLog;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer('dashboard', function ($view) {
+            $lastSync = ZktecoSyncLog::latest('synced_at')->first();
+            $view->with('lastZktecoSync', $lastSync?->synced_at);
+        });
     }
 }

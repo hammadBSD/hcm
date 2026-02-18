@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DeviceAttendance;
 use App\Models\DeviceEmployee;
+use App\Models\ZktecoSyncLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -81,6 +82,11 @@ class ZKTecoSyncController extends Controller
             }
 
             Log::info("ZKTeco Sync: Saved {$savedCount} records, {$duplicateCount} duplicates, {$errorCount} errors");
+
+            ZktecoSyncLog::create([
+                'sync_type' => ZktecoSyncLog::TYPE_ATTENDANCE,
+                'synced_at' => now(),
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -176,6 +182,11 @@ class ZKTecoSyncController extends Controller
 
             Log::info("ZKTeco Sync: Saved {$savedCount} new employees, updated {$updatedCount} existing, {$errorCount} errors");
 
+            ZktecoSyncLog::create([
+                'sync_type' => ZktecoSyncLog::TYPE_EMPLOYEES,
+                'synced_at' => now(),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Employee data synced successfully',
@@ -270,6 +281,11 @@ class ZKTecoSyncController extends Controller
             }
 
             Log::info("ZKTeco Sync: Saved {$savedCount} monthly records, {$duplicateCount} duplicates, {$errorCount} errors for month: {$month}");
+
+            ZktecoSyncLog::create([
+                'sync_type' => ZktecoSyncLog::TYPE_MONTHLY_ATTENDANCE,
+                'synced_at' => now(),
+            ]);
 
             return response()->json([
                 'success' => true,
