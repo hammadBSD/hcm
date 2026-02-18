@@ -83,10 +83,11 @@ class ZKTecoSyncController extends Controller
 
             Log::info("ZKTeco Sync: Saved {$savedCount} records, {$duplicateCount} duplicates, {$errorCount} errors");
 
-            ZktecoSyncLog::create([
-                'sync_type' => ZktecoSyncLog::TYPE_ATTENDANCE,
-                'synced_at' => now(),
-            ]);
+            $appTimezone = config('app.timezone', 'UTC');
+            ZktecoSyncLog::updateOrCreate(
+                ['sync_type' => ZktecoSyncLog::TYPE_ATTENDANCE],
+                ['synced_at' => Carbon::now($appTimezone)->format('Y-m-d H:i:s')]
+            );
 
             return response()->json([
                 'success' => true,
@@ -181,11 +182,6 @@ class ZKTecoSyncController extends Controller
             }
 
             Log::info("ZKTeco Sync: Saved {$savedCount} new employees, updated {$updatedCount} existing, {$errorCount} errors");
-
-            ZktecoSyncLog::create([
-                'sync_type' => ZktecoSyncLog::TYPE_EMPLOYEES,
-                'synced_at' => now(),
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -282,10 +278,11 @@ class ZKTecoSyncController extends Controller
 
             Log::info("ZKTeco Sync: Saved {$savedCount} monthly records, {$duplicateCount} duplicates, {$errorCount} errors for month: {$month}");
 
-            ZktecoSyncLog::create([
-                'sync_type' => ZktecoSyncLog::TYPE_MONTHLY_ATTENDANCE,
-                'synced_at' => now(),
-            ]);
+            $appTimezone = config('app.timezone', 'UTC');
+            ZktecoSyncLog::updateOrCreate(
+                ['sync_type' => ZktecoSyncLog::TYPE_MONTHLY_ATTENDANCE],
+                ['synced_at' => Carbon::now($appTimezone)->format('Y-m-d H:i:s')]
+            );
 
             return response()->json([
                 'success' => true,

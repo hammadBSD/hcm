@@ -14,11 +14,9 @@
                 <div class="text-right">
                     <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ now()->format('l, F j, Y') }}</div>
                     <div class="text-lg font-semibold text-zinc-900 dark:text-zinc-100" id="currentTime">{{ now()->format('h:i A') }}</div>
-                    @if(isset($lastZktecoSync))
-                        <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                            {{ __('Last attendance sync') }}: {{ $lastZktecoSync->format('M j, Y h:i A') }}
-                        </div>
-                    @endif
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                        {{ __('Last attendance sync') }}: {{ isset($lastZktecoSync) ? $lastZktecoSync->format('M j, Y h:i A') : __('Never') }}
+                    </div>
                 </div>
             </div>
         </div>
