@@ -295,8 +295,9 @@ class Create extends Component
                 ['name' => 'Applied', 'color' => 'blue', 'order' => 1],
                 ['name' => 'Screening', 'color' => 'yellow', 'order' => 2],
                 ['name' => 'Interview', 'color' => 'purple', 'order' => 3],
-                ['name' => 'Offer', 'color' => 'green', 'order' => 4],
-                ['name' => 'Hired', 'color' => 'emerald', 'order' => 5],
+                ['name' => 'Shortlisted', 'color' => 'indigo', 'order' => 4],
+                ['name' => 'Offer', 'color' => 'green', 'order' => 5],
+                ['name' => 'Hired', 'color' => 'emerald', 'order' => 6],
             ];
 
             foreach ($defaultStages as $stage) {
