@@ -23,7 +23,7 @@ class EmployeeList extends Component
         // Search and filter properties
         public $search = '';
         public $filterDepartment = '';
-        public $filterStatus = '';
+        public $filterStatus = 'active'; // default: show only active employees; "All Status" and others via filter
         public $filterRole = '';
         public $hireDateFrom = '';
         public $hireDateTo = '';
