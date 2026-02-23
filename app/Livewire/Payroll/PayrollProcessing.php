@@ -3,6 +3,8 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use App\Models\PayrollRun;
+use App\Services\PayrollRunService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -26,8 +28,10 @@ class PayrollProcessing extends Component
     public $processMonth = null;
     public $processYear = null;
     public $selectedProcessingType = null; // 'monthly_attendance' or 'custom'
+    public $selectedRunId = null; // when set, show run detail view
+    public $lineEdits = [];
 
-    public function mount()
+    public function mount($run = null)
     {
         $user = Auth::user();
 
@@ -38,6 +42,10 @@ class PayrollProcessing extends Component
         $this->selectedYear = now()->year;
         $this->processMonth = now()->month;
         $this->processYear = now()->year;
+
+        if ($run !== null && $run !== '') {
+            $this->selectedRunId = (int) $run;
+        }
     }
 
     public function updatedSearch()
@@ -92,19 +100,99 @@ class PayrollProcessing extends Component
     public function createPayroll()
     {
         if (!$this->selectedProcessingType) {
-            session()->flash('error', 'Please select a processing type.');
+            session()->flash('error', __('Please select a processing type.'));
             return;
         }
 
-        if ($this->selectedProcessingType === 'monthly_attendance') {
-            // Process monthly attendance payroll
-            session()->flash('message', 'Monthly attendance payroll processing initiated for ' . \Carbon\Carbon::create($this->processYear, $this->processMonth, 1)->format('F Y') . '!');
-        } elseif ($this->selectedProcessingType === 'custom') {
-            // Process custom payroll
-            session()->flash('message', 'Custom payroll processing initiated for ' . \Carbon\Carbon::create($this->processYear, $this->processMonth, 1)->format('F Y') . '!');
+        try {
+            $service = app(PayrollRunService::class);
+            $run = $service->createDraftRun(
+                (int) $this->processMonth,
+                (int) $this->processYear,
+                $this->selectedProcessingType
+            );
+            $this->closeProcessPayrollModal();
+            session()->flash('message', __('Payroll run created for :period. Review and approve when ready.', ['period' => $run->period_label]));
+            $this->selectedRunId = $run->id;
+            $this->hydrateLineEdits($run);
+        } catch (\Throwable $e) {
+            session()->flash('error', __('Failed to create payroll run: :message', ['message' => $e->getMessage()]));
         }
+    }
 
-        $this->closeProcessPayrollModal();
+    public function closeRunDetail()
+    {
+        $this->selectedRunId = null;
+        $this->lineEdits = [];
+        return $this->redirect(route('payroll.payroll-processing'), navigate: true);
+    }
+
+    /**
+     * Build flat lineEdits from run lines for draft editing.
+     */
+    protected function hydrateLineEdits(PayrollRun $run): void
+    {
+        $this->lineEdits = [];
+        $fields = ['working_days', 'absent', 'gross_salary', 'total_deductions', 'net_salary'];
+        foreach ($run->lines as $line) {
+            $id = (int) $line->id;
+            foreach ($fields as $field) {
+                $v = $line->getAttribute($field);
+                $this->lineEdits[$id . '_' . $field] = is_array($v) ? '0' : (string) $v;
+            }
+        }
+    }
+
+    protected function sanitizeLineEdits(array $lineEdits): array
+    {
+        $out = [];
+        foreach ($lineEdits as $key => $value) {
+            $out[(string) $key] = is_array($value) ? '' : (string) $value;
+        }
+        return $out;
+    }
+
+    public function saveLineEdits()
+    {
+        if (!$this->selectedRunId) {
+            return;
+        }
+        $run = PayrollRun::with('lines')->find($this->selectedRunId);
+        if (!$run || !$run->isDraft()) {
+            session()->flash('error', __('Only draft runs can be edited.'));
+            return;
+        }
+        $validNum = fn ($v) => is_numeric($v) ? (float) $v : 0;
+        foreach ($run->lines as $line) {
+            $p = $line->id . '_';
+            $line->update([
+                'working_days' => (int) ($this->lineEdits[$p . 'working_days'] ?? 0),
+                'absent' => (int) ($this->lineEdits[$p . 'absent'] ?? 0),
+                'gross_salary' => $validNum($this->lineEdits[$p . 'gross_salary'] ?? 0),
+                'total_deductions' => $validNum($this->lineEdits[$p . 'total_deductions'] ?? 0),
+                'net_salary' => $validNum($this->lineEdits[$p . 'net_salary'] ?? 0),
+            ]);
+        }
+        session()->flash('message', __('Changes saved.'));
+    }
+
+    public function approveRun()
+    {
+        if (!$this->selectedRunId) {
+            return;
+        }
+        $run = PayrollRun::find($this->selectedRunId);
+        if (!$run) {
+            session()->flash('error', __('Payroll run not found.'));
+            return;
+        }
+        try {
+            app(PayrollRunService::class)->approveRun($run);
+            session()->flash('message', __('Payroll run for :period has been approved.', ['period' => $run->period_label]));
+            $this->selectedRunId = $run->id; // stay on detail with updated status
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
     }
 
     public function openMonthEmployeesFlyout($month, $year)
@@ -194,9 +282,25 @@ class PayrollProcessing extends Component
             ->pluck('title')
             ->toArray();
 
+        $payrollRuns = PayrollRun::withCount('lines')
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $selectedRun = $this->selectedRunId
+            ? PayrollRun::with(['lines.employee'])->find($this->selectedRunId)
+            : null;
+
+        if ($selectedRun && $selectedRun->lines->isNotEmpty() && empty($this->lineEdits)) {
+            $this->hydrateLineEdits($selectedRun);
+        }
+        $this->lineEdits = $this->sanitizeLineEdits($this->lineEdits);
+
         return view('livewire.payroll.payroll-processing', [
             'months' => $months,
-            'departments' => $departments
+            'departments' => $departments,
+            'payrollRuns' => $payrollRuns,
+            'selectedRun' => $selectedRun,
         ])->layout('components.layouts.app');
     }
 }

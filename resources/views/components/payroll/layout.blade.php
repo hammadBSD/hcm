@@ -74,6 +74,34 @@
                             </div>
                         </flux:navlist.item>
                     </div>
+                    <div class="mb-3">
+                        <flux:navlist.item 
+                            :href="route('payroll.master-report')" 
+                            wire:navigate
+                            :class="request()->routeIs('payroll.master-report') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        >
+                            <div class="flex items-center">
+                                <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                                {{ __('Master Report') }}
+                            </div>
+                        </flux:navlist.item>
+                    </div>
+                    <div class="mb-3">
+                        <flux:navlist.item 
+                            :href="route('payroll.dept-summary')" 
+                            wire:navigate
+                            :class="request()->routeIs('payroll.dept-summary') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        >
+                            <div class="flex items-center">
+                                <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                                {{ __('Dept-wise Summary') }}
+                            </div>
+                        </flux:navlist.item>
+                    </div>
+                @endif
+
+                @if($canViewPayrollReports && ($canManageBonus || $canAccessAdvance || $canAccessLoan || $canViewTax || $canAccessSettings))
+                    <div class="my-4 border-t border-zinc-200 dark:border-zinc-600" aria-hidden="true"></div>
                 @endif
 
                 @if($canManageBonus)
@@ -155,7 +183,7 @@
         </div>
     @endif
 
-    <div class="flex-1">
+    <div class="flex-1 min-w-0">
         {{ $slot }}
     </div>
 </div>

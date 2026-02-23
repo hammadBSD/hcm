@@ -97,6 +97,11 @@ class Employee extends Model
         return $this->belongsTo(Designation::class);
     }
 
+    public function reportsTo(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'reports_to_id');
+    }
+
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);

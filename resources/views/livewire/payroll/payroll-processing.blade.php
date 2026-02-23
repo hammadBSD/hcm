@@ -54,6 +54,132 @@
                 {{ session('message') }}
             </flux:callout>
         @endif
+        @if (session()->has('error'))
+            <flux:callout variant="danger" icon="x-circle" dismissible>
+                {{ session('error') }}
+            </flux:callout>
+        @endif
+
+        @if($selectedRun)
+            <!-- Run Detail View -->
+            <div class="mt-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-700/50 border-b border-zinc-200 dark:border-zinc-600 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <flux:button variant="ghost" size="sm" wire:click="closeRunDetail" icon="arrow-left">
+                            {{ __('Back to list') }}
+                        </flux:button>
+                        <flux:heading size="md">{{ __('Payroll Run') }}: {{ $selectedRun->period_label }}</flux:heading>
+                        <flux:badge color="{{ $selectedRun->status === 'approved' ? 'green' : 'yellow' }}" size="sm">
+                            {{ $selectedRun->status === 'approved' ? __('Approved') : __('Draft') }}
+                        </flux:badge>
+                        <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ ucfirst(str_replace('_', ' ', $selectedRun->processing_type)) }}</span>
+                    </div>
+                    @if($selectedRun->isDraft())
+                        <flux:button variant="outline" wire:click="saveLineEdits" wire:loading.attr="disabled" class="me-2">
+                            <span wire:loading.remove wire:target="saveLineEdits">{{ __('Save changes') }}</span>
+                            <span wire:loading wire:target="saveLineEdits">{{ __('Saving...') }}</span>
+                        </flux:button>
+                        <flux:button variant="primary" wire:click="approveRun" wire:loading.attr="disabled">
+                            <span wire:loading.remove wire:target="approveRun">{{ __('Approve run') }}</span>
+                            <span wire:loading wire:target="approveRun">{{ __('Approving...') }}</span>
+                        </flux:button>
+                    @endif
+                </div>
+                @php $inputClass = 'w-full max-w-24 text-right text-sm px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'; @endphp
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <thead class="bg-zinc-50 dark:bg-zinc-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Employee') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Department') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Working days') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Absent') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Gross') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Deductions') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Net') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach($selectedRun->lines as $line)
+                                <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                                    <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ $line->employee ? trim((string)($line->employee->first_name ?? '') . ' ' . (string)($line->employee->last_name ?? '')) : '—' }}
+                                        @if($line->employee)
+                                            <div class="text-xs text-zinc-500">{{ $line->employee->employee_code ?? '' }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $line->department }}</td>
+                                    @if($selectedRun->isDraft())
+                                        <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_working_days" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_absent" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_gross_salary" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_total_deductions" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_net_salary" /></td>
+                                    @else
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $line->working_days }}</td>
+                                        <td class="px-4 py-3 text-sm text-right {{ $line->absent > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $line->absent }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($line->gross_salary, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($line->total_deductions, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ number_format($line->net_salary, 2) }}</td>
+                                    @endif
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-zinc-100 dark:bg-zinc-700 font-semibold">
+                            <tr>
+                                <td colspan="4" class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ __('Total') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($selectedRun->lines->sum('gross_salary'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($selectedRun->lines->sum('total_deductions'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-blue-600 dark:text-blue-400">{{ number_format($selectedRun->lines->sum('net_salary'), 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        @else
+            <!-- Recent Payroll Runs -->
+            <div class="mt-6">
+                <flux:heading size="md" class="mb-3">{{ __('Recent Payroll Runs') }}</flux:heading>
+                @if($payrollRuns && $payrollRuns->count() > 0)
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-zinc-50 dark:bg-zinc-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Period') }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Type') }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Status') }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Employees') }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Created') }}</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Actions') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    @foreach($payrollRuns as $run)
+                                        <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $run->period_label }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ ucfirst(str_replace('_', ' ', $run->processing_type)) }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:badge color="{{ $run->status === 'approved' ? 'green' : 'yellow' }}" size="sm">{{ $run->status === 'approved' ? __('Approved') : __('Draft') }}</flux:badge>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $run->lines_count }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">{{ $run->created_at->format('M d, Y H:i') }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:button variant="ghost" size="sm" href="{{ route('payroll.payroll-processing', ['run' => $run->id]) }}">{{ __('View') }}</flux:button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @else
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6 text-center text-zinc-500 dark:text-zinc-400">
+                        {{ __('No payroll runs yet. Click "Process Payroll" to create a draft run.') }}
+                    </div>
+                @endif
+            </div>
+        @endif
 
         <!-- Months Table -->
         <div class="mt-8">
@@ -361,8 +487,9 @@
                         {{ __('Cancel') }}
                     </flux:button>
                     @if($selectedProcessingType)
-                        <flux:button variant="primary" wire:click="createPayroll">
-                            {{ __('Create') }}
+                        <flux:button variant="primary" wire:click="createPayroll" wire:loading.attr="disabled">
+                            <span wire:loading.remove wire:target="createPayroll">{{ __('Create draft run') }}</span>
+                            <span wire:loading wire:target="createPayroll">{{ __('Creating...') }}</span>
                         </flux:button>
                     @endif
                 </div>

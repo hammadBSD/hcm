@@ -106,9 +106,11 @@ Route::middleware(['auth'])->group(function () {
     
     // Payroll Module Routes
     Route::get('payroll/index', \App\Livewire\Payroll\Index::class)->name('payroll.index');
-    Route::get('payroll/payroll-processing', \App\Livewire\Payroll\PayrollProcessing::class)->name('payroll.payroll-processing');
+    Route::get('payroll/payroll-processing/{run?}', \App\Livewire\Payroll\PayrollProcessing::class)->name('payroll.payroll-processing');
     Route::get('payroll/salary-reports', \App\Livewire\Payroll\SalaryReports::class)->name('payroll.salary-reports');
     Route::get('payroll/gross-salary-report', \App\Livewire\Payroll\GrossSalaryReport::class)->name('payroll.gross-salary-report');
+    Route::get('payroll/master-report', \App\Livewire\Payroll\MasterReport::class)->name('payroll.master-report');
+    Route::get('payroll/dept-summary', \App\Livewire\Payroll\DeptWiseSummary::class)->name('payroll.dept-summary');
     Route::get('payroll/bonus-management', \App\Livewire\Payroll\BonusManagement::class)->name('payroll.bonus-management');
     Route::get('payroll/advance-salary', \App\Livewire\Payroll\AdvanceSalary::class)->name('payroll.advance-salary');
     Route::get('payroll/loan-management', \App\Livewire\Payroll\LoanManagement::class)->name('payroll.loan-management');
