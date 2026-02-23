@@ -133,7 +133,7 @@ class PayrollProcessing extends Component
     protected function hydrateLineEdits(PayrollRun $run): void
     {
         $this->lineEdits = [];
-        $fields = ['working_days', 'absent', 'gross_salary', 'total_deductions', 'net_salary'];
+        $fields = ['working_days', 'absent', 'gross_salary', 'tax', 'eobi', 'advance', 'loan', 'total_deductions', 'net_salary'];
         foreach ($run->lines as $line) {
             $id = (int) $line->id;
             foreach ($fields as $field) {
@@ -169,6 +169,10 @@ class PayrollProcessing extends Component
                 'working_days' => (int) ($this->lineEdits[$p . 'working_days'] ?? 0),
                 'absent' => (int) ($this->lineEdits[$p . 'absent'] ?? 0),
                 'gross_salary' => $validNum($this->lineEdits[$p . 'gross_salary'] ?? 0),
+                'tax' => $validNum($this->lineEdits[$p . 'tax'] ?? 0),
+                'eobi' => $validNum($this->lineEdits[$p . 'eobi'] ?? 0),
+                'advance' => $validNum($this->lineEdits[$p . 'advance'] ?? 0),
+                'loan' => $validNum($this->lineEdits[$p . 'loan'] ?? 0),
                 'total_deductions' => $validNum($this->lineEdits[$p . 'total_deductions'] ?? 0),
                 'net_salary' => $validNum($this->lineEdits[$p . 'net_salary'] ?? 0),
             ]);

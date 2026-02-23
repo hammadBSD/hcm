@@ -95,6 +95,10 @@
                                 <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Working days') }}</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Absent') }}</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Gross') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Tax') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('EOBI') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Advance') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Loan') }}</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Deductions') }}</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Net') }}</th>
                             </tr>
@@ -113,12 +117,20 @@
                                         <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_working_days" /></td>
                                         <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_absent" /></td>
                                         <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_gross_salary" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_tax" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_eobi" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_advance" /></td>
+                                        <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_loan" /></td>
                                         <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_total_deductions" /></td>
                                         <td class="px-2 py-1.5"><input type="number" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_net_salary" /></td>
                                     @else
                                         <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $line->working_days }}</td>
                                         <td class="px-4 py-3 text-sm text-right {{ $line->absent > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $line->absent }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($line->gross_salary, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->tax, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->eobi, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->advance, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->loan, 2) }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($line->total_deductions, 2) }}</td>
                                         <td class="px-4 py-3 text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ number_format($line->net_salary, 2) }}</td>
                                     @endif
@@ -129,6 +141,10 @@
                             <tr>
                                 <td colspan="4" class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ __('Total') }}</td>
                                 <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($selectedRun->lines->sum('gross_salary'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('tax'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('eobi'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('advance'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('loan'), 2) }}</td>
                                 <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($selectedRun->lines->sum('total_deductions'), 2) }}</td>
                                 <td class="px-4 py-3 text-sm text-right text-blue-600 dark:text-blue-400">{{ number_format($selectedRun->lines->sum('net_salary'), 2) }}</td>
                             </tr>
@@ -180,110 +196,6 @@
                 @endif
             </div>
         @endif
-
-        <!-- Months Table -->
-        <div class="mt-8">
-            @if($months && count($months) > 0)
-                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm">
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-zinc-50 dark:bg-zinc-700">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('month')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Month') }}
-                                            @if($sortBy === 'month')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Status') }}
-                                            @if($sortBy === 'status')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        {{ __('Actions') }}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
-                                @foreach ($months as $monthData)
-                                    <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            @if($monthData['status'] === 'pending')
-                                                <button 
-                                                    wire:click="openMonthEmployeesFlyout({{ $monthData['month'] }}, {{ $monthData['year'] }})"
-                                                    class="text-left flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                                                >
-                                                    <flux:icon name="calendar" class="w-5 h-5" />
-                                                    <span class="font-medium">{{ $monthData['month_name'] }}</span>
-                                                </button>
-                                            @else
-                                                <div class="flex items-center gap-2">
-                                                    <flux:icon name="calendar" class="w-5 h-5 text-zinc-400" />
-                                                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $monthData['month_name'] }}</span>
-                                                </div>
-                                            @endif
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            @if($monthData['status'] === 'pending')
-                                            <flux:badge color="yellow" size="sm">
-                                                {{ __('Pending') }}
-                                            </flux:badge>
-                                            @else
-                                                <flux:badge color="green" size="sm">
-                                                    {{ __('Processed') }}
-                                                </flux:badge>
-                                            @endif
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
-                                            <div class="flex items-center gap-1">
-                                                <flux:dropdown>
-                                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
-                                                    <flux:menu>
-                                                        @if($monthData['status'] === 'pending')
-                                                            <flux:menu.item icon="calculator" wire:click="openMonthEmployeesFlyout({{ $monthData['month'] }}, {{ $monthData['year'] }})">
-                                                                {{ __('Process Payroll') }}
-                                                            </flux:menu.item>
-                                                        @else
-                                                            <flux:menu.item icon="eye" wire:click="openMonthEmployeesFlyout({{ $monthData['month'] }}, {{ $monthData['year'] }})">
-                                                                {{ __('View Payroll') }}
-                                                        </flux:menu.item>
-                                                        @endif
-                                                        <flux:menu.item icon="arrow-down-tray">
-                                                            {{ __('Export') }}
-                                                        </flux:menu.item>
-                                                    </flux:menu>
-                                                </flux:dropdown>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @else
-                <!-- Empty State -->
-                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-12 text-center">
-                    <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                    <flux:heading size="lg" level="3" class="mt-4 text-zinc-600 dark:text-zinc-400">
-                        {{ __('No payroll months found') }}
-                    </flux:heading>
-                    <flux:text class="mt-2 text-zinc-500 dark:text-zinc-500">
-                        {{ __('No payroll months match your current search criteria.') }}
-                    </flux:text>
-                </div>
-            @endif
-        </div>
 
         <!-- Month Employees Flyout -->
         <flux:modal variant="flyout" wire:model="showMonthEmployeesFlyout" class="w-[60rem]">
