@@ -121,7 +121,7 @@ class PayrollRunService
 
         $run->update([
             'status' => 'approved',
-            'approved_by' => Auth::id(),
+            'approved_by' => Auth::id() ?? null,
             'approved_at' => now(),
         ]);
     }

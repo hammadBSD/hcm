@@ -90,6 +90,11 @@ select:focus[data-flux-control] {
     background: #737373;
 }
 
+/* Master Report: Grand Total section background in dark mode */
+.dark .master-report-grand-total {
+    background-color: #424242 !important;
+}
+
 /* Rating Component Styles (Small) */
 .rating {
     display: inline-flex;

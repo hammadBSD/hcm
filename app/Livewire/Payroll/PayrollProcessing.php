@@ -114,7 +114,7 @@ class PayrollProcessing extends Component
             $this->closeProcessPayrollModal();
             session()->flash('message', __('Payroll run created for :period. Review and approve when ready.', ['period' => $run->period_label]));
             $this->selectedRunId = $run->id;
-            $this->hydrateLineEdits($run);
+            $this->loadLineEditsFromRun($run);
         } catch (\Throwable $e) {
             session()->flash('error', __('Failed to create payroll run: :message', ['message' => $e->getMessage()]));
         }
@@ -129,16 +129,24 @@ class PayrollProcessing extends Component
 
     /**
      * Build flat lineEdits from run lines for draft editing.
+     * Named to avoid Livewire's hydrate* lifecycle hook (which would try to resolve PayrollRun from route and fail on AJAX).
      */
-    protected function hydrateLineEdits(PayrollRun $run): void
+    protected function loadLineEditsFromRun(PayrollRun $run): void
     {
         $this->lineEdits = [];
-        $fields = ['working_days', 'absent', 'gross_salary', 'tax', 'eobi', 'advance', 'loan', 'total_deductions', 'net_salary'];
+        $decimalFields = ['gross_salary', 'tax', 'eobi', 'advance', 'loan', 'total_deductions', 'net_salary'];
+        $intFields = ['working_days', 'absent'];
+        $fields = array_merge($intFields, $decimalFields);
         foreach ($run->lines as $line) {
             $id = (int) $line->id;
             foreach ($fields as $field) {
                 $v = $line->getAttribute($field);
-                $this->lineEdits[$id . '_' . $field] = is_array($v) ? '0' : (string) $v;
+                if (is_array($v)) {
+                    $this->lineEdits[$id . '_' . $field] = '0';
+                    continue;
+                }
+                $num = in_array($field, $decimalFields, true) ? (float) $v : (int) $v;
+                $this->lineEdits[$id . '_' . $field] = ($num === 0 || $num === 0.0) ? '0' : (string) $v;
             }
         }
     }
@@ -146,8 +154,13 @@ class PayrollProcessing extends Component
     protected function sanitizeLineEdits(array $lineEdits): array
     {
         $out = [];
+        $zeroDecimals = ['0', '0.0', '0.00', '0.000'];
         foreach ($lineEdits as $key => $value) {
-            $out[(string) $key] = is_array($value) ? '' : (string) $value;
+            $str = is_array($value) ? '' : (string) $value;
+            if (in_array(trim($str), $zeroDecimals, true) || (is_numeric($str) && (float) $str === 0.0)) {
+                $str = '0';
+            }
+            $out[(string) $key] = $str;
         }
         return $out;
     }
@@ -193,9 +206,11 @@ class PayrollProcessing extends Component
         try {
             app(PayrollRunService::class)->approveRun($run);
             session()->flash('message', __('Payroll run for :period has been approved.', ['period' => $run->period_label]));
-            $this->selectedRunId = $run->id; // stay on detail with updated status
+            $this->lineEdits = [];
+            $run->refresh();
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Payroll approveRun failed', ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         }
     }
 
@@ -296,7 +311,7 @@ class PayrollProcessing extends Component
             : null;
 
         if ($selectedRun && $selectedRun->lines->isNotEmpty() && empty($this->lineEdits)) {
-            $this->hydrateLineEdits($selectedRun);
+            $this->loadLineEditsFromRun($selectedRun);
         }
         $this->lineEdits = $this->sanitizeLineEdits($this->lineEdits);
 

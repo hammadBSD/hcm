@@ -87,32 +87,33 @@
                 </div>
                 @php $inputClass = 'w-full max-w-24 text-right text-sm px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'; @endphp
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <table class="divide-y divide-zinc-200 dark:divide-zinc-700" style="min-width: 1100px;">
                         <thead class="bg-zinc-50 dark:bg-zinc-700">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Employee') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Department') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Working days') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Absent') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Gross') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Tax') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('EOBI') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Advance') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Loan') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Deductions') }}</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">{{ __('Net') }}</th>
+                                <th class="sticky left-0 z-20 bg-zinc-50 dark:bg-zinc-700 px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase border-r border-zinc-200 dark:border-zinc-600 whitespace-nowrap" style="width: 180px; min-width: 180px;">{{ __('Employee') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Department') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Working days') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Absent') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Gross') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Tax') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('EOBI') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Advance') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Loan') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Deductions') }}</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap">{{ __('Net') }}</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
+                            @php $formatDecimal = fn($v) => (float)($v ?? 0) == 0 ? '0' : number_format((float)($v ?? 0), 2); @endphp
                             @foreach($selectedRun->lines as $line)
                                 <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                                    <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                    <td class="sticky left-0 z-10 bg-white dark:bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 border-r border-zinc-200 dark:border-zinc-600 whitespace-nowrap">
                                         {{ $line->employee ? trim((string)($line->employee->first_name ?? '') . ' ' . (string)($line->employee->last_name ?? '')) : '—' }}
                                         @if($line->employee)
                                             <div class="text-xs text-zinc-500">{{ $line->employee->employee_code ?? '' }}</div>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $line->department }}</td>
+                                    <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">{{ $line->department }}</td>
                                     @if($selectedRun->isDraft())
                                         <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_working_days" /></td>
                                         <td class="px-2 py-1.5"><input type="number" min="0" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_absent" /></td>
@@ -124,29 +125,30 @@
                                         <td class="px-2 py-1.5"><input type="number" min="0" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_total_deductions" /></td>
                                         <td class="px-2 py-1.5"><input type="number" step="0.01" class="{{ $inputClass }}" wire:model.blur="lineEdits.{{ $line->id }}_net_salary" /></td>
                                     @else
-                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $line->working_days }}</td>
-                                        <td class="px-4 py-3 text-sm text-right {{ $line->absent > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $line->absent }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($line->gross_salary, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->tax, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->eobi, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->advance, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($line->loan, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($line->total_deductions, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ number_format($line->net_salary, 2) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $line->working_days ?? 0 }}</td>
+                                        <td class="px-4 py-3 text-sm text-right {{ (int)($line->absent ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $line->absent ?? 0 }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ $formatDecimal($line->gross_salary) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $formatDecimal($line->tax) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $formatDecimal($line->eobi) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $formatDecimal($line->advance) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $formatDecimal($line->loan) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ $formatDecimal($line->total_deductions) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ $formatDecimal($line->net_salary) }}</td>
                                     @endif
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="bg-zinc-100 dark:bg-zinc-700 font-semibold">
                             <tr>
-                                <td colspan="4" class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ __('Total') }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ number_format($selectedRun->lines->sum('gross_salary'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('tax'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('eobi'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('advance'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($selectedRun->lines->sum('loan'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($selectedRun->lines->sum('total_deductions'), 2) }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-blue-600 dark:text-blue-400">{{ number_format($selectedRun->lines->sum('net_salary'), 2) }}</td>
+                                <td colspan="4" class="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-700 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 border-r border-zinc-200 dark:border-zinc-600">{{ __('Total') }}</td>
+                                @php $sumFmt = fn($col) => (float)$selectedRun->lines->sum($col) == 0 ? '0' : number_format((float)$selectedRun->lines->sum($col), 2); @endphp
+                                <td class="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{{ $sumFmt('gross_salary') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $sumFmt('tax') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $sumFmt('eobi') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $sumFmt('advance') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $sumFmt('loan') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-amber-600 dark:text-amber-400">{{ $sumFmt('total_deductions') }}</td>
+                                <td class="px-4 py-3 text-sm text-right text-blue-600 dark:text-blue-400">{{ $sumFmt('net_salary') }}</td>
                             </tr>
                         </tfoot>
                     </table>

@@ -19,7 +19,7 @@
 
             @if($hasData)
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden mb-6">
-                    <div class="px-6 py-4 bg-zinc-100 dark:bg-zinc-700/70 border-b border-zinc-200 dark:border-zinc-600">
+                    <div class="master-report-grand-total px-6 py-4 bg-zinc-100 dark:bg-[#424242] border-b border-zinc-200 dark:border-zinc-600">
                         <flux:heading size="md" class="mb-3 text-zinc-900 dark:text-zinc-100">{{ __('Grand Total') }}</flux:heading>
                         <div class="flex flex-wrap gap-6 text-sm">
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
