@@ -214,6 +214,46 @@ class PayrollProcessing extends Component
         }
     }
 
+    public function exportRunExcel()
+    {
+        if (!$this->selectedRunId) {
+            return null;
+        }
+        $run = PayrollRun::with(['lines.employee'])->find($this->selectedRunId);
+        if (!$run) {
+            session()->flash('error', __('Payroll run not found.'));
+            return null;
+        }
+        $slug = \Illuminate\Support\Str::slug($run->period_label);
+        $filename = "payroll-run-{$slug}.xlsx";
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\PayrollRunExport($run),
+            $filename,
+            \Maatwebsite\Excel\Excel::XLSX
+        );
+    }
+
+    public function exportRunCsv()
+    {
+        if (!$this->selectedRunId) {
+            return null;
+        }
+        $run = PayrollRun::with(['lines.employee'])->find($this->selectedRunId);
+        if (!$run) {
+            session()->flash('error', __('Payroll run not found.'));
+            return null;
+        }
+        $slug = \Illuminate\Support\Str::slug($run->period_label);
+        $filename = "payroll-run-{$slug}.csv";
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\PayrollRunExport($run),
+            $filename,
+            \Maatwebsite\Excel\Excel::CSV
+        );
+    }
+
     public function openMonthEmployeesFlyout($month, $year)
     {
         $this->selectedMonthForFlyout = $month;

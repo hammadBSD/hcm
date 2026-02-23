@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
-use App\Models\Employee;
+use App\Models\Tax;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,6 +17,14 @@ class TaxManagement extends Component
     public $showAddTaxModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    /** Add Tax Record form */
+    public $addTaxYear = '';
+    public $salaryFrom = '';
+    public $salaryTo = '';
+    public $tax = '';
+    public $exemptedTaxAmount = '';
+    public $additionalTaxAmount = '';
 
     public function mount()
     {
@@ -56,6 +64,12 @@ class TaxManagement extends Component
 
     public function openAddTaxModal()
     {
+        $this->addTaxYear = (string) ($this->taxYear ?? now()->year);
+        $this->salaryFrom = '1';
+        $this->salaryTo = '600000';
+        $this->tax = '0';
+        $this->exemptedTaxAmount = '0';
+        $this->additionalTaxAmount = '0';
         $this->showAddTaxModal = true;
     }
 
@@ -66,9 +80,33 @@ class TaxManagement extends Component
 
     public function addTaxRecord()
     {
-        // This would handle adding tax record
+        $year = (int) $this->addTaxYear;
+        $salaryFrom = (float) $this->salaryFrom;
+        $salaryTo = (float) $this->salaryTo;
+        $tax = (float) $this->tax;
+        $exempted = (float) $this->exemptedTaxAmount;
+        $additional = (float) $this->additionalTaxAmount;
+
+        if ($year < 2000 || $year > 2100) {
+            session()->flash('error', __('Tax year must be between 2000 and 2100.'));
+            return;
+        }
+        if ($salaryFrom < 0 || $salaryTo < 0 || $salaryFrom > $salaryTo) {
+            session()->flash('error', __('Salary From must be less than or equal to Salary To, and both must be non-negative.'));
+            return;
+        }
+
+        Tax::create([
+            'tax_year' => $year,
+            'salary_from' => $salaryFrom,
+            'salary_to' => $salaryTo,
+            'tax' => $tax,
+            'exempted_tax_amount' => $exempted,
+            'additional_tax_amount' => $additional,
+        ]);
+
         $this->closeAddTaxModal();
-        session()->flash('message', 'Tax record added successfully!');
+        session()->flash('message', __('Tax record added successfully.'));
     }
 
     public function generateTaxReport()
@@ -77,42 +115,36 @@ class TaxManagement extends Component
         session()->flash('message', 'Tax report generated successfully!');
     }
 
+    public function viewTaxRecord($id)
+    {
+        // Placeholder: could open a detail modal or redirect
+        session()->flash('message', __('View not implemented for this record.'));
+    }
+
+    public function downloadTaxRecord($id)
+    {
+        // Placeholder: could generate PDF
+        session()->flash('message', __('Download not implemented for this record.'));
+    }
+
     public function render()
     {
-        // For now, we'll return sample data
-        // In a real application, this would query actual tax data
-        $taxRecords = collect([
-            [
-                'id' => 1,
-                'employee_name' => 'John Doe',
-                'employee_code' => 'EMP001',
-                'department' => 'IT',
-                'salary_from' => 1,
-                'salary_to' => 50000,
-                'taxable_income' => 55000,
-                'income_tax' => 5500,
-                'year' => '2024',
-                'status' => 'calculated'
-            ],
-            [
-                'id' => 2,
-                'employee_name' => 'Jane Smith',
-                'employee_code' => 'EMP002',
-                'department' => 'HR',
-                'salary_from' => 1,
-                'salary_to' => 50000,
-                'taxable_income' => 49000,
-                'income_tax' => 4900,
-                'year' => '2024',
-                'status' => 'calculated'
-            ]
-        ]);
+        $query = Tax::query()
+            ->when((int) $this->taxYear > 0, fn ($q) => $q->where('tax_year', (int) $this->taxYear));
 
-        $departments = ['IT', 'HR', 'Finance', 'Marketing', 'Operations'];
+        $sortField = $this->sortBy ?: 'tax_year';
+        $sortDir = $this->sortDirection === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['tax_year', 'salary_from', 'salary_to', 'tax', 'exempted_tax_amount', 'additional_tax_amount'];
+        if (in_array($sortField, $allowedSort, true)) {
+            $query->orderBy($sortField, $sortDir);
+        } else {
+            $query->orderBy('tax_year', 'desc')->orderBy('salary_from', 'asc');
+        }
+
+        $taxRecords = $query->paginate(15);
 
         return view('livewire.payroll.tax-management', [
             'taxRecords' => $taxRecords,
-            'departments' => $departments
         ])->layout('components.layouts.app');
     }
 }

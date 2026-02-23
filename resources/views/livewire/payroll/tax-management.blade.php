@@ -2,39 +2,16 @@
     @include('partials.payroll-heading')
     
     <x-payroll.layout :heading="__('Tax Management')" :subheading="__('Manage employee tax records and calculations')">
-        <!-- Search and Filter Controls -->
+        <!-- Filter and Actions -->
         <div class="my-6 w-full space-y-4">
             <div class="flex flex-col sm:flex-row gap-4">
-                <!-- Search Input -->
-                <div class="flex-1">
-                    <flux:input 
-                        wire:model.live.debounce.300ms="search" 
-                        :label="__('Search')" 
-                        type="text" 
-                        placeholder="Search by name, employee ID..." 
-                        icon="magnifying-glass"
-                    />
-                </div>
-                
-                <!-- Department Filter -->
-                <div class="sm:w-64">
-                    <flux:field>
-                        <flux:label>{{ __('Department') }}</flux:label>
-                        <flux:select wire:model.live="selectedDepartment">
-                            <option value="">{{ __('All Departments') }}</option>
-                            @foreach($departments as $department)
-                                <option value="{{ $department }}">{{ $department }}</option>
-                            @endforeach
-                        </flux:select>
-                    </flux:field>
-                </div>
-
                 <!-- Tax Year Filter -->
-                <div class="sm:w-32">
+                <div class="sm:w-40">
                     <flux:field>
                         <flux:label>{{ __('Tax Year') }}</flux:label>
                         <flux:select wire:model.live="taxYear">
-                            @for($year = now()->year; $year >= now()->year - 5; $year--)
+                            <option value="">{{ __('All Years') }}</option>
+                            @for($year = now()->year; $year >= now()->year - 10; $year--)
                                 <option value="{{ $year }}">{{ $year }}</option>
                             @endfor
                         </flux:select>
@@ -79,96 +56,94 @@
                             <thead class="bg-zinc-50 dark:bg-zinc-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('salary_range')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                        <button wire:click="sort('salary_from')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Salary From - To') }}
-                                            @if($sortBy === 'salary_range')
+                                            @if($sortBy === 'salary_from' || $sortBy === 'salary_to')
                                                 <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                             @endif
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('taxable_income')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Taxable Income') }}
-                                            @if($sortBy === 'taxable_income')
+                                        <button wire:click="sort('tax')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Tax') }}
+                                            @if($sortBy === 'tax')
                                                 <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                             @endif
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('income_tax')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Income Tax') }}
-                                            @if($sortBy === 'income_tax')
+                                        <button wire:click="sort('exempted_tax_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Exempted Tax Amount') }}
+                                            @if($sortBy === 'exempted_tax_amount')
                                                 <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                             @endif
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('year')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                        <button wire:click="sort('additional_tax_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Additional Tax Amount') }}
+                                            @if($sortBy === 'additional_tax_amount')
+                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                            @endif
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button wire:click="sort('tax_year')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Tax Year') }}
-                                            @if($sortBy === 'year')
+                                            @if($sortBy === 'tax_year')
                                                 <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                             @endif
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        <button wire:click="sort('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                            {{ __('Status') }}
-                                            @if($sortBy === 'status')
-                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
-                                            @endif
-                                        </button>
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        {{ __('Actions') }}
+                                        {{ __('ACTIONS') }}
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                 @foreach ($taxRecords as $record)
+                                    @php
+                                        $salaryFrom = (float) ($record->salary_from ?? 0);
+                                        $salaryTo = (float) ($record->salary_to ?? 0);
+                                        $taxVal = (float) ($record->tax ?? 0);
+                                        $exempted = (float) ($record->exempted_tax_amount ?? 0);
+                                        $additional = (float) ($record->additional_tax_amount ?? 0);
+                                    @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                @if(isset($record['salary_from']) && isset($record['salary_to']))
-                                                    {{ number_format($record['salary_from'], 0) }} - {{ number_format($record['salary_to'], 0) }}
-                                                @else
-                                                    {{ number_format($record['annual_salary'] ?? 0, 0) }}
-                                                @endif
+                                                {{ number_format($salaryFrom, 0) }} - {{ number_format($salaryTo, 0) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ number_format($record['taxable_income'], 2) }}
+                                                {{ $taxVal == 0 ? '0' : number_format($taxVal, 2) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                {{ number_format($record['income_tax'], 2) }}
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $record['year'] }}
+                                                {{ $exempted == 0 ? '0' : number_format($exempted, 2) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <flux:badge color="green" size="sm">
-                                                {{ ucfirst($record['status']) }}
-                                            </flux:badge>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $additional == 0 ? '0' : number_format($additional, 2) }}
+                                            </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $record->tax_year }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center gap-1">
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        <flux:menu.item icon="eye" wire:click="viewTaxRecord({{ $record['id'] }})">
+                                                        <flux:menu.item icon="eye" wire:click="viewTaxRecord({{ $record->id }})">
                                                             {{ __('View Details') }}
                                                         </flux:menu.item>
-                                                        <flux:menu.item icon="arrow-down-tray" wire:click="downloadTaxRecord({{ $record['id'] }})">
+                                                        <flux:menu.item icon="arrow-down-tray" wire:click="downloadTaxRecord({{ $record->id }})">
                                                             {{ __('Download PDF') }}
                                                         </flux:menu.item>
                                                     </flux:menu>
@@ -213,30 +188,35 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <div class="grid grid-cols-5 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <flux:field>
+                                <flux:label>{{ __('Tax Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" placeholder="{{ now()->year }}" wire:model="addTaxYear" />
+                            </flux:field>
+
                             <flux:field>
                                 <flux:label>{{ __('Salary From') }}</flux:label>
-                                <flux:input type="number" placeholder="1" />
+                                <flux:input type="number" min="0" step="0.01" placeholder="1" wire:model="salaryFrom" />
                             </flux:field>
 
                             <flux:field>
                                 <flux:label>{{ __('Salary To') }}</flux:label>
-                                <flux:input type="number" placeholder="600000" />
+                                <flux:input type="number" min="0" step="0.01" placeholder="600000" wire:model="salaryTo" />
                             </flux:field>
 
                             <flux:field>
                                 <flux:label>{{ __('Tax') }}</flux:label>
-                                <flux:input type="number" placeholder="0" suffix="%" />
+                                <flux:input type="number" min="0" step="0.01" placeholder="0" wire:model="tax" />
                             </flux:field>
 
                             <flux:field>
                                 <flux:label>{{ __('Exempted Tax Amount') }}</flux:label>
-                                <flux:input type="number" placeholder="0" />
+                                <flux:input type="number" min="0" step="0.01" placeholder="0" wire:model="exemptedTaxAmount" />
                             </flux:field>
 
                             <flux:field>
                                 <flux:label>{{ __('Additional Tax Amount') }}</flux:label>
-                                <flux:input type="number" placeholder="0" />
+                                <flux:input type="number" min="0" step="0.01" placeholder="0" wire:model="additionalTaxAmount" />
                             </flux:field>
                         </div>
                     </div>

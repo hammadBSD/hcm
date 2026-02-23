@@ -31,15 +31,16 @@
                 </div>
             </div>
 
-            <!-- Action Buttons -->
+            <!-- Action Buttons (only on listing page, not when viewing a run) -->
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <flux:button variant="primary" icon="calculator" wire:click="openProcessPayrollModal">
-                        {{ __('Process Payroll') }}
-                    </flux:button>
+                    @if(!$selectedRun)
+                        <flux:button variant="primary" icon="calculator" wire:click="openProcessPayrollModal">
+                            {{ __('Process Payroll') }}
+                        </flux:button>
+                    @endif
                 </div>
-                
-                <!-- Additional Actions -->
+
                 <div class="flex items-center gap-2">
                     <flux:button variant="ghost" size="sm" icon="arrow-path" wire:click="$refresh">
                         {{ __('Refresh') }}
@@ -74,16 +75,24 @@
                         </flux:badge>
                         <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ ucfirst(str_replace('_', ' ', $selectedRun->processing_type)) }}</span>
                     </div>
-                    @if($selectedRun->isDraft())
-                        <flux:button variant="outline" wire:click="saveLineEdits" wire:loading.attr="disabled" class="me-2">
-                            <span wire:loading.remove wire:target="saveLineEdits">{{ __('Save changes') }}</span>
-                            <span wire:loading wire:target="saveLineEdits">{{ __('Saving...') }}</span>
+                    <div class="flex items-center gap-2">
+                        <flux:button variant="outline" size="sm" icon="arrow-down-tray" wire:click="exportRunCsv">
+                            {{ __('Export CSV') }}
                         </flux:button>
-                        <flux:button variant="primary" wire:click="approveRun" wire:loading.attr="disabled">
-                            <span wire:loading.remove wire:target="approveRun">{{ __('Approve run') }}</span>
-                            <span wire:loading wire:target="approveRun">{{ __('Approving...') }}</span>
+                        <flux:button variant="outline" size="sm" icon="arrow-down-tray" wire:click="exportRunExcel">
+                            {{ __('Export Excel') }}
                         </flux:button>
-                    @endif
+                        @if($selectedRun->isDraft())
+                            <flux:button variant="outline" wire:click="saveLineEdits" wire:loading.attr="disabled">
+                                <span wire:loading.remove wire:target="saveLineEdits">{{ __('Save changes') }}</span>
+                                <span wire:loading wire:target="saveLineEdits">{{ __('Saving...') }}</span>
+                            </flux:button>
+                            <flux:button variant="primary" wire:click="approveRun" wire:loading.attr="disabled">
+                                <span wire:loading.remove wire:target="approveRun">{{ __('Approve run') }}</span>
+                                <span wire:loading wire:target="approveRun">{{ __('Approving...') }}</span>
+                            </flux:button>
+                        @endif
+                    </div>
                 </div>
                 @php $inputClass = 'w-full max-w-24 text-right text-sm px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'; @endphp
                 <div class="overflow-x-auto">
