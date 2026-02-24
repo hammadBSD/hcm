@@ -93,24 +93,28 @@ class MasterReport extends Component
             $monthlyExpectedHours = (string) ($hasLeavesOrHolidaysOrAbsent ? ($att['expected_hours_adjusted'] ?? '0:00') : ($att['expected_hours'] ?? '0:00'));
             $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');
             $salary = $employee->salaryLegalCompliance;
-            // Effective salary as of report month: use latest non-history increment effective by end of report month, else compliance
+            // Effective salary as of report month: base + sum of all non-history increments effective by end of report month (exclude for_history)
             $reportMonthEnd = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
-            $effectiveIncrement = $employee->increments
+            $incrementsInPeriod = $employee->increments
                 ->where('for_history', false)
                 ->whereNotNull('last_increment_date')
                 ->filter(fn ($i) => $i->last_increment_date->lte($reportMonthEnd))
-                ->sortByDesc(fn ($i) => $i->last_increment_date->format('Y-m-d'))
-                ->first();
-            if ($effectiveIncrement && $effectiveIncrement->basic_salary_after !== null && $effectiveIncrement->gross_salary_after !== null) {
-                $basic = (float) $effectiveIncrement->basic_salary_after;
-                $grossFromIncrement = (float) $effectiveIncrement->gross_salary_after;
-                $allowances = $grossFromIncrement - $basic;
+                ->sortBy(fn ($i) => $i->last_increment_date->format('Y-m-d'))
+                ->values();
+            if ($incrementsInPeriod->isNotEmpty()) {
+                $first = $incrementsInPeriod->first();
+                $baseBasic = (float) $first->basic_salary_after - (float) $first->increment_amount;
+                $baseGross = (float) $first->gross_salary_after - (float) $first->increment_amount;
+                $totalIncrementAmount = $incrementsInPeriod->sum(fn ($i) => (float) $i->increment_amount);
+                $basic = $baseBasic + $totalIncrementAmount;
+                $allowances = $baseGross - $baseBasic; // allowances unchanged by increments
+                $gross = $basic + $allowances;
             } else {
                 $basic = $salary ? (float) $salary->basic_salary : 0;
                 $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
+                $gross = $basic + $allowances;
             }
             $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
-            $gross = $basic + $allowances;
             $otHrs = 0;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
