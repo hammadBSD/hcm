@@ -65,6 +65,8 @@ class MasterReport extends Component
             'shift',
             'user.roles',
             'increments',
+            'employmentStatus',
+            'group',
         ])
             ->where('status', 'active')
             ->orderBy('department_id')
@@ -162,6 +164,22 @@ class MasterReport extends Component
             $leaveUnpaid = 0;
             $leaveLwp = 0;
 
+            $extraDays = $workingDays > 0 ? max(0, (int) round($daysPresent) - $workingDays) : 0;
+            $amountExtraDays = $workingDays > 0 && $extraDays > 0
+                ? round($grossWithOt / $workingDays * $extraDays, 2)
+                : 0.0;
+            $hourlyRate = ($workingDays > 0 && $grossWithOt > 0)
+                ? round($grossWithOt / $workingDays / 9, 2)
+                : 0.0;
+
+            $employmentStatusName = '—';
+            if ($employee->employmentStatus && trim((string) ($employee->employmentStatus->name ?? '')) !== '') {
+                $employmentStatusName = $employee->employmentStatus->name;
+            } elseif ($employee->organizationalInfo && trim((string) ($employee->organizationalInfo->employee_status ?? '')) !== '') {
+                $employmentStatusName = ucfirst($employee->organizationalInfo->employee_status);
+            }
+            $brands = $employee->group ? ($employee->group->name ?? '—') : '—';
+
             return [
                 'employee' => $employee,
                 'department' => $departmentName,
@@ -169,12 +187,21 @@ class MasterReport extends Component
                 'doj' => $doj,
                 'current_status' => $employee->status ?? 'active',
                 'reporting_manager' => $reportingManager,
+                'mcs' => '—',
+                'brands' => $brands,
+                'employment_status' => $employmentStatusName,
+                'cnic' => trim((string) ($employee->document_number ?? '')) !== '' ? $employee->document_number : '—',
                 'last_increment_date' => $lastIncrementDate,
                 'last_increment_amount' => $lastIncrementAmount,
                 'months_since_increment' => $monthsSinceIncrement,
                 'working_days' => $workingDays,
                 'days_present' => $daysPresent,
+                'extra_days' => $extraDays,
+                'amount_extra_days' => $amountExtraDays,
+                'hourly_rate' => $hourlyRate,
+                'hourly_deduction_amount' => $shortDeduction,
                 'leave_paid' => $leavePaid,
+                'leaves_approved' => $leavePaid,
                 'leave_unpaid' => $leaveUnpaid,
                 'leave_lwp' => $leaveLwp,
                 'absent' => $absent,
@@ -234,8 +261,10 @@ class MasterReport extends Component
 
         $headers = [
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'DOJ', 'Current Status', 'Reporting Manager',
+            'MCS', 'Brands', 'Employment Status', 'CNIC',
             'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
-            'Working Days', 'Present Days', 'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
+            'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Hourly Rate', 'Hourly Deduction Amount', 'Leaves (approved)',
+            'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
             'Salary Type', 'Basic Salary', 'Allowances', 'OT Hrs', 'OT Amt', 'Gross Salary', 'Bonus',
             'EPF EE', 'EPF ER', 'ESIC EE', 'ESIC ER', 'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
             'Other Deductions', 'Total Deductions', 'Net Salary',
@@ -258,11 +287,20 @@ class MasterReport extends Component
                     $row['doj'] ?? '—',
                     $row['current_status'] ?? '—',
                     $row['reporting_manager'] ?? '—',
+                    $row['mcs'] ?? '—',
+                    $row['brands'] ?? '—',
+                    $row['employment_status'] ?? '—',
+                    $row['cnic'] ?? '—',
                     $row['last_increment_date'] ?? '—',
                     number_format($row['last_increment_amount'] ?? 0, 2),
                     $row['months_since_increment'] ?? 0,
                     $row['working_days'] ?? 0,
                     $row['days_present'] ?? 0,
+                    $row['extra_days'] ?? 0,
+                    number_format($row['amount_extra_days'] ?? 0, 2),
+                    number_format($row['hourly_rate'] ?? 0, 2),
+                    number_format($row['hourly_deduction_amount'] ?? 0, 2),
+                    $row['leaves_approved'] ?? 0,
                     $row['leave_paid'] ?? 0,
                     $row['leave_unpaid'] ?? 0,
                     $row['leave_lwp'] ?? 0,
