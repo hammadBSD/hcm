@@ -11,7 +11,14 @@ class PayrollCalculationService
 {
     /**
      * Get tax amount for a given monthly gross salary based on current settings (percentage or tax slabs).
-     * When using tax slabs: annual gross = grossSalary × 12; find slab for that annual amount; slab tax is annual, so return slab.tax / 12 for monthly deduction.
+     * When using tax slabs (e.g. Pakistan 2025-2026 style):
+     * - Annual gross = grossSalary × 12.
+     * - Find slab where salary_from <= annual gross <= salary_to.
+     * - Progressive: if slab has additional_tax_amount (rate %), annual_tax = tax + (annual_gross - exempted_tax_amount) × (rate/100).
+     *   (tax = base/cumulative at slab start, exempted_tax_amount = "amount exceeding" threshold.)
+     * - Flat: if no rate, annual_tax = slab.tax.
+     * - Surcharge: if annual gross > 10,000,000, add 9% to tax.
+     * - Return monthly = annual_tax / 12.
      */
     public static function getTaxAmount(float $grossSalary, ?int $taxYear = null): float
     {
@@ -25,7 +32,20 @@ class PayrollCalculationService
                 ->where('salary_to', '>=', $annualGross)
                 ->first();
             if ($slab !== null) {
-                $annualTax = (float) $slab->tax;
+                $baseTax = (float) $slab->tax;
+                $rate = (float) ($slab->additional_tax_amount ?? 0);
+                $excessOver = (float) ($slab->exempted_tax_amount ?? 0);
+
+                if ($rate > 0 && $annualGross > $excessOver) {
+                    $annualTax = $baseTax + ($annualGross - $excessOver) * ($rate / 100);
+                } else {
+                    $annualTax = $baseTax;
+                }
+
+                if ($annualGross > 10_000_000) {
+                    $annualTax *= 1.09;
+                }
+
                 return round($annualTax / 12, 2);
             }
             return 0.0;

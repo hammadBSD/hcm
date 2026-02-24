@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Tax;
+use App\Services\PayrollCalculationService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -38,6 +39,10 @@ class TaxManagement extends Component
     public $editTax = '';
     public $editExemptedTaxAmount = '';
     public $editAdditionalTaxAmount = '';
+
+    /** Tax calculator in View flyout */
+    public $calculatorSalary = '260000';
+    public $calculatorTaxYear = '';
 
     public function mount()
     {
@@ -130,7 +135,9 @@ class TaxManagement extends Component
 
     public function viewTaxRecord(int $id): void
     {
+        $record = Tax::find($id);
         $this->selectedTaxId = $id;
+        $this->calculatorTaxYear = $record ? (string) $record->tax_year : (string) now()->year;
         $this->showViewTaxModal = true;
     }
 
@@ -219,6 +226,26 @@ class TaxManagement extends Component
             return null;
         }
         return Tax::find($this->selectedTaxId);
+    }
+
+    /**
+     * Calculator results for the View flyout (uses PayrollCalculationService when slabs are enabled).
+     */
+    public function getCalculatorResultsProperty(): array
+    {
+        $monthly = (float) ($this->calculatorSalary ?? 0);
+        $year = (int) ($this->calculatorTaxYear ?: now()->year);
+        $monthlyTax = $monthly > 0 ? PayrollCalculationService::getTaxAmount($monthly, $year) : 0.0;
+        $yearlyIncome = $monthly * 12;
+        $yearlyTax = $monthlyTax * 12;
+        return [
+            'monthly_income' => $monthly,
+            'monthly_tax' => round($monthlyTax, 2),
+            'salary_after_tax' => round($monthly - $monthlyTax, 2),
+            'yearly_income' => round($yearlyIncome, 2),
+            'yearly_tax' => round($yearlyTax, 2),
+            'yearly_after_tax' => round($yearlyIncome - $yearlyTax, 2),
+        ];
     }
 
     public function downloadTaxRecord($id)

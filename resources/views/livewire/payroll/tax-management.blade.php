@@ -242,21 +242,63 @@
 
         <!-- View Tax Record Flyout -->
         @if($showViewTaxModal && $this->selectedTaxRecord)
-            @php $rec = $this->selectedTaxRecord; @endphp
-            <flux:modal variant="flyout" :open="$showViewTaxModal" wire:model="showViewTaxModal" class="w-[32rem] lg:w-[36rem]">
+            @php
+                $rec = $this->selectedTaxRecord;
+                $fmt = fn($v) => preg_replace('/\.00$/', '', number_format((float) $v, 2, '.', ','));
+                $calc = $this->calculatorResults;
+            @endphp
+            <flux:modal variant="flyout" :open="$showViewTaxModal" wire:model="showViewTaxModal" class="w-[32rem] lg:w-[40rem]">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">{{ __('Tax Record Details') }}</flux:heading>
                         <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Salary range') }}: {{ number_format((float) $rec->salary_from, 0) }} - {{ number_format((float) $rec->salary_to, 0) }}</flux:text>
                     </div>
                     <div class="space-y-3 text-sm">
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Year') }}</span><span class="font-medium">{{ $rec->tax_year }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary From') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->salary_from, 2, '.', ',')) }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary To') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->salary_to, 2, '.', ',')) }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->tax, 2, '.', ',')) }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Exempted Tax Amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->exempted_tax_amount, 2, '.', ',')) }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Additional Tax Amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->additional_tax_amount, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Year') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $rec->tax_year }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary From') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->salary_from) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary To') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->salary_to) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->tax) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Exempted Tax Amount') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->exempted_tax_amount) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Additional Tax Amount') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->additional_tax_amount) }}</span></div>
                     </div>
+
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 p-4 space-y-2">
+                        <flux:heading size="sm" class="text-zinc-700 dark:text-white font-semibold">{{ __('How this slab works') }}</flux:heading>
+                        <p class="text-sm text-zinc-600 dark:text-zinc-300">
+                            @if((float) $rec->additional_tax_amount > 0)
+                                {{ __('For annual income in this range, tax = base tax (Tax) + (annual income − Exempted Tax Amount) × Additional Tax Amount %. Annual income = monthly salary × 12. Payroll uses this to get monthly tax.') }}
+                            @else
+                                {{ __('This slab applies a fixed tax amount for any annual income in this range. Annual income = monthly salary × 12; monthly deduction = Tax ÷ 12.') }}
+                            @endif
+                        </p>
+                    </div>
+
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 p-4 space-y-4">
+                        <flux:heading size="sm" class="text-zinc-700 dark:text-white font-semibold">{{ __('Salary tax calculator') }}</flux:heading>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <flux:field>
+                                <flux:label class="dark:text-zinc-300">{{ __('Monthly salary') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model.live="calculatorSalary" placeholder="Example: 50000" class="dark:bg-zinc-700 dark:border-zinc-600 dark:text-white" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label class="dark:text-zinc-300">{{ __('Tax year') }}</flux:label>
+                                <flux:select wire:model.live="calculatorTaxYear" class="dark:bg-zinc-700 dark:border-zinc-600 dark:text-white">
+                                    @foreach(range(now()->year + 1, now()->year - 3, -1) as $y)
+                                        <option value="{{ $y }}">{{ $y }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </flux:field>
+                        </div>
+                        <div class="space-y-2 text-sm border-t border-zinc-200 dark:border-zinc-600 pt-3">
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Monthly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_income']) }}</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Monthly Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_tax']) }}</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Salary After Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['salary_after_tax']) }}</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_income']) }}</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_tax']) }}</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Income After Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_after_tax']) }}</span></div>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end pt-4">
                         <flux:button variant="ghost" wire:click="closeViewTaxModal">{{ __('Close') }}</flux:button>
                     </div>

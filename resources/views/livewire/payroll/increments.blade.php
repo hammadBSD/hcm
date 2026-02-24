@@ -56,6 +56,7 @@
                             <thead class="bg-zinc-50 dark:bg-zinc-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Employee') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Type') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('No. of increments') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Increment due date') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Last increment date') }}</th>
@@ -87,6 +88,13 @@
                                                 <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $employeeName }}</div>
                                                 <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ $employeeCode }}</div>
                                             </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @if($inc->for_history)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{{ __('History') }}</span>
+                                            @else
+                                                <span class="text-zinc-500 dark:text-zinc-400 text-sm">—</span>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
                                             {{ $inc->number_of_increments }}
@@ -185,6 +193,11 @@
                             </flux:select>
                         </flux:field>
 
+                        <flux:field>
+                            <flux:checkbox wire:model.live="forHistory" :label="__('For history / reporting only')" />
+                            <flux:description>{{ __('Check to record a past increment without changing the employee’s current gross or basic salary. Use for maintaining increment history only.') }}</flux:description>
+                        </flux:field>
+
                         @if($selectedEmployeeId)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
                                 <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Current Salary Info') }}</flux:heading>
@@ -207,8 +220,18 @@
 
                         <flux:field>
                             <flux:label>{{ __('Increment date') }}</flux:label>
-                            <flux:input type="date" wire:model="incrementEffectiveDate" />
-                            <flux:description>{{ __('From this date onwards the increment will be applied.') }}</flux:description>
+                            @if($forHistory)
+                                <flux:input type="date" wire:model="incrementEffectiveDate" max="{{ $this->maxIncrementDateForHistory }}" />
+                            @else
+                                <flux:input type="date" wire:model="incrementEffectiveDate" />
+                            @endif
+                            <flux:description>
+                                @if($forHistory)
+                                    {{ __('For history-only, date must be before the current month (max :date).', ['date' => \Carbon\Carbon::parse($this->maxIncrementDateForHistory)->format('M d, Y')]) }}
+                                @else
+                                    {{ __('From this date onwards the increment will be applied.') }}
+                                @endif
+                            </flux:description>
                         </flux:field>
 
                         <flux:field>
@@ -216,7 +239,7 @@
                             <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model.live="incrementAmount" />
                         </flux:field>
 
-                        @if((float) $incrementAmount > 0)
+                        @if((float) $incrementAmount > 0 && !$forHistory)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
                                 <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected Salary After Increment') }}</flux:heading>
                                 <div class="grid grid-cols-2 gap-2 text-sm">
@@ -268,6 +291,7 @@
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $inc->increment_amount, 2, '.', ',')) }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Gross after') }}</span><span class="font-medium">{{ $inc->gross_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->gross_salary_after, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Basic after') }}</span><span class="font-medium">{{ $inc->basic_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->basic_salary_after, 2, '.', ',')) : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('For history only') }}</span><span class="font-medium">{{ $inc->for_history ? __('Yes') : __('No') }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Updated by') }}</span><span class="font-medium">{{ $inc->updatedByUser?->name ?? '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Updated when') }}</span><span class="font-medium">{{ $inc->updated_at ? $inc->updated_at->format('M d, Y H:i') : '—' }}</span></div>
                     </div>
@@ -293,6 +317,10 @@
                                 {{ optional(collect($activeEmployees)->firstWhere('id', (int) $selectedEmployeeId))['label'] ?? __('—') }}
                             </div>
                         </flux:field>
+                        <flux:field>
+                            <flux:checkbox wire:model.live="forHistory" :label="__('For history / reporting only')" />
+                            <flux:description>{{ __('When checked, this record does not affect the employee’s current salary.') }}</flux:description>
+                        </flux:field>
                         @if($selectedEmployeeId)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
                                 <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Current Salary Info') }}</flux:heading>
@@ -308,14 +336,24 @@
                         @endif
                         <flux:field>
                             <flux:label>{{ __('Increment date') }}</flux:label>
-                            <flux:input type="date" wire:model="incrementEffectiveDate" />
-                            <flux:description>{{ __('From this date onwards the increment will be applied.') }}</flux:description>
+                            @if($forHistory)
+                                <flux:input type="date" wire:model="incrementEffectiveDate" max="{{ $this->maxIncrementDateForHistory }}" />
+                            @else
+                                <flux:input type="date" wire:model="incrementEffectiveDate" />
+                            @endif
+                            <flux:description>
+                                @if($forHistory)
+                                    {{ __('For history-only, date must be before the current month (max :date).', ['date' => \Carbon\Carbon::parse($this->maxIncrementDateForHistory)->format('M d, Y')]) }}
+                                @else
+                                    {{ __('From this date onwards the increment will be applied.') }}
+                                @endif
+                            </flux:description>
                         </flux:field>
                         <flux:field>
                             <flux:label>{{ __('Increment Amount') }}</flux:label>
                             <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model.live="incrementAmount" />
                         </flux:field>
-                        @if((float) $incrementAmount > 0)
+                        @if((float) $incrementAmount > 0 && !$forHistory)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
                                 <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected Salary After Increment') }}</flux:heading>
                                 <div class="grid grid-cols-2 gap-2 text-sm">

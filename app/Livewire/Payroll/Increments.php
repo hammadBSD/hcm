@@ -5,6 +5,7 @@ namespace App\Livewire\Payroll;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeIncrement;
+use App\Models\EmployeeSalaryLegalCompliance;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,9 @@ class Increments extends Component
 
     /** Increment effective date – from this date onwards the increment is applied */
     public $incrementEffectiveDate = '';
+
+    /** For history only: record past increment for reporting; does not change current gross/basic salary */
+    public $forHistory = false;
 
     /** Fetched employee data (read-only display) */
     public $employeeSalary = null;
@@ -113,7 +117,7 @@ class Increments extends Component
         $this->employeeAllowances = $allowances;
         $this->employeeGrossSalary = $gross;
 
-        $lastIncrement = $employee->increments->first();
+        $lastIncrement = $employee->increments()->where('for_history', false)->orderByDesc('last_increment_date')->first();
         if ($lastIncrement) {
             $this->lastIncrementDate = $lastIncrement->last_increment_date
                 ? $lastIncrement->last_increment_date->format('Y-m-d')
@@ -163,6 +167,7 @@ class Increments extends Component
         $this->incrementEffectiveDate = now()->format('Y-m-d');
         $this->grossSalaryAfter = '';
         $this->basicSalaryAfter = '';
+        $this->forHistory = false;
         $this->employeeSalary = null;
         $this->employeeBasicSalary = 0;
         $this->employeeAllowances = 0;
@@ -202,6 +207,7 @@ class Increments extends Component
         $this->lastIncrementDate = $inc->last_increment_date?->format('Y-m-d') ?? '';
         $this->incrementEffectiveDate = $inc->last_increment_date?->format('Y-m-d') ?? now()->format('Y-m-d');
         $this->incrementAmount = (string) $inc->increment_amount;
+        $this->forHistory = (bool) $inc->for_history;
         $this->computeNewSalaryValues();
         $this->showEditIncrementModal = true;
     }
@@ -229,6 +235,16 @@ class Increments extends Component
             session()->flash('error', __('Please enter a valid increment amount.'));
             return;
         }
+
+        $forHistory = (bool) $this->forHistory;
+        if ($forHistory && $this->incrementEffectiveDate) {
+            $maxDate = $this->maxIncrementDateForHistory;
+            if ($this->incrementEffectiveDate > $maxDate) {
+                session()->flash('error', __('For history-only increments, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
+                return;
+            }
+        }
+
         $newBasic = $this->employeeBasicSalary + $amount;
         $newGross = $newBasic + $this->employeeAllowances;
 
@@ -239,8 +255,12 @@ class Increments extends Component
             'increment_amount' => $amount,
             'gross_salary_after' => $newGross,
             'basic_salary_after' => $newBasic,
+            'for_history' => $forHistory,
             'updated_by' => Auth::id(),
         ]);
+        if (!$forHistory) {
+            $this->syncEmployeeSalary($inc->employee_id, $newBasic);
+        }
 
         $this->closeEditIncrementModal();
         session()->flash('message', __('Increment record updated successfully.'));
@@ -271,6 +291,15 @@ class Increments extends Component
             return;
         }
 
+        $forHistory = (bool) $this->forHistory;
+        if ($forHistory && $this->incrementEffectiveDate) {
+            $maxDate = $this->maxIncrementDateForHistory;
+            if ($this->incrementEffectiveDate > $maxDate) {
+                session()->flash('error', __('For history-only increments, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
+                return;
+            }
+        }
+
         $newBasic = $this->employeeBasicSalary + $amount;
         $newGross = $newBasic + $this->employeeAllowances;
 
@@ -282,11 +311,16 @@ class Increments extends Component
             'increment_amount' => $amount,
             'gross_salary_after' => $newGross,
             'basic_salary_after' => $newBasic,
+            'for_history' => $forHistory,
             'updated_by' => Auth::id(),
         ]);
 
+        if (!$forHistory) {
+            $this->syncEmployeeSalary($employeeId, $newBasic);
+        }
+
         $this->closeAddIncrementModal();
-        session()->flash('message', __('Increment record added successfully.'));
+        session()->flash('message', $forHistory ? __('Increment history record added.') : __('Increment record added successfully.'));
     }
 
     public function getCalculatedTaxAmountProperty(): float
@@ -324,6 +358,43 @@ class Increments extends Component
             return null;
         }
         return EmployeeIncrement::with(['employee.department', 'updatedByUser'])->find($this->selectedIncrementId);
+    }
+
+    /**
+     * When "For history / reporting only" is checked, increment date must be before current month (last day of previous month).
+     */
+    public function getMaxIncrementDateForHistoryProperty(): string
+    {
+        return Carbon::now()->subMonth()->endOfMonth()->format('Y-m-d');
+    }
+
+    public function updatedForHistory($value): void
+    {
+        if ($value && $this->incrementEffectiveDate) {
+            $max = $this->maxIncrementDateForHistory;
+            if ($this->incrementEffectiveDate > $max) {
+                $this->incrementEffectiveDate = $max;
+            }
+        }
+    }
+
+    /**
+     * Update employee's current basic salary (used when increment is not for_history).
+     * Creates a compliance record if missing so salary is persisted for payroll/reports.
+     */
+    protected function syncEmployeeSalary(int $employeeId, float $newBasic): void
+    {
+        $allowances = (float) $this->employeeAllowances;
+        $salary = EmployeeSalaryLegalCompliance::where('employee_id', $employeeId)->first();
+        if ($salary) {
+            $salary->update(['basic_salary' => $newBasic]);
+        } else {
+            EmployeeSalaryLegalCompliance::create([
+                'employee_id' => $employeeId,
+                'basic_salary' => $newBasic,
+                'allowances' => $allowances,
+            ]);
+        }
     }
 
     public function render()

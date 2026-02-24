@@ -64,6 +64,7 @@ class MasterReport extends Component
             'reportsTo',
             'shift',
             'user.roles',
+            'increments',
         ])
             ->where('status', 'active')
             ->orderBy('department_id')
@@ -77,7 +78,7 @@ class MasterReport extends Component
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear, $periodMonth, $attendanceStatsByEmployee) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
@@ -92,8 +93,22 @@ class MasterReport extends Component
             $monthlyExpectedHours = (string) ($hasLeavesOrHolidaysOrAbsent ? ($att['expected_hours_adjusted'] ?? '0:00') : ($att['expected_hours'] ?? '0:00'));
             $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');
             $salary = $employee->salaryLegalCompliance;
-            $basic = $salary ? (float) $salary->basic_salary : 0;
-            $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
+            // Effective salary as of report month: use latest non-history increment effective by end of report month, else compliance
+            $reportMonthEnd = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+            $effectiveIncrement = $employee->increments
+                ->where('for_history', false)
+                ->whereNotNull('last_increment_date')
+                ->filter(fn ($i) => $i->last_increment_date->lte($reportMonthEnd))
+                ->sortByDesc(fn ($i) => $i->last_increment_date->format('Y-m-d'))
+                ->first();
+            if ($effectiveIncrement && $effectiveIncrement->basic_salary_after !== null && $effectiveIncrement->gross_salary_after !== null) {
+                $basic = (float) $effectiveIncrement->basic_salary_after;
+                $grossFromIncrement = (float) $effectiveIncrement->gross_salary_after;
+                $allowances = $grossFromIncrement - $basic;
+            } else {
+                $basic = $salary ? (float) $salary->basic_salary : 0;
+                $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
+            }
             $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
             $gross = $basic + $allowances;
             $otHrs = 0;
@@ -125,9 +140,20 @@ class MasterReport extends Component
             $bankName = $salary ? (trim((string) ($salary->bank ?? '')) ?: '—') : '—';
             $bankAccount = $salary ? (trim((string) ($salary->bank_account ?? '')) ?: '—') : '—';
             $accountTitle = $salary ? (trim((string) ($salary->account_title ?? '')) ?: '—') : '—';
-            $lastIncrementDate = '—';
-            $lastIncrementAmount = 0;
+
+            $latestIncrement = $employee->increments
+                ->whereNotNull('last_increment_date')
+                ->sortByDesc(fn ($i) => $i->last_increment_date->format('Y-m-d'))
+                ->first();
+            $lastIncrementDate = $latestIncrement && $latestIncrement->last_increment_date
+                ? $latestIncrement->last_increment_date->format('Y-m-d')
+                : '—';
+            $lastIncrementAmount = $latestIncrement ? (float) $latestIncrement->increment_amount : 0;
             $monthsSinceIncrement = 0;
+            if ($latestIncrement && $latestIncrement->last_increment_date) {
+                $reportStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+                $monthsSinceIncrement = (int) max(0, $reportStart->diffInMonths($latestIncrement->last_increment_date, false));
+            }
             $leavePaid = $onLeaveDays;
             $leaveUnpaid = 0;
             $leaveLwp = 0;
