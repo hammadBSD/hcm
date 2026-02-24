@@ -425,6 +425,7 @@
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('No. of increments') }}</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Increment date') }}</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Due date') }}</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Type') }}</th>
                                                 <th class="px-4 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Increment amount') }}</th>
                                                 <th class="px-4 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Basic after') }}</th>
                                                 <th class="px-4 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase">{{ __('Gross after') }}</th>
@@ -432,6 +433,15 @@
                                         </thead>
                                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-600">
                                             @foreach($increments as $inc)
+                                                @php
+                                                    $isHistory = (bool) ($inc->for_history ?? false);
+                                                    $basicDisplay = $inc->basic_salary_after !== null
+                                                        ? ($isHistory ? (float) $inc->basic_salary_after - (float) $inc->increment_amount : (float) $inc->basic_salary_after)
+                                                        : null;
+                                                    $grossDisplay = $inc->gross_salary_after !== null
+                                                        ? ($isHistory ? (float) $inc->gross_salary_after - (float) $inc->increment_amount : (float) $inc->gross_salary_after)
+                                                        : null;
+                                                @endphp
                                                 <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600/50">
                                                     <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">
                                                         {{ $inc->last_increment_date ? $inc->last_increment_date->format('Y') : ($inc->increment_due_date ? $inc->increment_due_date->format('Y') : '—') }}
@@ -443,14 +453,21 @@
                                                     <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">
                                                         {{ $inc->increment_due_date ? $inc->increment_due_date->format('M d, Y') : '—' }}
                                                     </td>
+                                                    <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">
+                                                        @if($isHistory)
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">{{ __('History') }}</span>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
                                                     <td class="px-4 py-3 text-right text-zinc-900 dark:text-zinc-100">
                                                         {{ number_format((float) $inc->increment_amount, 2) }}
                                                     </td>
                                                     <td class="px-4 py-3 text-right text-zinc-900 dark:text-zinc-100">
-                                                        {{ $inc->basic_salary_after !== null ? number_format((float) $inc->basic_salary_after, 2) : '—' }}
+                                                        {{ $basicDisplay !== null ? number_format($basicDisplay, 2) : '—' }}
                                                     </td>
                                                     <td class="px-4 py-3 text-right text-zinc-900 dark:text-zinc-100">
-                                                        {{ $inc->gross_salary_after !== null ? number_format((float) $inc->gross_salary_after, 2) : '—' }}
+                                                        {{ $grossDisplay !== null ? number_format($grossDisplay, 2) : '—' }}
                                                     </td>
                                                 </tr>
                                             @endforeach
