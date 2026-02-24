@@ -64,14 +64,15 @@ class GrossSalaryReport extends Component
             ->orderBy('last_name')
             ->get();
 
-        $taxYear = $this->selectedMonth ? (int) substr($this->selectedMonth, 0, 4) : (int) date('Y');
+        $selectedMonth = $this->selectedMonth ?: now()->format('Y-m');
+        $taxYear = $selectedMonth ? (int) substr($selectedMonth, 0, 4) : (int) date('Y');
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear, $selectedMonth) {
             $salary = $employee->salaryLegalCompliance;
             $basic = $salary ? (float) $salary->basic_salary : 0;
             $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
             $gross = $basic + $allowances;
-            $tax = PayrollCalculationService::getTaxAmount($gross, $taxYear);
+            $tax = PayrollCalculationService::getTaxAmount($gross, $taxYear, $selectedMonth);
             $departmentName = $this->getEmployeeDepartmentName($employee);
 
             return [

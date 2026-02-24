@@ -6,14 +6,13 @@
         <div class="my-6 w-full space-y-4">
             <div class="flex flex-col sm:flex-row gap-4">
                 <!-- Tax Year Filter -->
-                <div class="sm:w-40">
+                <div class="sm:w-48">
                     <flux:field>
                         <flux:label>{{ __('Tax Year') }}</flux:label>
                         <flux:select wire:model.live="taxYear">
-                            <option value="">{{ __('All Years') }}</option>
-                            @for($year = now()->year; $year >= now()->year - 10; $year--)
-                                <option value="{{ $year }}">{{ $year }}</option>
-                            @endfor
+                            @foreach($this->taxYearOptions as $opt)
+                                <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                            @endforeach
                         </flux:select>
                     </flux:field>
                 </div>
@@ -137,7 +136,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $record->tax_year }}
+                                                {{ $record->tax_year_label }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -199,12 +198,25 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-4 gap-4">
                             <flux:field>
-                                <flux:label>{{ __('Tax Year') }}</flux:label>
-                                <flux:input type="number" min="2000" max="2100" placeholder="{{ now()->year }}" wire:model="addTaxYear" />
+                                <flux:label>{{ __('Start Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" wire:model="addStartYear" placeholder="2025" />
                             </flux:field>
-
+                            <flux:field>
+                                <flux:label>{{ __('Start Month') }}</flux:label>
+                                <flux:input type="number" min="1" max="12" wire:model="addStartMonth" placeholder="7" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('End Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" wire:model="addEndYear" placeholder="2026" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('End Month') }}</flux:label>
+                                <flux:input type="number" min="1" max="12" wire:model="addEndMonth" placeholder="6" />
+                            </flux:field>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <flux:field>
                                 <flux:label>{{ __('Salary From') }}</flux:label>
                                 <flux:input type="number" min="0" step="0.01" placeholder="1" wire:model="salaryFrom" />
@@ -254,7 +266,7 @@
                         <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Salary range') }}: {{ number_format((float) $rec->salary_from, 0) }} - {{ number_format((float) $rec->salary_to, 0) }}</flux:text>
                     </div>
                     <div class="space-y-3 text-sm">
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Year') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $rec->tax_year }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Year') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $rec->tax_year_label }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary From') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->salary_from) }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary To') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->salary_to) }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax') }}</span><span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $fmt($rec->tax) }}</span></div>
@@ -283,8 +295,10 @@
                             <flux:field>
                                 <flux:label class="dark:text-zinc-300">{{ __('Tax year') }}</flux:label>
                                 <flux:select wire:model.live="calculatorTaxYear" class="dark:bg-zinc-700 dark:border-zinc-600 dark:text-white">
-                                    @foreach(range(now()->year + 1, now()->year - 3, -1) as $y)
-                                        <option value="{{ $y }}">{{ $y }}</option>
+                                    @foreach($this->taxYearOptions as $opt)
+                                        @if($opt['value'] !== '')
+                                            <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                                        @endif
                                     @endforeach
                                 </flux:select>
                             </flux:field>
@@ -315,11 +329,25 @@
                         <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Update tax record details') }}</flux:text>
                     </div>
                     <div class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-4 gap-4">
                             <flux:field>
-                                <flux:label>{{ __('Tax Year') }}</flux:label>
-                                <flux:input type="number" min="2000" max="2100" wire:model="editTaxYear" />
+                                <flux:label>{{ __('Start Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" wire:model="editStartYear" />
                             </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Start Month') }}</flux:label>
+                                <flux:input type="number" min="1" max="12" wire:model="editStartMonth" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('End Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" wire:model="editEndYear" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('End Month') }}</flux:label>
+                                <flux:input type="number" min="1" max="12" wire:model="editEndMonth" />
+                            </flux:field>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <flux:field>
                                 <flux:label>{{ __('Salary From') }}</flux:label>
                                 <flux:input type="number" min="0" step="0.01" wire:model="editSalaryFrom" />

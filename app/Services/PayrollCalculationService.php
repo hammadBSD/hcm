@@ -6,6 +6,7 @@ use App\Models\AdvanceSalaryRequest;
 use App\Models\Loan;
 use App\Models\PayrollSetting;
 use App\Models\Tax;
+use Illuminate\Support\Facades\Schema;
 
 class PayrollCalculationService
 {
@@ -13,24 +14,40 @@ class PayrollCalculationService
      * Get tax amount for a given monthly gross salary based on current settings (percentage or tax slabs).
      * When using tax slabs (e.g. Pakistan 2025-2026 style):
      * - Annual gross = grossSalary × 12.
-     * - Find slab where salary_from <= annual gross <= salary_to.
+     * - Find slab: if $payrollMonth (Y-m) is given and slab has start_year/end_year, match by range; else by tax_year.
      * - Progressive: if slab has additional_tax_amount (rate %), annual_tax = tax + (annual_gross - exempted_tax_amount) × (rate/100).
-     *   (tax = base/cumulative at slab start, exempted_tax_amount = "amount exceeding" threshold.)
      * - Flat: if no rate, annual_tax = slab.tax.
      * - Surcharge: if annual gross > 10,000,000, add 9% to tax.
      * - Return monthly = annual_tax / 12.
      */
-    public static function getTaxAmount(float $grossSalary, ?int $taxYear = null): float
+    public static function getTaxAmount(float $grossSalary, ?int $taxYear = null, ?string $payrollMonth = null): float
     {
         $settings = PayrollSetting::get();
         $year = $taxYear ?? (int) date('Y');
 
         if ($settings->useTaxSlabs()) {
             $annualGross = $grossSalary * 12;
-            $slab = Tax::where('tax_year', $year)
-                ->where('salary_from', '<=', $annualGross)
-                ->where('salary_to', '>=', $annualGross)
-                ->first();
+            $slab = null;
+            $hasRangeColumns = Schema::hasColumn((new Tax)->getTable(), 'start_year');
+            if ($hasRangeColumns && $payrollMonth !== null && $payrollMonth !== '') {
+                $parts = explode('-', $payrollMonth);
+                $y = (int) ($parts[0] ?? 0);
+                $m = (int) ($parts[1] ?? 1);
+                $monthKey = $y * 12 + $m;
+                $slab = Tax::whereNotNull('start_year')
+                    ->whereNotNull('end_year')
+                    ->whereRaw('(start_year * 12 + start_month) <= ?', [$monthKey])
+                    ->whereRaw('(end_year * 12 + end_month) >= ?', [$monthKey])
+                    ->where('salary_from', '<=', $annualGross)
+                    ->where('salary_to', '>=', $annualGross)
+                    ->first();
+            }
+            if ($slab === null) {
+                $slab = Tax::where('tax_year', $year)
+                    ->where('salary_from', '<=', $annualGross)
+                    ->where('salary_to', '>=', $annualGross)
+                    ->first();
+            }
             if ($slab !== null) {
                 $baseTax = (float) $slab->tax;
                 $rate = (float) ($slab->additional_tax_amount ?? 0);

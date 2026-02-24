@@ -79,7 +79,7 @@ class DeptWiseSummary extends Component
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear, $periodMonth, $attendanceStatsByEmployee) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $absent = (int) ($att['absent_days'] ?? 0);
             $workingDays = (int) ($att['working_days'] ?? 0);
@@ -91,7 +91,7 @@ class DeptWiseSummary extends Component
             $gross = $basic + $allowances;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
-            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear);
+            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear, $month);
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
             $otherDeductions = round($shortDeduction + $absentDeduction, 2);

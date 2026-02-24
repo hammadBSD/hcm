@@ -114,7 +114,7 @@ class MasterReport extends Component
             $otHrs = 0;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
-            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear);
+            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear, $month);
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
             $otherDeductions = round($shortDeduction + $absentDeduction, 2);

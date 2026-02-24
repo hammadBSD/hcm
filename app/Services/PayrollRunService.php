@@ -39,7 +39,7 @@ class PayrollRunService
             $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
             $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
             $gross = $basic + $allowances;
-            $tax = PayrollCalculationService::getTaxAmount($gross, $year);
+            $tax = PayrollCalculationService::getTaxAmount($gross, $year, $monthYmd);
             $eobi = 0;
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $month, $year);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);

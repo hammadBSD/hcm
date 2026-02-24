@@ -14,7 +14,8 @@ class TaxManagement extends Component
 
     public $search = '';
     public $selectedDepartment = '';
-    public $taxYear;
+    /** Filter: tax year range label e.g. "2025-26" or "" for all */
+    public $taxYear = '';
     public $showAddTaxModal = false;
     public $showViewTaxModal = false;
     public $showEditTaxModal = false;
@@ -25,7 +26,10 @@ class TaxManagement extends Component
     public $selectedTaxId = null;
 
     /** Add Tax Record form */
-    public $addTaxYear = '';
+    public $addStartYear = '';
+    public $addStartMonth = '7';
+    public $addEndYear = '';
+    public $addEndMonth = '6';
     public $salaryFrom = '';
     public $salaryTo = '';
     public $tax = '';
@@ -33,7 +37,10 @@ class TaxManagement extends Component
     public $additionalTaxAmount = '';
 
     /** Edit Tax Record form */
-    public $editTaxYear = '';
+    public $editStartYear = '';
+    public $editStartMonth = '';
+    public $editEndYear = '';
+    public $editEndMonth = '';
     public $editSalaryFrom = '';
     public $editSalaryTo = '';
     public $editTax = '';
@@ -41,7 +48,7 @@ class TaxManagement extends Component
     public $editAdditionalTaxAmount = '';
 
     /** Tax calculator in View flyout */
-    public $calculatorSalary = '260000';
+    public $calculatorSalary = '';
     public $calculatorTaxYear = '';
 
     public function mount()
@@ -52,7 +59,8 @@ class TaxManagement extends Component
             abort(403);
         }
 
-        $this->taxYear = now()->year;
+        $y = now()->year;
+        $this->taxYear = ($y - 1) . '-' . substr((string) $y, -2);
     }
 
     public function updatedSearch()
@@ -82,7 +90,11 @@ class TaxManagement extends Component
 
     public function openAddTaxModal()
     {
-        $this->addTaxYear = (string) ($this->taxYear ?? now()->year);
+        $y = now()->year;
+        $this->addStartYear = (string) ($y - 1);
+        $this->addStartMonth = '7';
+        $this->addEndYear = (string) $y;
+        $this->addEndMonth = '6';
         $this->salaryFrom = '1';
         $this->salaryTo = '600000';
         $this->tax = '0';
@@ -137,7 +149,7 @@ class TaxManagement extends Component
     {
         $record = Tax::find($id);
         $this->selectedTaxId = $id;
-        $this->calculatorTaxYear = $record ? (string) $record->tax_year : (string) now()->year;
+        $this->calculatorTaxYear = $record ? $record->tax_year_label : ((string) (now()->year - 1) . '-' . substr((string) now()->year, -2));
         $this->showViewTaxModal = true;
     }
 
@@ -155,7 +167,10 @@ class TaxManagement extends Component
             return;
         }
         $this->selectedTaxId = $id;
-        $this->editTaxYear = (string) $record->tax_year;
+        $this->editStartYear = $record->start_year !== null ? (string) $record->start_year : (string) ($record->tax_year - 1);
+        $this->editStartMonth = $record->start_month !== null ? (string) $record->start_month : '7';
+        $this->editEndYear = (string) ($record->end_year ?? $record->tax_year);
+        $this->editEndMonth = $record->end_month !== null ? (string) $record->end_month : '6';
         $this->editSalaryFrom = $this->formatTaxFieldForInput($record->salary_from);
         $this->editSalaryTo = $this->formatTaxFieldForInput($record->salary_to);
         $this->editTax = $this->formatTaxFieldForInput($record->tax);
@@ -191,15 +206,28 @@ class TaxManagement extends Component
             session()->flash('error', __('Tax record not found.'));
             return;
         }
-        $year = (int) $this->editTaxYear;
+        $startYear = (int) $this->editStartYear;
+        $startMonth = (int) $this->editStartMonth;
+        $endYear = (int) $this->editEndYear;
+        $endMonth = (int) $this->editEndMonth;
         $salaryFrom = (float) $this->editSalaryFrom;
         $salaryTo = (float) $this->editSalaryTo;
         $tax = (float) $this->editTax;
         $exempted = (float) $this->editExemptedTaxAmount;
         $additional = (float) $this->editAdditionalTaxAmount;
 
-        if ($year < 2000 || $year > 2100) {
-            session()->flash('error', __('Tax year must be between 2000 and 2100.'));
+        if ($startYear < 2000 || $startYear > 2100 || $endYear < 2000 || $endYear > 2100) {
+            session()->flash('error', __('Tax year start and end must be between 2000 and 2100.'));
+            return;
+        }
+        if ($startMonth < 1 || $startMonth > 12 || $endMonth < 1 || $endMonth > 12) {
+            session()->flash('error', __('Start month and end month must be between 1 and 12.'));
+            return;
+        }
+        $startKey = $startYear * 12 + $startMonth;
+        $endKey = $endYear * 12 + $endMonth;
+        if ($startKey >= $endKey) {
+            session()->flash('error', __('Tax period end must be after start.'));
             return;
         }
         if ($salaryFrom < 0 || $salaryTo < 0 || $salaryFrom > $salaryTo) {
@@ -208,7 +236,11 @@ class TaxManagement extends Component
         }
 
         $record->update([
-            'tax_year' => $year,
+            'tax_year' => $endYear,
+            'start_year' => $startYear,
+            'start_month' => $startMonth,
+            'end_year' => $endYear,
+            'end_month' => $endMonth,
             'salary_from' => $salaryFrom,
             'salary_to' => $salaryTo,
             'tax' => $tax,
@@ -229,13 +261,39 @@ class TaxManagement extends Component
     }
 
     /**
+     * Distinct tax year options for filter dropdown (value = label e.g. "2025-26").
+     */
+    public function getTaxYearOptionsProperty(): array
+    {
+        $labels = Tax::all()->map(fn ($t) => $t->tax_year_label)->unique()->sort()->values()->reverse()->toArray();
+        $options = [['value' => '', 'label' => __('All Years')]];
+        foreach ($labels as $l) {
+            $options[] = ['value' => $l, 'label' => __('Tax year :label', ['label' => $l])];
+        }
+        return $options;
+    }
+
+    /**
      * Calculator results for the View flyout (uses PayrollCalculationService when slabs are enabled).
+     * calculatorTaxYear is a label e.g. "2025-26"; we resolve to a payroll month for slab lookup.
      */
     public function getCalculatorResultsProperty(): array
     {
         $monthly = (float) ($this->calculatorSalary ?? 0);
-        $year = (int) ($this->calculatorTaxYear ?: now()->year);
-        $monthlyTax = $monthly > 0 ? PayrollCalculationService::getTaxAmount($monthly, $year) : 0.0;
+        $label = trim((string) ($this->calculatorTaxYear ?? ''));
+        $payrollMonth = null;
+        if ($label !== '') {
+            $parts = explode('-', $label);
+            if (count($parts) >= 2 && is_numeric($parts[0]) && is_numeric($parts[1])) {
+                $endYear = (int) $parts[1];
+                if ($endYear < 100) {
+                    $endYear += 2000;
+                }
+                $payrollMonth = $endYear . '-01';
+            }
+        }
+        $year = $payrollMonth ? (int) substr($payrollMonth, 0, 4) : (int) date('Y');
+        $monthlyTax = $monthly > 0 ? PayrollCalculationService::getTaxAmount($monthly, $year, $payrollMonth) : 0.0;
         $yearlyIncome = $monthly * 12;
         $yearlyTax = $monthlyTax * 12;
         return [
@@ -267,8 +325,25 @@ class TaxManagement extends Component
 
     public function render()
     {
-        $query = Tax::query()
-            ->when((int) $this->taxYear > 0, fn ($q) => $q->where('tax_year', (int) $this->taxYear));
+        $query = Tax::query();
+        $label = trim((string) $this->taxYear);
+        if ($label !== '') {
+            $parts = explode('-', $label);
+            if (count($parts) >= 2 && is_numeric($parts[0]) && is_numeric($parts[1])) {
+                $startY = (int) $parts[0];
+                $endY = (int) $parts[1];
+                if ($endY < 100) {
+                    $endY += 2000;
+                }
+                $query->where(function ($q) use ($startY, $endY) {
+                    $q->where(function ($q2) use ($startY, $endY) {
+                        $q2->where('start_year', $startY)->where('end_year', $endY);
+                    })->orWhere(function ($q2) use ($endY) {
+                        $q2->whereNull('start_year')->where('tax_year', $endY);
+                    });
+                });
+            }
+        }
 
         $sortField = $this->sortBy ?: 'tax_year';
         $sortDir = $this->sortDirection === 'asc' ? 'asc' : 'desc';
