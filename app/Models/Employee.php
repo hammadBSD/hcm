@@ -172,6 +172,11 @@ class Employee extends Model
         return $this->hasMany(TaskLog::class);
     }
 
+    public function increments(): HasMany
+    {
+        return $this->hasMany(EmployeeIncrement::class)->orderBy('updated_at', 'desc');
+    }
+
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class, 'assigned_to');

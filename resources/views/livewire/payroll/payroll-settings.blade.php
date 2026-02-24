@@ -50,15 +50,67 @@
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Tax Settings') }}</h3>
                 </div>
                 <div class="p-6 space-y-6">
+                    <flux:field>
+                        <flux:label>{{ __('Tax calculation method') }}</flux:label>
+                        <flux:radio.group wire:model.live="settings.tax_calculation_method">
+                            <flux:radio value="percentage" :label="__('Use tax percentage (below)')" />
+                            <flux:radio value="tax_slabs" :label="__('Use Tax Management slabs')" />
+                        </flux:radio.group>
+                        <flux:description>{{ __('When using Tax Management slabs, the percentage below is ignored for payroll and reports.') }}</flux:description>
+                    </flux:field>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <flux:field>
                             <flux:label>{{ __('Tax Percentage (%)') }}</flux:label>
                             <flux:input type="number" step="0.1" wire:model.live="settings.tax_percentage" />
+                            <flux:description>{{ __('Used only when "Use tax percentage" is selected.') }}</flux:description>
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Provident Fund Percentage (%)') }}</flux:label>
                             <flux:input type="number" step="0.1" wire:model.live="settings.provident_fund_percentage" />
+                        </flux:field>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deduction Settings -->
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Deduction Settings') }}</h3>
+                </div>
+                <div class="p-6 space-y-6">
+                    <flux:field>
+                        <flux:label>{{ __('Per-day deduction for absent') }}</flux:label>
+                        <flux:radio.group wire:model.live="settings.absent_deduction_use_formula">
+                            <flux:radio :value="true" :label="__('Use formula: gross salary ÷ working days (per-day salary deducted per absent day)')" />
+                            <flux:radio :value="false" :label="__('Use fixed amount per absent day')" />
+                        </flux:radio.group>
+                        <flux:description>{{ __('When formula is enabled, deduction = (gross salary ÷ working days) × absent days. Working days come from attendance (e.g. 20 for the month).') }}</flux:description>
+                    </flux:field>
+                    @if(empty($settings['absent_deduction_use_formula']))
+                    <flux:field>
+                        <flux:label>{{ __('Fixed amount per absent day') }}</flux:label>
+                        <flux:input type="number" step="0.01" min="0" wire:model.live="settings.per_day_absent_deduction" />
+                    </flux:field>
+                    @endif
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <flux:field>
+                            <flux:label>{{ __('Short hours threshold (hours)') }}</flux:label>
+                            <flux:input type="number" step="0.5" min="0" wire:model.live="settings.short_hours_threshold" />
+                            <flux:description>{{ __('Deduction for short hours starts only when short hours exceed this (e.g. 9).') }}</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Hours per day (for short-hours formula)') }}</flux:label>
+                            <flux:input type="number" step="0.5" min="0" wire:model.live="settings.hours_per_day" />
+                            <flux:description>{{ __('Hourly rate = gross salary ÷ working days ÷ this value (e.g. 9). Deduction = hourly rate × excess short hours; minutes are included.') }}</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Short hours deduction per hour (optional override)') }}</flux:label>
+                            <flux:input type="number" step="0.01" min="0" wire:model.live="settings.short_hours_deduction_per_hour" placeholder="{{ __('Leave empty to use formula above') }}" />
+                            <flux:description>{{ __('When set, this fixed amount is deducted per hour for excess short hours instead of the formula.') }}</flux:description>
                         </flux:field>
                     </div>
                 </div>

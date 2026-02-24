@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
+use App\Models\PayrollSetting;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -14,9 +15,15 @@ class PayrollSettings extends Component
         'allowance_percentage' => 10,
         'tax_percentage' => 15,
         'provident_fund_percentage' => 5,
+        'tax_calculation_method' => 'percentage',
+        'short_hours_threshold' => 9,
+        'hours_per_day' => 9,
+        'absent_deduction_use_formula' => true,
+        'per_day_absent_deduction' => 0,
+        'short_hours_deduction_per_hour' => null,
         'auto_process' => false,
         'email_payslips' => true,
-        'backup_payroll' => true
+        'backup_payroll' => true,
     ];
 
     public function mount()
@@ -27,22 +34,68 @@ class PayrollSettings extends Component
             abort(403);
         }
 
-        // Load settings from database or config
-        // For now, we'll use the default values
+        $row = PayrollSetting::first();
+        if ($row) {
+            $this->settings = [
+                'payroll_frequency' => $row->payroll_frequency,
+                'payroll_day' => (int) $row->payroll_day,
+                'overtime_rate' => (float) $row->overtime_rate,
+                'allowance_percentage' => (float) $row->allowance_percentage,
+                'tax_percentage' => (float) $row->tax_percentage,
+                'provident_fund_percentage' => (float) $row->provident_fund_percentage,
+                'tax_calculation_method' => $row->tax_calculation_method ?? 'percentage',
+                'short_hours_threshold' => (float) $row->short_hours_threshold,
+                'hours_per_day' => (float) ($row->hours_per_day ?? 9),
+                'absent_deduction_use_formula' => (bool) ($row->absent_deduction_use_formula ?? true),
+                'per_day_absent_deduction' => (float) $row->per_day_absent_deduction,
+                'short_hours_deduction_per_hour' => $row->short_hours_deduction_per_hour !== null ? (float) $row->short_hours_deduction_per_hour : null,
+                'auto_process' => (bool) $row->auto_process,
+                'email_payslips' => (bool) $row->email_payslips,
+                'backup_payroll' => (bool) $row->backup_payroll,
+            ];
+        }
     }
 
     public function updateSetting($key, $value)
     {
         $this->settings[$key] = $value;
-        
-        // This would save the setting to database
-        session()->flash('message', 'Setting updated successfully!');
+        $this->saveToDb();
+        session()->flash('message', __('Setting updated successfully!'));
     }
 
     public function saveAllSettings()
     {
-        // This would save all settings to database
-        session()->flash('message', 'All settings saved successfully!');
+        $this->saveToDb();
+        PayrollSetting::clearCached();
+        session()->flash('message', __('All settings saved successfully!'));
+    }
+
+    protected function saveToDb(): void
+    {
+        $data = [
+            'payroll_frequency' => $this->settings['payroll_frequency'] ?? 'monthly',
+            'payroll_day' => (int) ($this->settings['payroll_day'] ?? 1),
+            'overtime_rate' => (float) ($this->settings['overtime_rate'] ?? 1.5),
+            'allowance_percentage' => (float) ($this->settings['allowance_percentage'] ?? 10),
+            'tax_percentage' => (float) ($this->settings['tax_percentage'] ?? 15),
+            'provident_fund_percentage' => (float) ($this->settings['provident_fund_percentage'] ?? 5),
+            'tax_calculation_method' => $this->settings['tax_calculation_method'] ?? 'percentage',
+            'short_hours_threshold' => (float) ($this->settings['short_hours_threshold'] ?? 9),
+            'hours_per_day' => (float) ($this->settings['hours_per_day'] ?? 9),
+            'absent_deduction_use_formula' => (bool) ($this->settings['absent_deduction_use_formula'] ?? true),
+            'per_day_absent_deduction' => (float) ($this->settings['per_day_absent_deduction'] ?? 0),
+            'short_hours_deduction_per_hour' => isset($this->settings['short_hours_deduction_per_hour']) && $this->settings['short_hours_deduction_per_hour'] !== '' && $this->settings['short_hours_deduction_per_hour'] !== null
+                ? (float) $this->settings['short_hours_deduction_per_hour'] : null,
+            'auto_process' => (bool) ($this->settings['auto_process'] ?? false),
+            'email_payslips' => (bool) ($this->settings['email_payslips'] ?? true),
+            'backup_payroll' => (bool) ($this->settings['backup_payroll'] ?? true),
+        ];
+        $row = PayrollSetting::first();
+        if ($row) {
+            $row->update($data);
+        } else {
+            PayrollSetting::create($data);
+        }
     }
 
     public function resetToDefaults()
@@ -54,12 +107,19 @@ class PayrollSettings extends Component
             'allowance_percentage' => 10,
             'tax_percentage' => 15,
             'provident_fund_percentage' => 5,
+            'tax_calculation_method' => PayrollSetting::TAX_METHOD_PERCENTAGE,
+            'short_hours_threshold' => 9,
+            'hours_per_day' => 9,
+            'absent_deduction_use_formula' => true,
+            'per_day_absent_deduction' => 0,
+            'short_hours_deduction_per_hour' => null,
             'auto_process' => false,
             'email_payslips' => true,
-            'backup_payroll' => true
+            'backup_payroll' => true,
         ];
-        
-        session()->flash('message', 'Settings reset to defaults!');
+        $this->saveToDb();
+        PayrollSetting::clearCached();
+        session()->flash('message', __('Settings reset to defaults!'));
     }
 
     public function render()

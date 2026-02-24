@@ -4,6 +4,7 @@ namespace App\Livewire\Payroll;
 
 use App\Exports\GrossSalaryReportExport;
 use App\Models\Employee;
+use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -63,14 +64,14 @@ class GrossSalaryReport extends Component
             ->orderBy('last_name')
             ->get();
 
-        $taxPercentage = $this->getTaxPercentage();
+        $taxYear = $this->selectedMonth ? (int) substr($this->selectedMonth, 0, 4) : (int) date('Y');
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($taxPercentage) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear) {
             $salary = $employee->salaryLegalCompliance;
             $basic = $salary ? (float) $salary->basic_salary : 0;
             $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
             $gross = $basic + $allowances;
-            $tax = round($gross * ($taxPercentage / 100), 2);
+            $tax = PayrollCalculationService::getTaxAmount($gross, $taxYear);
             $departmentName = $this->getEmployeeDepartmentName($employee);
 
             return [
@@ -133,14 +134,6 @@ class GrossSalaryReport extends Component
             $filename,
             \Maatwebsite\Excel\Excel::XLSX
         );
-    }
-
-    /**
-     * Default tax percentage for report (can be replaced with value from payroll settings).
-     */
-    protected function getTaxPercentage(): float
-    {
-        return 15.0;
     }
 
     /**

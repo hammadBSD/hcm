@@ -5,6 +5,8 @@ namespace App\Livewire\Payroll;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeIncrement;
+use App\Services\PayrollCalculationService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -16,15 +18,31 @@ class Increments extends Component
     public $search = '';
     public $selectedDepartment = '';
     public $showAddIncrementModal = false;
+    public $showViewIncrementModal = false;
+    public $showEditIncrementModal = false;
+
+    /** View/Edit: selected increment record */
+    public $selectedIncrementId = null;
 
     /** Add Increment form */
     public $selectedEmployeeId = '';
     public $numberOfIncrements = '0';
     public $incrementDueDate = '';
     public $lastIncrementDate = '';
+    public $lastIncrementAmount = '';
+    public $timeSinceLastIncrement = '';
     public $incrementAmount = '';
     public $grossSalaryAfter = '';
     public $basicSalaryAfter = '';
+
+    /** Increment effective date – from this date onwards the increment is applied */
+    public $incrementEffectiveDate = '';
+
+    /** Fetched employee data (read-only display) */
+    public $employeeSalary = null;
+    public $employeeBasicSalary = 0;
+    public $employeeAllowances = 0;
+    public $employeeGrossSalary = 0;
 
     public function mount()
     {
@@ -44,21 +62,199 @@ class Increments extends Component
         $this->resetPage();
     }
 
+    public function updatedSelectedEmployeeId()
+    {
+        $this->fetchEmployeeData();
+    }
+
+    public function updatedIncrementAmount()
+    {
+        $this->computeNewSalaryValues();
+    }
+
+    protected function fetchEmployeeData(): void
+    {
+        $id = (int) $this->selectedEmployeeId;
+        if ($id <= 0) {
+            $this->employeeSalary = null;
+            $this->employeeBasicSalary = 0;
+            $this->employeeAllowances = 0;
+            $this->employeeGrossSalary = 0;
+            $this->lastIncrementDate = '';
+            $this->lastIncrementAmount = '';
+            $this->timeSinceLastIncrement = '';
+            $this->incrementAmount = '';
+            $this->computeNewSalaryValues();
+            return;
+        }
+
+        $employee = Employee::with(['salaryLegalCompliance', 'increments', 'organizationalInfo'])
+            ->where('status', 'active')
+            ->find($id);
+
+        if (!$employee) {
+            $this->employeeSalary = null;
+            $this->employeeBasicSalary = 0;
+            $this->employeeAllowances = 0;
+            $this->employeeGrossSalary = 0;
+            $this->lastIncrementDate = '';
+            $this->lastIncrementAmount = '';
+            $this->timeSinceLastIncrement = '';
+            return;
+        }
+
+        $salary = $employee->salaryLegalCompliance;
+        $basic = $salary ? (float) $salary->basic_salary : 0;
+        $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
+        $gross = $basic + $allowances;
+
+        $this->employeeSalary = $salary;
+        $this->employeeBasicSalary = $basic;
+        $this->employeeAllowances = $allowances;
+        $this->employeeGrossSalary = $gross;
+
+        $lastIncrement = $employee->increments->first();
+        if ($lastIncrement) {
+            $this->lastIncrementDate = $lastIncrement->last_increment_date
+                ? $lastIncrement->last_increment_date->format('Y-m-d')
+                : ($lastIncrement->updated_at ? $lastIncrement->updated_at->format('Y-m-d') : '');
+            $this->lastIncrementAmount = (float) $lastIncrement->increment_amount;
+            $this->numberOfIncrements = (string) (($lastIncrement->number_of_increments ?? 0) + 1);
+
+            if ($this->lastIncrementDate) {
+                $since = Carbon::parse($this->lastIncrementDate)->diffForHumans(now(), true);
+                $this->timeSinceLastIncrement = $since;
+            } else {
+                $this->timeSinceLastIncrement = __('N/A');
+            }
+        } else {
+            $this->lastIncrementDate = '';
+            $this->lastIncrementAmount = '';
+            $this->numberOfIncrements = '1';
+            $doj = $employee->organizationalInfo?->joining_date;
+            $this->timeSinceLastIncrement = $doj ? Carbon::parse($doj)->diffForHumans(now(), true) : __('N/A');
+        }
+
+        $this->incrementAmount = '';
+        $this->computeNewSalaryValues();
+    }
+
+    protected function computeNewSalaryValues(): void
+    {
+        $amount = (float) ($this->incrementAmount ?? 0);
+        $newBasic = $this->employeeBasicSalary + $amount;
+        $newGross = $newBasic + $this->employeeAllowances;
+        $taxYear = (int) date('Y');
+        $newTax = PayrollCalculationService::getTaxAmount($newGross, $taxYear);
+
+        $this->grossSalaryAfter = $amount > 0 ? (string) $newGross : '';
+        $this->basicSalaryAfter = $amount > 0 ? (string) $newBasic : '';
+    }
+
     public function openAddIncrementModal()
     {
         $this->selectedEmployeeId = '';
         $this->numberOfIncrements = '0';
         $this->incrementDueDate = '';
         $this->lastIncrementDate = '';
+        $this->lastIncrementAmount = '';
+        $this->timeSinceLastIncrement = '';
         $this->incrementAmount = '';
+        $this->incrementEffectiveDate = now()->format('Y-m-d');
         $this->grossSalaryAfter = '';
         $this->basicSalaryAfter = '';
+        $this->employeeSalary = null;
+        $this->employeeBasicSalary = 0;
+        $this->employeeAllowances = 0;
+        $this->employeeGrossSalary = 0;
         $this->showAddIncrementModal = true;
     }
 
     public function closeAddIncrementModal()
     {
         $this->showAddIncrementModal = false;
+    }
+
+    public function viewIncrement(int $id): void
+    {
+        $this->selectedIncrementId = $id;
+        $this->showViewIncrementModal = true;
+    }
+
+    public function closeViewIncrementModal(): void
+    {
+        $this->showViewIncrementModal = false;
+        $this->selectedIncrementId = null;
+    }
+
+    public function editIncrement(int $id): void
+    {
+        $inc = EmployeeIncrement::with('employee.salaryLegalCompliance')->find($id);
+        if (!$inc) {
+            session()->flash('error', __('Increment record not found.'));
+            return;
+        }
+        $this->selectedIncrementId = $id;
+        $this->selectedEmployeeId = (string) $inc->employee_id;
+        $this->fetchEmployeeData();
+        $this->numberOfIncrements = (string) $inc->number_of_increments;
+        $this->incrementDueDate = $inc->increment_due_date?->format('Y-m-d') ?? '';
+        $this->lastIncrementDate = $inc->last_increment_date?->format('Y-m-d') ?? '';
+        $this->incrementEffectiveDate = $inc->last_increment_date?->format('Y-m-d') ?? now()->format('Y-m-d');
+        $this->incrementAmount = (string) $inc->increment_amount;
+        $this->computeNewSalaryValues();
+        $this->showEditIncrementModal = true;
+    }
+
+    public function closeEditIncrementModal(): void
+    {
+        $this->showEditIncrementModal = false;
+        $this->selectedIncrementId = null;
+    }
+
+    public function updateIncrement(): void
+    {
+        $id = (int) $this->selectedIncrementId;
+        if ($id <= 0) {
+            session()->flash('error', __('Invalid increment record.'));
+            return;
+        }
+        $inc = EmployeeIncrement::find($id);
+        if (!$inc) {
+            session()->flash('error', __('Increment record not found.'));
+            return;
+        }
+        $amount = (float) $this->incrementAmount;
+        if ($amount <= 0) {
+            session()->flash('error', __('Please enter a valid increment amount.'));
+            return;
+        }
+        $newBasic = $this->employeeBasicSalary + $amount;
+        $newGross = $newBasic + $this->employeeAllowances;
+
+        $inc->update([
+            'number_of_increments' => (int) $this->numberOfIncrements ?: 1,
+            'increment_due_date' => $this->incrementDueDate ?: null,
+            'last_increment_date' => $this->incrementEffectiveDate ?: now()->format('Y-m-d'),
+            'increment_amount' => $amount,
+            'gross_salary_after' => $newGross,
+            'basic_salary_after' => $newBasic,
+            'updated_by' => Auth::id(),
+        ]);
+
+        $this->closeEditIncrementModal();
+        session()->flash('message', __('Increment record updated successfully.'));
+    }
+
+    public function deleteIncrement(int $id): void
+    {
+        $inc = EmployeeIncrement::find($id);
+        if ($inc) {
+            $inc->delete();
+            session()->flash('message', __('Increment record deleted successfully.'));
+        } else {
+            session()->flash('error', __('Increment record not found.'));
+        }
     }
 
     public function addIncrement()
@@ -69,19 +265,65 @@ class Increments extends Component
             return;
         }
 
+        $amount = (float) $this->incrementAmount;
+        if ($amount <= 0) {
+            session()->flash('error', __('Please enter a valid increment amount.'));
+            return;
+        }
+
+        $newBasic = $this->employeeBasicSalary + $amount;
+        $newGross = $newBasic + $this->employeeAllowances;
+
         EmployeeIncrement::create([
             'employee_id' => $employeeId,
-            'number_of_increments' => (int) $this->numberOfIncrements ?: 0,
+            'number_of_increments' => (int) $this->numberOfIncrements ?: 1,
             'increment_due_date' => $this->incrementDueDate ?: null,
-            'last_increment_date' => $this->lastIncrementDate ?: null,
-            'increment_amount' => (float) $this->incrementAmount ?: 0,
-            'gross_salary_after' => $this->grossSalaryAfter !== '' ? (float) $this->grossSalaryAfter : null,
-            'basic_salary_after' => $this->basicSalaryAfter !== '' ? (float) $this->basicSalaryAfter : null,
+            'last_increment_date' => $this->incrementEffectiveDate ?: now()->format('Y-m-d'),
+            'increment_amount' => $amount,
+            'gross_salary_after' => $newGross,
+            'basic_salary_after' => $newBasic,
             'updated_by' => Auth::id(),
         ]);
 
         $this->closeAddIncrementModal();
         session()->flash('message', __('Increment record added successfully.'));
+    }
+
+    public function getCalculatedTaxAmountProperty(): float
+    {
+        $amount = (float) ($this->incrementAmount ?? 0);
+        if ($amount <= 0) {
+            return 0;
+        }
+        $newGross = $this->employeeBasicSalary + $amount + $this->employeeAllowances;
+        return PayrollCalculationService::getTaxAmount($newGross, (int) date('Y'));
+    }
+
+    public function getCalculatedNewGrossProperty(): float
+    {
+        $amount = (float) ($this->incrementAmount ?? 0);
+        return $this->employeeBasicSalary + $amount + $this->employeeAllowances;
+    }
+
+    public function getCalculatedNewBasicProperty(): float
+    {
+        $amount = (float) ($this->incrementAmount ?? 0);
+        return $this->employeeBasicSalary + $amount;
+    }
+
+    public function getCalculatedNetSalaryProperty(): float
+    {
+        $newGross = $this->calculatedNewGross;
+        $tax = $this->calculatedTaxAmount;
+        return round($newGross - $tax, 2);
+    }
+
+    public function getSelectedIncrementProperty(): ?EmployeeIncrement
+    {
+        if (!$this->selectedIncrementId) {
+            return null;
+        }
+        return EmployeeIncrement::with(['employee.department', 'updatedByUser'])->find($this->selectedIncrementId);
     }
 
     public function render()

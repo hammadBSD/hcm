@@ -21,12 +21,14 @@ class AdvanceSalaryRequest extends Model
         'requested_by',
         'approved_by',
         'approved_at',
+        'confirmed_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'expected_payback_date' => 'date',
         'approved_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public const STATUS_PENDING = 'pending';

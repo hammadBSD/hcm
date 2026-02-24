@@ -4,6 +4,7 @@ namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
 use App\Services\AttendanceStatsForPayrollService;
+use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -73,14 +74,16 @@ class DeptWiseSummary extends Component
             ->get();
 
         $month = $this->selectedMonth ?: now()->format('Y-m');
+        $taxYear = $month ? (int) substr($month, 0, 4) : (int) date('Y');
+        $periodMonth = $month ? (int) substr($month, 5, 2) : (int) date('n');
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
 
-        $taxPercentage = $this->getTaxPercentage();
-
-        $this->reportData = $employees->map(function (Employee $employee) use ($taxPercentage, $attendanceStatsByEmployee) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($taxYear, $periodMonth, $attendanceStatsByEmployee) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $absent = (int) ($att['absent_days'] ?? 0);
+            $workingDays = (int) ($att['working_days'] ?? 0);
+            $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');
             $salary = $employee->salaryLegalCompliance;
             $basic = $salary ? (float) $salary->basic_salary : 0;
             $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
@@ -88,16 +91,18 @@ class DeptWiseSummary extends Component
             $gross = $basic + $allowances;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
-            $tax = round($gross * ($taxPercentage / 100), 2);
+            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear);
+            $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
+            $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
+            $otherDeductions = round($shortDeduction + $absentDeduction, 2);
             $epfEe = 0;
             $epfEr = 0;
             $esicEe = 0;
             $esicEr = 0;
             $profTax = 0;
             $eobi = 0;
-            $advance = 0;
-            $loan = 0;
-            $otherDeductions = 0;
+            $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
+            $loan = PayrollCalculationService::getLoanDeduction($employee->id);
             $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
             $netSalary = $grossWithOt + $bonus - $totalDeductions;
             $departmentName = $this->getEmployeeDepartmentName($employee);
@@ -313,11 +318,6 @@ class DeptWiseSummary extends Component
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
-    }
-
-    protected function getTaxPercentage(): float
-    {
-        return 15.0;
     }
 
     protected function getEmployeeDepartmentName(Employee $employee): string

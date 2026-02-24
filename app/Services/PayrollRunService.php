@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\DB;
 
 class PayrollRunService
 {
-    protected float $taxPercentage = 15.0;
-
     /**
      * Build payroll line data for the given month/year using same logic as Master Report.
      */
@@ -41,17 +39,23 @@ class PayrollRunService
             $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
             $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
             $gross = $basic + $allowances;
-            $tax = round($gross * ($this->taxPercentage / 100), 2);
+            $tax = PayrollCalculationService::getTaxAmount($gross, $year);
             $eobi = 0;
-            $advance = 0;
-            $loan = 0;
-            $otherDeductions = 0;
+            $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $month, $year);
+            $loan = PayrollCalculationService::getLoanDeduction($employee->id);
+
+            $absentDays = (int) ($att['absent_days'] ?? 0);
+            $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');
+            $workingDays = (int) ($att['working_days'] ?? 0);
+            $onLeaveDays = (float) ($att['on_leave_days'] ?? 0);
+            $hasLeavesOrHolidaysOrAbsent = $onLeaveDays > 0 || (int) ($att['holiday_days'] ?? 0) > 0 || $absentDays > 0;
+            $monthlyExpectedHours = (string) ($hasLeavesOrHolidaysOrAbsent ? ($att['expected_hours_adjusted'] ?? '0:00') : ($att['expected_hours'] ?? '0:00'));
+            $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $gross, $workingDays);
+            $absentDeduction = PayrollCalculationService::getAbsentDeduction($absentDays, $gross, $workingDays);
+            $otherDeductions = round($shortDeduction + $absentDeduction, 2);
+
             $totalDeductions = $tax + $eobi + $advance + $loan + $otherDeductions;
             $netSalary = $gross + $bonus - $totalDeductions;
-
-            $onLeaveDays = (float) ($att['on_leave_days'] ?? 0);
-            $hasLeavesOrHolidaysOrAbsent = $onLeaveDays > 0 || (int) ($att['holiday_days'] ?? 0) > 0 || (int) ($att['absent_days'] ?? 0) > 0;
-            $monthlyExpectedHours = $hasLeavesOrHolidaysOrAbsent ? ($att['expected_hours_adjusted'] ?? '0:00') : ($att['expected_hours'] ?? '0:00');
 
             $lines[] = [
                 'employee_id' => $employee->id,
@@ -62,12 +66,12 @@ class PayrollRunService
                 'leave_paid' => $onLeaveDays,
                 'leave_unpaid' => 0,
                 'leave_lwp' => 0,
-                'absent' => (int) ($att['absent_days'] ?? 0),
+                'absent' => $absentDays,
                 'holiday' => (int) ($att['holiday_days'] ?? 0),
                 'late_days' => (int) ($att['late_days'] ?? 0),
                 'total_break_time' => (string) ($att['total_break_time'] ?? '0:00'),
                 'total_hours_worked' => (string) ($att['total_hours'] ?? '0:00'),
-                'monthly_expected_hours' => (string) $monthlyExpectedHours,
+                'monthly_expected_hours' => $monthlyExpectedHours,
                 'short_excess_hours' => (string) ($att['short_excess_hours'] ?? '0:00'),
                 'basic_salary' => $basic,
                 'allowances' => $allowances,

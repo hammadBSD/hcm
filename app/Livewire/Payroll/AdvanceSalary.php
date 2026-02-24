@@ -17,6 +17,8 @@ class AdvanceSalary extends Component
     public $selectedDepartment = '';
     public $status = '';
     public $showAddAdvanceModal = false;
+    public $showViewRequestModal = false;
+    public $selectedRequestId = null;
     public $sortBy = '';
     public $sortDirection = 'asc';
 
@@ -135,9 +137,45 @@ class AdvanceSalary extends Component
         }
     }
 
-    public function viewRequest($id)
+    public function viewRequest(int $id): void
     {
-        session()->flash('message', __('View not implemented for this request.'));
+        $this->selectedRequestId = $id;
+        $this->showViewRequestModal = true;
+    }
+
+    public function closeViewRequestModal(): void
+    {
+        $this->showViewRequestModal = false;
+        $this->selectedRequestId = null;
+    }
+
+    public function confirmTransaction(int $id): void
+    {
+        $this->authorizeAdvanceManagement();
+        $request = AdvanceSalaryRequest::find($id);
+        if (!$request) {
+            session()->flash('error', __('Request not found.'));
+            return;
+        }
+        if ($request->status !== AdvanceSalaryRequest::STATUS_APPROVED) {
+            session()->flash('error', __('Only approved advances can be confirmed.'));
+            return;
+        }
+        if ($request->confirmed_at) {
+            session()->flash('error', __('This transaction is already confirmed.'));
+            return;
+        }
+        $request->update(['confirmed_at' => now()]);
+        session()->flash('message', __('Transaction confirmed successfully.'));
+    }
+
+    public function getSelectedAdvanceRequestProperty(): ?AdvanceSalaryRequest
+    {
+        if (!$this->selectedRequestId) {
+            return null;
+        }
+        return AdvanceSalaryRequest::with(['employee', 'requestedByUser', 'approvedByUser'])
+            ->find($this->selectedRequestId);
     }
 
     protected function authorizeAdvanceRequest(): void

@@ -46,6 +46,11 @@
                 {{ session('message') }}
             </flux:callout>
         @endif
+        @if (session()->has('error'))
+            <flux:callout variant="danger" icon="x-circle" dismissible>
+                {{ session('error') }}
+            </flux:callout>
+        @endif
 
         <!-- Tax Records Table -->
         <div class="mt-8">
@@ -117,17 +122,17 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $taxVal == 0 ? '0' : number_format($taxVal, 2) }}
+                                                {{ $taxVal == 0 ? '0' : preg_replace('/\.00$/', '', number_format($taxVal, 2, '.', ',')) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $exempted == 0 ? '0' : number_format($exempted, 2) }}
+                                                {{ $exempted == 0 ? '0' : preg_replace('/\.00$/', '', number_format($exempted, 2, '.', ',')) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $additional == 0 ? '0' : number_format($additional, 2) }}
+                                                {{ $additional == 0 ? '0' : preg_replace('/\.00$/', '', number_format($additional, 2, '.', ',')) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -143,8 +148,14 @@
                                                         <flux:menu.item icon="eye" wire:click="viewTaxRecord({{ $record->id }})">
                                                             {{ __('View Details') }}
                                                         </flux:menu.item>
+                                                        <flux:menu.item icon="pencil" wire:click="editTaxRecord({{ $record->id }})">
+                                                            {{ __('Edit') }}
+                                                        </flux:menu.item>
                                                         <flux:menu.item icon="arrow-down-tray" wire:click="downloadTaxRecord({{ $record->id }})">
                                                             {{ __('Download PDF') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item icon="trash" wire:click="deleteTaxRecord({{ $record->id }})" wire:confirm="{{ __('Are you sure you want to delete this tax record? This action cannot be undone.') }}" class="text-red-600 dark:text-red-400">
+                                                            {{ __('Delete') }}
                                                         </flux:menu.item>
                                                     </flux:menu>
                                                 </flux:dropdown>
@@ -224,6 +235,74 @@
                     <div class="flex justify-end gap-3">
                         <flux:button variant="ghost" wire:click="closeAddTaxModal">{{ __('Cancel') }}</flux:button>
                         <flux:button variant="primary" wire:click="addTaxRecord">{{ __('Add Record') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        <!-- View Tax Record Flyout -->
+        @if($showViewTaxModal && $this->selectedTaxRecord)
+            @php $rec = $this->selectedTaxRecord; @endphp
+            <flux:modal variant="flyout" :open="$showViewTaxModal" wire:model="showViewTaxModal" class="w-[32rem] lg:w-[36rem]">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Tax Record Details') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Salary range') }}: {{ number_format((float) $rec->salary_from, 0) }} - {{ number_format((float) $rec->salary_to, 0) }}</flux:text>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Year') }}</span><span class="font-medium">{{ $rec->tax_year }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary From') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->salary_from, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Salary To') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->salary_to, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Tax') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->tax, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Exempted Tax Amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->exempted_tax_amount, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Additional Tax Amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $rec->additional_tax_amount, 2, '.', ',')) }}</span></div>
+                    </div>
+                    <div class="flex justify-end pt-4">
+                        <flux:button variant="ghost" wire:click="closeViewTaxModal">{{ __('Close') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        <!-- Edit Tax Record Flyout -->
+        @if($showEditTaxModal)
+            <flux:modal variant="flyout" :open="$showEditTaxModal" wire:model="showEditTaxModal" class="w-[32rem] lg:w-[36rem]">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Edit Tax Record') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Update tax record details') }}</flux:text>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <flux:field>
+                                <flux:label>{{ __('Tax Year') }}</flux:label>
+                                <flux:input type="number" min="2000" max="2100" wire:model="editTaxYear" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Salary From') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model="editSalaryFrom" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Salary To') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model="editSalaryTo" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Tax') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model="editTax" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Exempted Tax Amount') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model="editExemptedTaxAmount" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Additional Tax Amount') }}</flux:label>
+                                <flux:input type="number" min="0" step="0.01" wire:model="editAdditionalTaxAmount" />
+                            </flux:field>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <flux:button variant="ghost" wire:click="closeEditTaxModal">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="primary" wire:click="updateTaxRecord">{{ __('Update Record') }}</flux:button>
                     </div>
                 </div>
             </flux:modal>

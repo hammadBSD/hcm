@@ -191,8 +191,18 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $run->lines_count }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">{{ $run->created_at->format('M d, Y H:i') }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:button variant="ghost" size="sm" href="{{ route('payroll.payroll-processing', ['run' => $run->id]) }}">{{ __('View') }}</flux:button>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <flux:dropdown>
+                                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
+                                                    <flux:menu>
+                                                        <flux:menu.item icon="eye" href="{{ route('payroll.payroll-processing', ['run' => $run->id]) }}" wire:navigate>
+                                                            {{ __('View') }}
+                                                        </flux:menu.item>
+                                                        <flux:menu.item icon="trash" wire:click="deletePayrollRun({{ $run->id }})" wire:confirm="{{ __('Are you sure you want to delete this payroll run? This action cannot be undone.') }}" class="text-red-600 dark:text-red-400">
+                                                            {{ __('Delete') }}
+                                                        </flux:menu.item>
+                                                    </flux:menu>
+                                                </flux:dropdown>
                                             </td>
                                         </tr>
                                     @endforeach

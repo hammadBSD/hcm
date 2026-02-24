@@ -15,8 +15,13 @@ class TaxManagement extends Component
     public $selectedDepartment = '';
     public $taxYear;
     public $showAddTaxModal = false;
+    public $showViewTaxModal = false;
+    public $showEditTaxModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    /** Selected tax record for view/edit */
+    public $selectedTaxId = null;
 
     /** Add Tax Record form */
     public $addTaxYear = '';
@@ -25,6 +30,14 @@ class TaxManagement extends Component
     public $tax = '';
     public $exemptedTaxAmount = '';
     public $additionalTaxAmount = '';
+
+    /** Edit Tax Record form */
+    public $editTaxYear = '';
+    public $editSalaryFrom = '';
+    public $editSalaryTo = '';
+    public $editTax = '';
+    public $editExemptedTaxAmount = '';
+    public $editAdditionalTaxAmount = '';
 
     public function mount()
     {
@@ -115,16 +128,114 @@ class TaxManagement extends Component
         session()->flash('message', 'Tax report generated successfully!');
     }
 
-    public function viewTaxRecord($id)
+    public function viewTaxRecord(int $id): void
     {
-        // Placeholder: could open a detail modal or redirect
-        session()->flash('message', __('View not implemented for this record.'));
+        $this->selectedTaxId = $id;
+        $this->showViewTaxModal = true;
+    }
+
+    public function closeViewTaxModal(): void
+    {
+        $this->showViewTaxModal = false;
+        $this->selectedTaxId = null;
+    }
+
+    public function editTaxRecord(int $id): void
+    {
+        $record = Tax::find($id);
+        if (!$record) {
+            session()->flash('error', __('Tax record not found.'));
+            return;
+        }
+        $this->selectedTaxId = $id;
+        $this->editTaxYear = (string) $record->tax_year;
+        $this->editSalaryFrom = $this->formatTaxFieldForInput($record->salary_from);
+        $this->editSalaryTo = $this->formatTaxFieldForInput($record->salary_to);
+        $this->editTax = $this->formatTaxFieldForInput($record->tax);
+        $this->editExemptedTaxAmount = $this->formatTaxFieldForInput($record->exempted_tax_amount);
+        $this->editAdditionalTaxAmount = $this->formatTaxFieldForInput($record->additional_tax_amount);
+        $this->showEditTaxModal = true;
+    }
+
+    /**
+     * Format decimal for input display: no trailing .00 for whole numbers.
+     */
+    protected function formatTaxFieldForInput($value): string
+    {
+        $f = (float) $value;
+        return $f === (float) (int) $f ? (string) (int) $f : (string) $f;
+    }
+
+    public function closeEditTaxModal(): void
+    {
+        $this->showEditTaxModal = false;
+        $this->selectedTaxId = null;
+    }
+
+    public function updateTaxRecord(): void
+    {
+        $id = (int) $this->selectedTaxId;
+        if ($id <= 0) {
+            session()->flash('error', __('Invalid tax record.'));
+            return;
+        }
+        $record = Tax::find($id);
+        if (!$record) {
+            session()->flash('error', __('Tax record not found.'));
+            return;
+        }
+        $year = (int) $this->editTaxYear;
+        $salaryFrom = (float) $this->editSalaryFrom;
+        $salaryTo = (float) $this->editSalaryTo;
+        $tax = (float) $this->editTax;
+        $exempted = (float) $this->editExemptedTaxAmount;
+        $additional = (float) $this->editAdditionalTaxAmount;
+
+        if ($year < 2000 || $year > 2100) {
+            session()->flash('error', __('Tax year must be between 2000 and 2100.'));
+            return;
+        }
+        if ($salaryFrom < 0 || $salaryTo < 0 || $salaryFrom > $salaryTo) {
+            session()->flash('error', __('Salary From must be less than or equal to Salary To, and both must be non-negative.'));
+            return;
+        }
+
+        $record->update([
+            'tax_year' => $year,
+            'salary_from' => $salaryFrom,
+            'salary_to' => $salaryTo,
+            'tax' => $tax,
+            'exempted_tax_amount' => $exempted,
+            'additional_tax_amount' => $additional,
+        ]);
+
+        $this->closeEditTaxModal();
+        session()->flash('message', __('Tax record updated successfully.'));
+    }
+
+    public function getSelectedTaxRecordProperty(): ?Tax
+    {
+        if (!$this->selectedTaxId) {
+            return null;
+        }
+        return Tax::find($this->selectedTaxId);
     }
 
     public function downloadTaxRecord($id)
     {
         // Placeholder: could generate PDF
         session()->flash('message', __('Download not implemented for this record.'));
+    }
+
+    public function deleteTaxRecord(int $id): void
+    {
+        $record = Tax::find($id);
+        if ($record) {
+            $record->delete();
+            session()->flash('message', __('Tax record deleted successfully.'));
+        } else {
+            session()->flash('error', __('Tax record not found.'));
+        }
     }
 
     public function render()

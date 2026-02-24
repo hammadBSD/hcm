@@ -18,18 +18,21 @@
             @endif
 
             @if($hasData)
+                @php
+                    $fmtNum = function($v) { $v = (float)($v ?? 0); $s = number_format($v, 2, '.', ','); return preg_replace('/\.00$/', '', $s); };
+                @endphp
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden mb-6">
                     <div class="master-report-grand-total px-6 py-4 bg-zinc-100 dark:bg-[#424242] border-b border-zinc-200 dark:border-zinc-600">
                         <flux:heading size="md" class="mb-3 text-zinc-900 dark:text-zinc-100">{{ __('Grand Total') }}</flux:heading>
                         <div class="flex flex-wrap gap-6 text-sm">
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                {{ __('Total Gross Salary') }}: <span class="text-green-600 dark:text-green-400">{{ number_format($grandTotals['total_gross'], 2) }}</span>
+                                {{ __('Total Gross Salary') }}: <span class="text-green-600 dark:text-green-400">{{ $fmtNum($grandTotals['total_gross']) }}</span>
                             </span>
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ number_format($grandTotals['total_deductions'], 2) }}</span>
+                                {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ $fmtNum($grandTotals['total_deductions']) }}</span>
                             </span>
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ number_format($grandTotals['total_net_salary'], 2) }}</span>
+                                {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ $fmtNum($grandTotals['total_net_salary']) }}</span>
                             </span>
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                 {{ __('No. of employees') }}: <span class="text-zinc-900 dark:text-zinc-100">{{ $grandTotals['count'] }}</span>
@@ -96,13 +99,13 @@
                             <flux:heading size="md" class="mb-3 text-zinc-900 dark:text-zinc-100">{{ $group['department'] }}</flux:heading>
                             <div class="flex flex-wrap gap-6 text-sm">
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                    {{ __('Total Gross Salary') }}: <span class="text-green-600 dark:text-green-400">{{ number_format($group['total_gross'], 2) }}</span>
+                                    {{ __('Total Gross Salary') }}: <span class="text-green-600 dark:text-green-400">{{ $fmtNum($group['total_gross']) }}</span>
                                 </span>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                    {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ number_format($group['total_deductions'] ?? 0, 2) }}</span>
+                                    {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ $fmtNum($group['total_deductions'] ?? 0) }}</span>
                                 </span>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
-                                    {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ number_format($group['total_net_salary'] ?? 0, 2) }}</span>
+                                    {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ $fmtNum($group['total_net_salary'] ?? 0) }}</span>
                                 </span>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                     {{ __('No. of employees') }}: <span class="text-zinc-900 dark:text-zinc-100">{{ $group['count'] }}</span>
@@ -179,7 +182,7 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['current_status'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['reporting_manager'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['last_increment_date'] ?? '—' }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['last_increment_amount'] ?? 0, 2) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['last_increment_amount'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['months_since_increment'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['working_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['days_present'] ?? 0 }}</td>
@@ -194,24 +197,24 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['monthly_expected_hours'] ?? '0:00' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ str_starts_with((string)($row['short_excess_hours'] ?? '0:00'), '-') ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $row['short_excess_hours'] ?? '0:00' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['salary_type'] ?? '—' }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($row['basic_salary'], 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['allowances'] ?? 0, 2) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($row['basic_salary']) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['allowances'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $row['ot_hrs'] ?? 0 }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['ot_amt'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400">{{ number_format($row['gross_salary'], 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['bonus'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['epf_ee'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['epf_er'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['esic_ee'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['esic_er'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($row['tax'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['prof_tax'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['eobi'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['advance'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['loan'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ number_format($row['other_deductions'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ number_format($row['total_deductions'] ?? 0, 2) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ number_format($row['net_salary'] ?? 0, 2) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['ot_amt'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400">{{ $fmtNum($row['gross_salary']) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['bonus'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['epf_ee'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['epf_er'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['esic_ee'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['esic_er'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['tax'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['prof_tax'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['eobi'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['advance'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['loan'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['other_deductions'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['total_deductions'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ $fmtNum($row['net_salary'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['bank_name'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['account_title'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['bank_account'] ?? '—' }}</td>

@@ -92,6 +92,24 @@ class PayrollProcessing extends Component
         $this->selectedProcessingType = null;
     }
 
+    public function deletePayrollRun(int $id): void
+    {
+        $run = PayrollRun::find($id);
+        if (!$run) {
+            session()->flash('error', __('Payroll run not found.'));
+            return;
+        }
+        if ($run->status === 'approved') {
+            session()->flash('error', __('Approved payroll runs cannot be deleted.'));
+            return;
+        }
+        $run->delete();
+        if ($this->selectedRunId === $id) {
+            $this->selectedRunId = null;
+        }
+        session()->flash('message', __('Payroll run deleted.'));
+    }
+
     public function selectProcessingType($type)
     {
         $this->selectedProcessingType = $type;

@@ -124,6 +124,12 @@
                                         </button>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        {{ __('Approval date') }}
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        {{ __('Confirmed') }}
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         {{ __('Actions') }}
                                     </th>
                                 </tr>
@@ -134,7 +140,8 @@
                                         $emp = $request->employee;
                                         $employeeName = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : '—';
                                         $employeeCode = $emp->employee_code ?? '—';
-                                        $departmentName = $emp && $emp->department ? $emp->department->title : 'N/A';
+                                        $dept = $emp->department ?? null;
+                                        $departmentName = is_object($dept) && isset($dept->title) ? $dept->title : (is_string($dept) && $dept !== '' ? $dept : 'N/A');
                                     @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -157,7 +164,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format((float) $request->amount, 2) }}
+                                                {{ preg_replace('/\.00$/', '', number_format((float) $request->amount, 2, '.', ',')) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -183,6 +190,16 @@
                                                 {{ ucfirst($request->status) }}
                                             </flux:badge>
                                         </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $request->approved_at ? $request->approved_at->format('M d, Y') : '—' }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $request->confirmed_at ? $request->confirmed_at->format('M d, Y') : '—' }}
+                                            </div>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center gap-1">
                                                 <flux:dropdown>
@@ -194,6 +211,11 @@
                                                             </flux:menu.item>
                                                             <flux:menu.item icon="x-mark" wire:click="rejectAdvance({{ $request->id }})">
                                                                 {{ __('Reject') }}
+                                                            </flux:menu.item>
+                                                        @endif
+                                                        @if($request->status === 'approved' && !$request->confirmed_at)
+                                                            <flux:menu.item icon="check-badge" wire:click="confirmTransaction({{ $request->id }})">
+                                                                {{ __('Confirm Transaction') }}
                                                             </flux:menu.item>
                                                         @endif
                                                         <flux:menu.item icon="eye" wire:click="viewRequest({{ $request->id }})">
@@ -270,6 +292,33 @@
                     <div class="flex justify-end gap-3">
                         <flux:button variant="ghost" wire:click="closeAddAdvanceModal">{{ __('Cancel') }}</flux:button>
                         <flux:button variant="primary" wire:click="addAdvanceSalary">{{ __('Submit Request') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        <!-- View Advance Request Flyout -->
+        @if($showViewRequestModal && $this->selectedAdvanceRequest)
+            @php $req = $this->selectedAdvanceRequest; $emp = $req->employee; @endphp
+            <flux:modal variant="flyout" :open="$showViewRequestModal" wire:model="showViewRequestModal" class="w-[32rem] lg:w-[36rem]">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Advance Request Details') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ $emp ? trim($emp->first_name . ' ' . $emp->last_name) . ' (' . ($emp->employee_code ?? '') . ')' : '—' }}</flux:text>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $req->amount, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Reason') }}</span><span class="font-medium">{{ $req->reason ?: '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Expected payback date') }}</span><span class="font-medium">{{ $req->expected_payback_date ? $req->expected_payback_date->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Status') }}</span><span class="font-medium">{{ ucfirst($req->status) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Request date') }}</span><span class="font-medium">{{ $req->created_at ? $req->created_at->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Requested by') }}</span><span class="font-medium">{{ $req->requestedByUser?->name ?? '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Approval date') }}</span><span class="font-medium">{{ $req->approved_at ? $req->approved_at->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Approved by') }}</span><span class="font-medium">{{ $req->approvedByUser?->name ?? '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Confirmed') }}</span><span class="font-medium">{{ $req->confirmed_at ? $req->confirmed_at->format('M d, Y') : '—' }}</span></div>
+                    </div>
+                    <div class="flex justify-end pt-4">
+                        <flux:button variant="ghost" wire:click="closeViewRequestModal">{{ __('Close') }}</flux:button>
                     </div>
                 </div>
             </flux:modal>
