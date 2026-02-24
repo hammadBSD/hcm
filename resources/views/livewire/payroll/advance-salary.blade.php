@@ -66,6 +66,11 @@
                 {{ session('message') }}
             </flux:callout>
         @endif
+        @if (session()->has('error'))
+            <flux:callout variant="danger" icon="x-circle" dismissible>
+                {{ session('error') }}
+            </flux:callout>
+        @endif
 
         <!-- Advance Salary Requests Table -->
         <div class="mt-8">
@@ -125,73 +130,73 @@
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                 @foreach ($advanceRequests as $request)
+                                    @php
+                                        $emp = $request->employee;
+                                        $employeeName = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : '—';
+                                        $employeeCode = $emp->employee_code ?? '—';
+                                        $departmentName = $emp && $emp->department ? $emp->department->title : 'N/A';
+                                    @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center gap-3">
-                                                <flux:avatar size="sm" :initials="strtoupper(substr($request['employee_name'], 0, 1))" />
+                                                <flux:avatar size="sm" :initials="strtoupper(substr($employeeName, 0, 1))" />
                                                 <div>
                                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {{ $request['employee_name'] }}
+                                                        {{ $employeeName }}
                                                     </div>
                                                     <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                        {{ $request['employee_code'] }}
+                                                        {{ $employeeCode }}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $request['department'] }}
+                                                {{ $departmentName }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($request['amount'], 2) }}
+                                                ${{ number_format((float) $request->amount, 2) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100 max-w-xs truncate" title="{{ $request->reason }}">
+                                                {{ $request->reason ?: '—' }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $request['reason'] }}
+                                                {{ $request->created_at ? $request->created_at->format('M d, Y') : '—' }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ date('M d, Y', strtotime($request['request_date'])) }}
-                                            </div>
-                                        </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             @php
-                                                $statusColor = match($request['status']) {
-                                                    'pending' => 'yellow',
-                                                    'approved' => 'green',
-                                                    'rejected' => 'red',
-                                                    default => 'yellow'
-                                                };
+                                                $statusColor = match($request->status) {
+                    'pending' => 'yellow',
+                    'approved' => 'green',
+                    'rejected' => 'red',
+                    default => 'yellow'
+                };
                                             @endphp
                                             <flux:badge color="{{ $statusColor }}" size="sm">
-                                                {{ ucfirst($request['status']) }}
+                                                {{ ucfirst($request->status) }}
                                             </flux:badge>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center gap-1">
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        @if($request['status'] === 'pending')
-                                                            <flux:menu.item icon="check" wire:click="approveAdvance({{ $request['id'] }})">
+                                                        @if($request->status === 'pending')
+                                                            <flux:menu.item icon="check" wire:click="approveAdvance({{ $request->id }})">
                                                                 {{ __('Approve') }}
                                                             </flux:menu.item>
-                                                            <flux:menu.item icon="x-mark" wire:click="rejectAdvance({{ $request['id'] }})">
+                                                            <flux:menu.item icon="x-mark" wire:click="rejectAdvance({{ $request->id }})">
                                                                 {{ __('Reject') }}
                                                             </flux:menu.item>
                                                         @endif
-                                                        <flux:menu.item icon="eye" wire:click="viewRequest({{ $request['id'] }})">
+                                                        <flux:menu.item icon="eye" wire:click="viewRequest({{ $request->id }})">
                                                             {{ __('View Details') }}
                                                         </flux:menu.item>
                                                     </flux:menu>
@@ -227,28 +232,38 @@
             @endif
         </div>
 
-        <!-- Add Advance Request Modal -->
+        <!-- Request Advance Salary Flyout -->
         @if($showAddAdvanceModal)
-            <flux:modal wire:model="showAddAdvanceModal" name="add-advance-modal">
+            <flux:modal variant="flyout" :open="$showAddAdvanceModal" wire:model="showAddAdvanceModal">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">{{ __('Request Advance Salary') }}</flux:heading>
                     </div>
-                    
+
                     <div class="space-y-4">
                         <flux:field>
+                            <flux:label>{{ __('Employee') }}</flux:label>
+                            <flux:select wire:model="selectedEmployeeId" placeholder="{{ __('Select employee') }}">
+                                <option value="">{{ __('Select employee') }}</option>
+                                @foreach($activeEmployees as $emp)
+                                    <option value="{{ $emp['id'] }}">{{ $emp['label'] }}</option>
+                                @endforeach
+                            </flux:select>
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Amount') }}</flux:label>
-                            <flux:input type="number" step="0.01" placeholder="0.00" />
+                            <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model="advanceAmount" />
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Reason') }}</flux:label>
-                            <flux:textarea placeholder="Enter reason for advance salary..."></flux:textarea>
+                            <flux:textarea placeholder="{{ __('Enter reason for advance salary...') }}" wire:model="advanceReason"></flux:textarea>
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Expected Payback Date') }}</flux:label>
-                            <flux:input type="date" />
+                            <flux:input type="date" wire:model="expectedPaybackDate" />
                         </flux:field>
                     </div>
 

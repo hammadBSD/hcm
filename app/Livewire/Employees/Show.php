@@ -3,6 +3,7 @@
 namespace App\Livewire\Employees;
 
 use App\Models\Employee;
+use App\Models\EmployeeIncrement;
 use Livewire\Component;
 
 class Show extends Component
@@ -33,7 +34,15 @@ class Show extends Component
 
     public function render()
     {
-        return view('livewire.employees.show')
-            ->layout('components.layouts.app');
+        $increments = $this->employee
+            ? EmployeeIncrement::where('employee_id', $this->employee->id)
+                ->orderByDesc('last_increment_date')
+                ->orderByDesc('created_at')
+                ->get()
+            : collect();
+
+        return view('livewire.employees.show', [
+            'increments' => $increments,
+        ])->layout('components.layouts.app');
     }
 }

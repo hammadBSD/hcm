@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Payroll;
 
+use App\Models\AdvanceSalaryRequest;
 use App\Models\Employee;
+use App\Models\Department;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,6 +19,12 @@ class AdvanceSalary extends Component
     public $showAddAdvanceModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    /** Request Advance form (flyout) */
+    public $selectedEmployeeId = '';
+    public $advanceAmount = '';
+    public $advanceReason = '';
+    public $expectedPaybackDate = '';
 
     public function mount()
     {
@@ -55,6 +63,10 @@ class AdvanceSalary extends Component
     public function openAddAdvanceModal()
     {
         $this->authorizeAdvanceRequest();
+        $this->selectedEmployeeId = '';
+        $this->advanceAmount = '';
+        $this->advanceReason = '';
+        $this->expectedPaybackDate = '';
         $this->showAddAdvanceModal = true;
     }
 
@@ -67,25 +79,65 @@ class AdvanceSalary extends Component
     {
         $this->authorizeAdvanceRequest();
 
-        // This would handle adding advance salary request
+        $employeeId = (int) $this->selectedEmployeeId;
+        $amount = (float) $this->advanceAmount;
+        if ($employeeId <= 0) {
+            session()->flash('error', __('Please select an employee.'));
+            return;
+        }
+        if ($amount <= 0) {
+            session()->flash('error', __('Amount must be greater than zero.'));
+            return;
+        }
+
+        AdvanceSalaryRequest::create([
+            'employee_id' => $employeeId,
+            'amount' => $amount,
+            'reason' => trim((string) $this->advanceReason),
+            'expected_payback_date' => $this->expectedPaybackDate ?: null,
+            'status' => AdvanceSalaryRequest::STATUS_PENDING,
+            'requested_by' => Auth::id(),
+        ]);
+
         $this->closeAddAdvanceModal();
-        session()->flash('message', 'Advance salary request submitted successfully!');
+        session()->flash('message', __('Advance salary request submitted successfully.'));
     }
 
     public function approveAdvance($id)
     {
         $this->authorizeAdvanceManagement();
-
-        // This would handle approving advance salary
-        session()->flash('message', 'Advance salary approved successfully!');
+        $request = AdvanceSalaryRequest::find($id);
+        if ($request && $request->isPending()) {
+            $request->update([
+                'status' => AdvanceSalaryRequest::STATUS_APPROVED,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+            session()->flash('message', __('Advance salary approved successfully.'));
+        } else {
+            session()->flash('error', __('Request not found or already processed.'));
+        }
     }
 
     public function rejectAdvance($id)
     {
         $this->authorizeAdvanceManagement();
+        $request = AdvanceSalaryRequest::find($id);
+        if ($request && $request->isPending()) {
+            $request->update([
+                'status' => AdvanceSalaryRequest::STATUS_REJECTED,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+            session()->flash('message', __('Advance salary rejected.'));
+        } else {
+            session()->flash('error', __('Request not found or already processed.'));
+        }
+    }
 
-        // This would handle rejecting advance salary
-        session()->flash('message', 'Advance salary rejected successfully!');
+    public function viewRequest($id)
+    {
+        session()->flash('message', __('View not implemented for this request.'));
     }
 
     protected function authorizeAdvanceRequest(): void
@@ -108,40 +160,76 @@ class AdvanceSalary extends Component
 
     public function render()
     {
-        // For now, we'll return sample data
-        // In a real application, this would query actual advance salary data
-        $advanceRequests = collect([
-            [
-                'id' => 1,
-                'employee_name' => 'John Doe',
-                'employee_code' => 'EMP001',
-                'department' => 'IT',
-                'amount' => 2000,
-                'reason' => 'Medical emergency',
-                'request_date' => '2024-01-15',
-                'status' => 'pending',
-                'approved_by' => null
-            ],
-            [
-                'id' => 2,
-                'employee_name' => 'Jane Smith',
-                'employee_code' => 'EMP002',
-                'department' => 'HR',
-                'amount' => 1500,
-                'reason' => 'Family emergency',
-                'request_date' => '2024-01-20',
-                'status' => 'approved',
-                'approved_by' => 'HR Manager'
-            ]
-        ]);
+        $query = AdvanceSalaryRequest::query()
+            ->with(['employee.department'])
+            ->when($this->search !== '', function ($q) {
+                $term = '%' . trim($this->search) . '%';
+                $q->whereHas('employee', function ($q2) use ($term) {
+                    $q2->where('first_name', 'like', $term)
+                        ->orWhere('last_name', 'like', $term)
+                        ->orWhere('employee_code', 'like', $term);
+                });
+            })
+            ->when($this->selectedDepartment !== '', function ($q) {
+                $q->whereHas('employee', function ($q2) {
+                    $q2->whereHas('department', function ($q3) {
+                        $q3->where('title', $this->selectedDepartment);
+                    });
+                });
+            })
+            ->when($this->status !== '', function ($q) {
+                $q->where('status', $this->status);
+            });
 
-        $departments = ['IT', 'HR', 'Finance', 'Marketing', 'Operations'];
-        $statuses = ['pending', 'approved', 'rejected'];
+        $sortField = $this->sortBy ?: 'created_at';
+        $sortDir = $this->sortDirection === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['amount', 'request_date', 'status', 'created_at', 'employee_name', 'department'];
+        if (in_array($sortField, $allowedSort, true)) {
+            if ($sortField === 'employee_name') {
+                $query->join('employees', 'advance_salary_requests.employee_id', '=', 'employees.id')
+                    ->orderByRaw('CONCAT(employees.first_name, " ", employees.last_name) ' . $sortDir)
+                    ->select('advance_salary_requests.*');
+            } elseif ($sortField === 'department') {
+                $query->join('employees', 'advance_salary_requests.employee_id', '=', 'employees.id')
+                    ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+                    ->orderBy('departments.title', $sortDir)
+                    ->select('advance_salary_requests.*');
+            } else {
+                $orderCol = $sortField === 'request_date' ? 'created_at' : $sortField;
+                $query->orderBy($orderCol, $sortDir);
+            }
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $advanceRequests = $query->paginate(15);
+
+        $departments = Department::where('status', 'active')
+            ->orderBy('title')
+            ->pluck('title')
+            ->toArray();
+
+        $activeEmployees = Employee::where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'label' => trim($e->first_name . ' ' . $e->last_name) . ' (' . ($e->employee_code ?? '') . ')',
+            ])
+            ->toArray();
+
+        $statuses = [
+            AdvanceSalaryRequest::STATUS_PENDING,
+            AdvanceSalaryRequest::STATUS_APPROVED,
+            AdvanceSalaryRequest::STATUS_REJECTED,
+        ];
 
         return view('livewire.payroll.advance-salary', [
             'advanceRequests' => $advanceRequests,
             'departments' => $departments,
-            'statuses' => $statuses
+            'statuses' => $statuses,
+            'activeEmployees' => $activeEmployees,
         ])->layout('components.layouts.app');
     }
 }

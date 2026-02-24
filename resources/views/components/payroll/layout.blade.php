@@ -11,8 +11,9 @@
     $canAccessLoan = $user?->can('payroll.loan.manage') || $user?->can('payroll.loan.request');
     $canManageLoan = $user?->can('payroll.loan.manage');
     $canViewTax = $user?->can('payroll.export');
+    $canViewIncrements = $user?->can('payroll.view');
 
-    $hasAnyPayrollMenu = $canViewPayslip || $canProcessPayroll || $canViewPayrollReports || $canManageBonus || $canAccessAdvance || $canAccessLoan || $canViewTax || $canAccessSettings || $canAccessSidebarMain;
+    $hasAnyPayrollMenu = $canViewPayslip || $canProcessPayroll || $canViewPayrollReports || $canManageBonus || $canAccessAdvance || $canAccessLoan || $canViewTax || $canViewIncrements || $canAccessSettings || $canAccessSidebarMain;
 @endphp
 
 <div class="flex items-start max-md:flex-col">
@@ -160,6 +161,21 @@
                             <div class="flex items-center">
                                 <flux:icon name="document-text" class="w-4 h-4 mr-3" />
                                 {{ __('Tax Management') }}
+                            </div>
+                        </flux:navlist.item>
+                    </div>
+                @endif
+
+                @if($canViewIncrements)
+                    <div class="mb-3">
+                        <flux:navlist.item 
+                            :href="route('payroll.increments')" 
+                            wire:navigate
+                            :class="request()->routeIs('payroll.increments') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        >
+                            <div class="flex items-center">
+                                <flux:icon name="arrow-trending-up" class="w-4 h-4 mr-3" />
+                                {{ __('Increments') }}
                             </div>
                         </flux:navlist.item>
                     </div>

@@ -66,6 +66,11 @@
                 {{ session('message') }}
             </flux:callout>
         @endif
+        @if (session()->has('error'))
+            <flux:callout variant="danger" icon="x-circle" dismissible>
+                {{ session('error') }}
+            </flux:callout>
+        @endif
 
         <!-- Loans Table -->
         <div class="mt-8">
@@ -133,54 +138,54 @@
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                                 @foreach ($loans as $loan)
+                                    @php
+                                        $emp = $loan->employee;
+                                        $employeeName = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : '—';
+                                        $employeeCode = $emp->employee_code ?? '—';
+                                        $departmentName = $emp && $emp->department ? $emp->department->title : 'N/A';
+                                    @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center gap-3">
-                                                <flux:avatar size="sm" :initials="strtoupper(substr($loan['employee_name'], 0, 1))" />
+                                                <flux:avatar size="sm" :initials="strtoupper(substr($employeeName, 0, 1))" />
                                                 <div>
                                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {{ $loan['employee_name'] }}
+                                                        {{ $employeeName }}
                                                     </div>
                                                     <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                        {{ $loan['employee_code'] }}
+                                                        {{ $employeeCode }}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $loan['department'] }}
+                                                {{ $departmentName }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $loan['loan_type'] }}
+                                                {{ $loan->loan_type }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($loan['loan_amount'], 2) }}
+                                                ${{ number_format((float) $loan->loan_amount, 2) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format($loan['installment_amount'], 2) }}
+                                                ${{ number_format((float) $loan->installment_amount, 2) }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $loan['remaining_installments'] }}/{{ $loan['total_installments'] }}
+                                                {{ $loan->remaining_installments }}/{{ $loan->total_installments }}
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap">
                                             @php
-                                                $statusColor = match($loan['status']) {
+                                                $statusColor = match($loan->status) {
                                                     'pending' => 'yellow',
                                                     'approved' => 'green',
                                                     'completed' => 'blue',
@@ -189,24 +194,23 @@
                                                 };
                                             @endphp
                                             <flux:badge color="{{ $statusColor }}" size="sm">
-                                                {{ ucfirst($loan['status'] === 'approved' ? 'Active' : $loan['status']) }}
+                                                {{ $loan->status === 'approved' ? __('Active') : ucfirst($loan->status) }}
                                             </flux:badge>
                                         </td>
-                                        
-                                        <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center gap-1">
                                                 <flux:dropdown>
                                                     <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                                     <flux:menu>
-                                                        @if($loan['status'] === 'pending')
-                                                            <flux:menu.item icon="check" wire:click="approveLoan({{ $loan['id'] }})">
+                                                        @if($loan->status === 'pending')
+                                                            <flux:menu.item icon="check" wire:click="approveLoan({{ $loan->id }})">
                                                                 {{ __('Approve') }}
                                                             </flux:menu.item>
-                                                            <flux:menu.item icon="x-mark" wire:click="rejectLoan({{ $loan['id'] }})">
+                                                            <flux:menu.item icon="x-mark" wire:click="rejectLoan({{ $loan->id }})">
                                                                 {{ __('Reject') }}
                                                             </flux:menu.item>
                                                         @endif
-                                                        <flux:menu.item icon="eye" wire:click="viewLoan({{ $loan['id'] }})">
+                                                        <flux:menu.item icon="eye" wire:click="viewLoan({{ $loan->id }})">
                                                             {{ __('View Details') }}
                                                         </flux:menu.item>
                                                     </flux:menu>
@@ -242,26 +246,28 @@
             @endif
         </div>
 
-        <!-- Add Loan Modal -->
+        <!-- Add Loan Flyout -->
         @if($showAddLoanModal)
-            <flux:modal wire:model="showAddLoanModal" name="add-loan-modal">
+            <flux:modal variant="flyout" :open="$showAddLoanModal" wire:model="showAddLoanModal">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">{{ __('Add Loan') }}</flux:heading>
                     </div>
-                    
+
                     <div class="space-y-4">
                         <flux:field>
                             <flux:label>{{ __('Employee') }}</flux:label>
-                            <flux:select>
+                            <flux:select wire:model="selectedEmployeeId" placeholder="{{ __('Select Employee') }}">
                                 <option value="">{{ __('Select Employee') }}</option>
-                                <!-- Employee options would be populated here -->
+                                @foreach($activeEmployees as $emp)
+                                    <option value="{{ $emp['id'] }}">{{ $emp['label'] }}</option>
+                                @endforeach
                             </flux:select>
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Loan Type') }}</flux:label>
-                            <flux:select>
+                            <flux:select wire:model="loanType">
                                 @foreach($loanTypes as $type)
                                     <option value="{{ $type }}">{{ $type }}</option>
                                 @endforeach
@@ -270,17 +276,17 @@
 
                         <flux:field>
                             <flux:label>{{ __('Loan Amount') }}</flux:label>
-                            <flux:input type="number" step="0.01" placeholder="0.00" />
+                            <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model="loanAmount" />
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Number of Installments') }}</flux:label>
-                            <flux:input type="number" placeholder="12" />
+                            <flux:input type="number" min="1" placeholder="12" wire:model="totalInstallments" />
                         </flux:field>
 
                         <flux:field>
                             <flux:label>{{ __('Description') }}</flux:label>
-                            <flux:textarea placeholder="Enter loan description..."></flux:textarea>
+                            <flux:textarea placeholder="{{ __('Enter loan description...') }}" wire:model="loanDescription"></flux:textarea>
                         </flux:field>
                     </div>
 

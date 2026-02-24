@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Payroll;
 
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Loan;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,6 +19,13 @@ class LoanManagement extends Component
     public $showAddLoanModal = false;
     public $sortBy = '';
     public $sortDirection = 'asc';
+
+    /** Add Loan form (flyout) */
+    public $selectedEmployeeId = '';
+    public $loanType = 'Personal';
+    public $loanAmount = '';
+    public $totalInstallments = '12';
+    public $loanDescription = '';
 
     public function mount()
     {
@@ -55,6 +64,11 @@ class LoanManagement extends Component
     public function openAddLoanModal()
     {
         $this->authorizeLoanRequest();
+        $this->selectedEmployeeId = '';
+        $this->loanType = 'Personal';
+        $this->loanAmount = '';
+        $this->totalInstallments = '12';
+        $this->loanDescription = '';
         $this->showAddLoanModal = true;
     }
 
@@ -67,25 +81,75 @@ class LoanManagement extends Component
     {
         $this->authorizeLoanRequest();
 
-        // This would handle adding loan request
+        $employeeId = (int) $this->selectedEmployeeId;
+        $amount = (float) $this->loanAmount;
+        $installments = (int) $this->totalInstallments;
+        if ($employeeId <= 0) {
+            session()->flash('error', __('Please select an employee.'));
+            return;
+        }
+        if ($amount <= 0) {
+            session()->flash('error', __('Loan amount must be greater than zero.'));
+            return;
+        }
+        if ($installments < 1) {
+            session()->flash('error', __('Number of installments must be at least 1.'));
+            return;
+        }
+
+        $installmentAmount = round($amount / $installments, 2);
+
+        Loan::create([
+            'employee_id' => $employeeId,
+            'loan_type' => $this->loanType,
+            'loan_amount' => $amount,
+            'installment_amount' => $installmentAmount,
+            'total_installments' => $installments,
+            'remaining_installments' => $installments,
+            'description' => trim((string) $this->loanDescription),
+            'status' => Loan::STATUS_PENDING,
+            'requested_by' => Auth::id(),
+        ]);
+
         $this->closeAddLoanModal();
-        session()->flash('message', 'Loan request submitted successfully!');
+        session()->flash('message', __('Loan request submitted successfully.'));
     }
 
     public function approveLoan($id)
     {
         $this->authorizeLoanManagement();
-
-        // This would handle approving loan
-        session()->flash('message', 'Loan approved successfully!');
+        $loan = Loan::find($id);
+        if ($loan && $loan->isPending()) {
+            $loan->update([
+                'status' => Loan::STATUS_APPROVED,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+            session()->flash('message', __('Loan approved successfully.'));
+        } else {
+            session()->flash('error', __('Loan not found or already processed.'));
+        }
     }
 
     public function rejectLoan($id)
     {
         $this->authorizeLoanManagement();
+        $loan = Loan::find($id);
+        if ($loan && $loan->isPending()) {
+            $loan->update([
+                'status' => Loan::STATUS_REJECTED,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+            session()->flash('message', __('Loan rejected.'));
+        } else {
+            session()->flash('error', __('Loan not found or already processed.'));
+        }
+    }
 
-        // This would handle rejecting loan
-        session()->flash('message', 'Loan rejected successfully!');
+    public function viewLoan($id)
+    {
+        session()->flash('message', __('View not implemented for this loan.'));
     }
 
     protected function authorizeLoanRequest(): void
@@ -108,46 +172,73 @@ class LoanManagement extends Component
 
     public function render()
     {
-        // For now, we'll return sample data
-        // In a real application, this would query actual loan data
-        $loans = collect([
-            [
-                'id' => 1,
-                'employee_name' => 'John Doe',
-                'employee_code' => 'EMP001',
-                'department' => 'IT',
-                'loan_amount' => 10000,
-                'loan_type' => 'Personal',
-                'installment_amount' => 1000,
-                'total_installments' => 10,
-                'remaining_installments' => 8,
-                'request_date' => '2024-01-01',
-                'status' => 'approved'
-            ],
-            [
-                'id' => 2,
-                'employee_name' => 'Jane Smith',
-                'employee_code' => 'EMP002',
-                'department' => 'HR',
-                'loan_amount' => 15000,
-                'loan_type' => 'Housing',
-                'installment_amount' => 1500,
-                'total_installments' => 12,
-                'remaining_installments' => 12,
-                'request_date' => '2024-01-15',
-                'status' => 'pending'
-            ]
-        ]);
+        $query = Loan::query()
+            ->with(['employee.department'])
+            ->when($this->search !== '', function ($q) {
+                $term = '%' . trim($this->search) . '%';
+                $q->whereHas('employee', function ($q2) use ($term) {
+                    $q2->where('first_name', 'like', $term)
+                        ->orWhere('last_name', 'like', $term)
+                        ->orWhere('employee_code', 'like', $term);
+                });
+            })
+            ->when($this->selectedDepartment !== '', function ($q) {
+                $q->whereHas('employee', function ($q2) {
+                    $q2->whereHas('department', function ($q3) {
+                        $q3->where('title', $this->selectedDepartment);
+                    });
+                });
+            })
+            ->when($this->loanStatus !== '', function ($q) {
+                $q->where('status', $this->loanStatus);
+            });
 
-        $departments = ['IT', 'HR', 'Finance', 'Marketing', 'Operations'];
+        $sortField = $this->sortBy ?: 'created_at';
+        $sortDir = $this->sortDirection === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['loan_amount', 'installment_amount', 'status', 'created_at', 'loan_type', 'employee_name', 'department'];
+        if (in_array($sortField, $allowedSort, true)) {
+            if ($sortField === 'employee_name') {
+                $query->join('employees', 'loans.employee_id', '=', 'employees.id')
+                    ->orderByRaw('CONCAT(employees.first_name, " ", employees.last_name) ' . $sortDir)
+                    ->select('loans.*');
+            } elseif ($sortField === 'department') {
+                $query->join('employees', 'loans.employee_id', '=', 'employees.id')
+                    ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+                    ->orderBy('departments.title', $sortDir)
+                    ->select('loans.*');
+            } else {
+                $query->orderBy($sortField, $sortDir);
+            }
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $loans = $query->paginate(15);
+
+        $departments = Department::where('status', 'active')
+            ->orderBy('title')
+            ->pluck('title')
+            ->toArray();
+
+        $activeEmployees = Employee::where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'label' => trim($e->first_name . ' ' . $e->last_name) . ' (' . ($e->employee_code ?? '') . ')',
+            ])
+            ->toArray();
+
         $loanTypes = ['Personal', 'Housing', 'Vehicle', 'Education', 'Medical'];
-        $statuses = ['pending', 'approved', 'rejected', 'completed'];
+        $statuses = [Loan::STATUS_PENDING, Loan::STATUS_APPROVED, Loan::STATUS_REJECTED, Loan::STATUS_COMPLETED];
 
         return view('livewire.payroll.loan-management', [
             'loans' => $loans,
             'departments' => $departments,
             'loanTypes' => $loanTypes,
-            'statuses' => $statuses
+            'statuses' => $statuses,
+            'activeEmployees' => $activeEmployees,
         ])->layout('components.layouts.app');
     }
 }
