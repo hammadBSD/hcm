@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Employees;
 
+use App\Models\CostCenter;
 use App\Models\Department;
 use App\Models\Designation;
 use App\Models\Employee;
@@ -30,6 +31,7 @@ class Edit extends Component
     public $reportsToOptions = [];
     public $shiftOptions = [];
     public $groupOptions = [];
+    public $costCenterOptions = [];
 
     // General Info form properties
     public $prefix = '';
@@ -327,6 +329,17 @@ class Edit extends Component
                     'name' => $group->name,
                 ];
             })->toArray();
+
+        // Load cost centers (active only) – dropdown uses name, stored in employee_organizational_info.cost_center
+        $this->costCenterOptions = CostCenter::where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($cc) {
+                return [
+                    'id' => $cc->id,
+                    'name' => $cc->name,
+                ];
+            })->toArray();
     }
 
     public function render()
@@ -338,6 +351,7 @@ class Edit extends Component
             'reportsToOptions' => $this->reportsToOptions,
             'shiftOptions' => $this->shiftOptions,
             'groupOptions' => $this->groupOptions,
+            'costCenterOptions' => $this->costCenterOptions,
         ])->layout('components.layouts.app');
     }
 

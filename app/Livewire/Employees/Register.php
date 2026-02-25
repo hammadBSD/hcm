@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Employees;
 
+use App\Models\CostCenter;
 use App\Models\Department;
 use App\Models\Designation;
 use App\Models\Employee;
@@ -28,6 +29,7 @@ class Register extends Component
     public $reportsToOptions = [];
     public $shiftOptions = [];
     public $groupOptions = [];
+    public $costCenterOptions = [];
 
     // General Info form properties
     public $prefix = '';
@@ -47,6 +49,7 @@ class Register extends Component
     public $password = '';
     public $shift = '';
     public $group_id = '';
+    public $cost_center = '';
     public $allowEmployeeLogin = false;
     public $profilePicture;
     public $emergencyContactName = '';
@@ -166,6 +169,17 @@ class Register extends Component
                     'name' => $group->name,
                 ];
             })->toArray();
+
+        // Load cost centers (active only)
+        $this->costCenterOptions = CostCenter::where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($cc) {
+                return [
+                    'id' => $cc->id,
+                    'name' => $cc->name,
+                ];
+            })->toArray();
     }
 
     public function render()
@@ -177,6 +191,7 @@ class Register extends Component
             'reportsToOptions' => $this->reportsToOptions,
             'shiftOptions' => $this->shiftOptions,
             'groupOptions' => $this->groupOptions,
+            'costCenterOptions' => $this->costCenterOptions,
         ])->layout('components.layouts.app');
     }
 
@@ -205,7 +220,7 @@ class Register extends Component
         $this->reset([
             'prefix', 'employeeCode', 'punchCode', 'firstName', 'lastName', 'fatherName',
             'mobile', 'email', 'reportsTo', 'role', 'manualAttendance', 'status',
-            'department', 'designation', 'password', 'shift', 'group_id',
+            'department', 'designation', 'password', 'shift', 'group_id', 'cost_center',
             'allowEmployeeLogin', 'profilePicture', 'emergencyContactName',
             'emergencyRelation', 'emergencyPhone', 'emergencyAddress',
             'dateOfBirth', 'gender', 'maritalStatus', 'nationality', 'bloodGroup', 'address',

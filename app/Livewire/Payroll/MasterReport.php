@@ -190,6 +190,9 @@ class MasterReport extends Component
                 $employmentStatusName = ucfirst($employee->organizationalInfo->employee_status);
             }
             $brands = $employee->group ? ($employee->group->name ?? '—') : '—';
+            $mcs = $employee->organizationalInfo && trim((string) ($employee->organizationalInfo->cost_center ?? '')) !== ''
+                ? trim($employee->organizationalInfo->cost_center)
+                : '—';
 
             return [
                 'employee' => $employee,
@@ -198,7 +201,7 @@ class MasterReport extends Component
                 'doj' => $doj,
                 'current_status' => $employee->status ?? 'active',
                 'reporting_manager' => $reportingManager,
-                'mcs' => '—',
+                'mcs' => $mcs,
                 'brands' => $brands,
                 'employment_status' => $employmentStatusName,
                 'cnic' => trim((string) ($employee->document_number ?? '')) !== '' ? $employee->document_number : '—',

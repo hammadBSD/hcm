@@ -754,7 +754,12 @@
                                 <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
                                     <flux:field>
                                         <flux:label>{{ __('Cost Center') }}</flux:label>
-                                        <flux:input wire:model="cost_center" placeholder="Cost center" />
+                                        <flux:select wire:model="cost_center">
+                                            <option value="">{{ __('Select Cost Center') }}</option>
+                                            @foreach($costCenterOptions as $cc)
+                                                <option value="{{ $cc['name'] }}">{{ $cc['name'] }}</option>
+                                            @endforeach
+                                        </flux:select>
                                     </flux:field>
                                 </div>
 
