@@ -387,18 +387,22 @@ class MasterReport extends Component
         return 'N/A';
     }
 
+    /**
+     * DSG column: use only designation_id and fetch name from designations table.
+     * When designation_id is not set, show '—' (no legacy employees.designation fallback).
+     */
     protected function getEmployeeDesignationName(Employee $employee): string
     {
-        if ($employee->designation_id) {
-            $des = $employee->relationLoaded('designation')
-                ? $employee->getRelation('designation')
-                : $employee->designation()->first();
-            if ($des && is_object($des)) {
-                return $des->name ?? 'N/A';
-            }
+        if (!$employee->designation_id) {
+            return '—';
         }
-        $legacy = $employee->getRawOriginal('designation');
-        return trim((string) $legacy) !== '' ? (string) $legacy : 'N/A';
+        $des = $employee->relationLoaded('designation')
+            ? $employee->getRelation('designation')
+            : $employee->designation()->first();
+        if ($des && is_object($des)) {
+            return $des->name ?? '—';
+        }
+        return '—';
     }
 
     protected function getFilteredReportData(): array
