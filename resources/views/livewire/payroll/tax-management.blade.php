@@ -335,7 +335,7 @@
                                 <flux:input type="number" min="2000" max="2100" wire:model="editStartYear" />
                             </flux:field>
                             <flux:field>
-                                <flux:label>{{ __('Start Month') }}</flux:label>
+                                <flux:label>{{ __('Start Moith') }}</flux:label>
                                 <flux:input type="number" min="1" max="12" wire:model="editStartMonth" />
                             </flux:field>
                             <flux:field>

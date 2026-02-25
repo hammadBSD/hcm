@@ -157,8 +157,18 @@ class MasterReport extends Component
             $lastIncrementAmount = $latestIncrement ? (float) $latestIncrement->increment_amount : 0;
             $monthsSinceIncrement = 0;
             if ($latestIncrement && $latestIncrement->last_increment_date) {
-                $reportStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-                $monthsSinceIncrement = (int) max(0, $reportStart->diffInMonths($latestIncrement->last_increment_date, false));
+                $monthsSinceIncrement = max(0, (int) $latestIncrement->last_increment_date->diffInMonths($reportMonthEnd));
+            }
+            $jobDuration = '—';
+            if ($employee->organizationalInfo && $employee->organizationalInfo->joining_date) {
+                $joinDate = $employee->organizationalInfo->joining_date;
+                if ($joinDate->lte($reportMonthEnd)) {
+                    $years = (int) $joinDate->diffInYears($reportMonthEnd);
+                    $months = (int) $joinDate->copy()->addYears($years)->diffInMonths($reportMonthEnd);
+                    $jobDuration = $years > 0
+                        ? $years . ' ' . __('Yrs') . ' ' . $months . ' ' . __('Mos')
+                        : $months . ' ' . __('Mos');
+                }
             }
             $leavePaid = $onLeaveDays;
             $leaveUnpaid = 0;
@@ -194,6 +204,7 @@ class MasterReport extends Component
                 'last_increment_date' => $lastIncrementDate,
                 'last_increment_amount' => $lastIncrementAmount,
                 'months_since_increment' => $monthsSinceIncrement,
+                'job_duration' => $jobDuration,
                 'working_days' => $workingDays,
                 'days_present' => $daysPresent,
                 'extra_days' => $extraDays,
@@ -262,11 +273,11 @@ class MasterReport extends Component
         $headers = [
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'DOJ', 'Current Status', 'Reporting Manager',
             'MCS', 'Brands', 'Employment Status', 'CNIC',
-            'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
+            'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment', 'Job Duration',
             'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Hourly Rate', 'Hourly Deduction Amount', 'Leaves (approved)',
             'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
             'Salary Type', 'Basic Salary', 'Allowances', 'OT Hrs', 'OT Amt', 'Gross Salary', 'Bonus',
-            'EPF EE', 'EPF ER', 'ESIC EE', 'ESIC ER', 'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
+            'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
             'Other Deductions', 'Total Deductions', 'Net Salary',
             'Bank Name', 'Account Title', 'Bank Account',
         ];
@@ -294,6 +305,7 @@ class MasterReport extends Component
                     $row['last_increment_date'] ?? '—',
                     number_format($row['last_increment_amount'] ?? 0, 2),
                     $row['months_since_increment'] ?? 0,
+                    $row['job_duration'] ?? '—',
                     $row['working_days'] ?? 0,
                     $row['days_present'] ?? 0,
                     $row['extra_days'] ?? 0,
@@ -318,10 +330,6 @@ class MasterReport extends Component
                     number_format($row['ot_amt'] ?? 0, 2),
                     number_format($row['gross_salary'], 2),
                     number_format($row['bonus'] ?? 0, 2),
-                    number_format($row['epf_ee'] ?? 0, 2),
-                    number_format($row['epf_er'] ?? 0, 2),
-                    number_format($row['esic_ee'] ?? 0, 2),
-                    number_format($row['esic_er'] ?? 0, 2),
                     number_format($row['tax'] ?? 0, 2),
                     number_format($row['prof_tax'] ?? 0, 2),
                     number_format($row['eobi'] ?? 0, 2),

@@ -72,6 +72,36 @@
                         </div>
                     </flux:navlist.item>
                     <flux:navlist.item 
+                        :href="route('system-management.organization-setting.region')" 
+                        wire:navigate
+                        :class="request()->routeIs('system-management.organization-setting.region') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="map-pin" class="w-4 h-4 mr-3" />
+                            {{ __('Region') }}
+                        </div>
+                    </flux:navlist.item>
+                    <flux:navlist.item 
+                        :href="route('system-management.organization-setting.cost-center')" 
+                        wire:navigate
+                        :class="request()->routeIs('system-management.organization-setting.cost-center') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="building-library" class="w-4 h-4 mr-3" />
+                            {{ __('Cost Center') }}
+                        </div>
+                    </flux:navlist.item>
+                    <flux:navlist.item 
+                        :href="route('system-management.organization-setting.brands')" 
+                        wire:navigate
+                        :class="request()->routeIs('system-management.organization-setting.brands') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                    >
+                        <div class="flex items-center">
+                            <flux:icon name="tag" class="w-4 h-4 mr-3" />
+                            {{ __('Brands') }}
+                        </div>
+                    </flux:navlist.item>
+                    <flux:navlist.item 
                         :href="route('system-management.organization-setting.country')" 
                         wire:navigate
                         :class="request()->routeIs('system-management.organization-setting.country') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"

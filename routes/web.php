@@ -131,6 +131,9 @@ Route::get('system-management/organization-setting/designation', \App\Livewire\S
     Route::get('system-management/organization-setting/employment-status', \App\Livewire\SystemManagement\OrganizationSetting\EmploymentStatus\Index::class)->name('system-management.organization-setting.employment-status');
     Route::get('system-management/organization-setting/employment-type', \App\Livewire\SystemManagement\OrganizationSetting\EmploymentType\Index::class)->name('system-management.organization-setting.employment-type');
 Route::get('system-management/organization-setting/group', \App\Livewire\SystemManagement\OrganizationSetting\Group\Index::class)->name('system-management.organization-setting.group');
+Route::get('system-management/organization-setting/region', \App\Livewire\SystemManagement\OrganizationSetting\Region\Index::class)->name('system-management.organization-setting.region');
+Route::get('system-management/organization-setting/cost-center', \App\Livewire\SystemManagement\OrganizationSetting\CostCenter\Index::class)->name('system-management.organization-setting.cost-center');
+Route::get('system-management/organization-setting/brands', \App\Livewire\SystemManagement\OrganizationSetting\Brand\Index::class)->name('system-management.organization-setting.brands');
 Route::get('system-management/organization-setting/country', \App\Livewire\SystemManagement\OrganizationSetting\Country\Index::class)->name('system-management.organization-setting.country');
 Route::get('system-management/organization-setting/province', \App\Livewire\SystemManagement\OrganizationSetting\Province\Index::class)->name('system-management.organization-setting.province');
 Route::get('system-management/organization-setting/organization-settings', \App\Livewire\SystemManagement\OrganizationSetting\OrganizationSettings\Index::class)->name('system-management.organization-setting.organization-settings');

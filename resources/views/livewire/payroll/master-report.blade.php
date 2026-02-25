@@ -115,67 +115,76 @@
 
                         <div class="overflow-x-auto">
                             <table class="divide-y divide-zinc-200 dark:divide-zinc-700 min-w-full">
-                                <thead class="bg-zinc-50 dark:bg-zinc-700">
+                                <thead>
+                                    @php
+                                        $hGrey = 'bg-zinc-100 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-200 border-r border-zinc-300 dark:border-zinc-500';
+                                        $hYellow = 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 border-r border-amber-200 dark:border-amber-700';
+                                        $hGreen = 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 border-r border-emerald-200 dark:border-emerald-700';
+                                        $hBlue = 'bg-sky-100 dark:bg-sky-900/50 text-sky-900 dark:text-sky-100 border-r border-sky-200 dark:border-sky-700';
+                                    @endphp
+                                    {{-- Row 1: 4 group section headers --}}
                                     <tr>
-                                        <th rowspan="2" class="sticky left-0 z-20 bg-zinc-50 dark:bg-zinc-700 px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600" style="width: 56px; min-width: 56px; max-width: 56px;">{{ __('SR NO') }}</th>
-                                        <th rowspan="2" class="sticky z-20 bg-zinc-50 dark:bg-zinc-700 px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ __('EMP CODE') }}</th>
-                                        <th rowspan="2" class="sticky z-20 bg-zinc-50 dark:bg-zinc-700 px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;">{{ __('EMPLOYEE NAME') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('DEPT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('DSG') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('DOJ') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('CURRENT STATUS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Employment Status') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('REPORTING MANAGER') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('MCS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Brands') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('CNIC') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('DATE OF LAST INCREMENT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('INCREMENT AMOUNT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('# MONTHS SINCE LAST INCREMENT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('WORKING DAYS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('PRESENT DAYS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Extra Days') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Amount of extra days') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Hourly Rate') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Hourly Deduction Amount') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Leaves (approved)') }}</th>
-                                        <th colspan="3" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('LEAVES') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('ABSENT DAYS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('LATE DAYS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('TOTAL BREAK TIME') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('HOLIDAYS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('TOTAL HOURS WORKED') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('MONTHLY EXPECTED HOURS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('SHORT/EXCESS HOURS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('SALARY TYPE') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('BASIC SALARY') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('ALLOWANCES') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('OT HRS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('OT AMT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('GROSS SALARY') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('BONUS') }}</th>
-                                        <th colspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('EPF') }}</th>
-                                        <th colspan="2" class="px-3 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('ESIC') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('TAX') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('PROF TAX') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('EOBI') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('ADVANCE') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('LOAN') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('OTHER DEDUCTIONS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('TOTAL DEDUCTIONS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('NET SALARY') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('BANK NAME') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('ACCOUNT TITLE') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('BANK ACCOUNT') }}</th>
+                                        <th colspan="12" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGrey }}">{{ __('Employee & Identity') }}</th>
+                                        <th colspan="4" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hYellow }}">{{ __('Increment & Tenure') }}</th>
+                                        <th colspan="18" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
+                                        <th colspan="17" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
+                                    </tr>
+                                    {{-- Row 2: Column headers with same 4 colours --}}
+                                    <tr>
+                                        <th rowspan="2" class="sticky left-0 z-20 px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}" style="width: 56px; min-width: 56px; max-width: 56px;">{{ __('SR NO') }}</th>
+                                        <th rowspan="2" class="sticky z-20 px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ __('EMP CODE') }}</th>
+                                        <th rowspan="2" class="sticky z-20 px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;">{{ __('EMPLOYEE NAME') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('DEPT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('DSG') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('DOJ') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('CURRENT STATUS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('Employment Status') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('REPORTING MANAGER') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('MCS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('Brands') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGrey }}">{{ __('CNIC') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('DATE OF LAST INCREMENT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('INCREMENT AMOUNT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('# MONTHS SINCE LAST INCREMENT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('JOB DURATION') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('WORKING DAYS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('PRESENT DAYS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Extra Days') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Amount of extra days') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Hourly Rate') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Hourly Deduction Amount') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Leaves (approved)') }}</th>
+                                        <th colspan="3" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('LEAVES') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('ABSENT DAYS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('LATE DAYS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('TOTAL BREAK TIME') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('HOLIDAYS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('TOTAL HOURS WORKED') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('MONTHLY EXPECTED HOURS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('SHORT/EXCESS HOURS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('SALARY TYPE') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BASIC SALARY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('ALLOWANCES') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OT HRS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OT AMT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('GROSS SALARY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BONUS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TAX') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('PROF TAX') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('EOBI') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('ADVANCE') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('LOAN') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OTHER DEDUCTIONS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TOTAL DEDUCTIONS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET SALARY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BANK NAME') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('ACCOUNT TITLE') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BANK ACCOUNT') }}</th>
                                     </tr>
                                     <tr>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('PAID') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('UNPAID') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('LWP') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('EE') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('ER') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('EE') }}</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-600">{{ __('ER') }}</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('PAID') }}</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('UNPAID') }}</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('LWP') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -197,6 +206,7 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['last_increment_date'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['last_increment_amount'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['months_since_increment'] ?? 0 }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['job_duration'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['working_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['days_present'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['extra_days'] ?? 0 }}</td>
@@ -221,10 +231,6 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['ot_amt'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400">{{ $fmtNum($row['gross_salary']) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['bonus'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['epf_ee'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['epf_er'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['esic_ee'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['esic_er'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['tax'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['prof_tax'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['eobi'] ?? 0) }}</td>

@@ -64,11 +64,11 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
             $rows[] = [
                 'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'DOJ', 'Current Status', 'Reporting Manager',
                 'MCS', 'Brands', 'Employment Status', 'CNIC',
-                'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
+                'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment', 'Job Duration',
                 'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Hourly Rate', 'Hourly Deduction Amount', 'Leaves (approved)',
                 'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
                 'Salary Type', 'Basic Salary', 'Allowances', 'OT Hrs', 'OT Amt', 'Gross Salary', 'Bonus',
-                'EPF EE', 'EPF ER', 'ESIC EE', 'ESIC ER', 'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
+                'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
                 'Other Deductions', 'Total Deductions', 'Net Salary',
                 'Bank Name', 'Account Title', 'Bank Account',
             ];
@@ -91,6 +91,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                     $r['last_increment_date'] ?? '—',
                     number_format($r['last_increment_amount'] ?? 0, 2),
                     $r['months_since_increment'] ?? 0,
+                    $r['job_duration'] ?? '—',
                     $r['working_days'] ?? 0,
                     $r['days_present'] ?? 0,
                     $r['extra_days'] ?? 0,
@@ -115,10 +116,6 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                     number_format($r['ot_amt'] ?? 0, 2),
                     number_format($r['gross_salary'], 2),
                     number_format($r['bonus'] ?? 0, 2),
-                    number_format($r['epf_ee'] ?? 0, 2),
-                    number_format($r['epf_er'] ?? 0, 2),
-                    number_format($r['esic_ee'] ?? 0, 2),
-                    number_format($r['esic_er'] ?? 0, 2),
                     number_format($r['tax'] ?? 0, 2),
                     number_format($r['prof_tax'] ?? 0, 2),
                     number_format($r['eobi'] ?? 0, 2),
@@ -147,11 +144,8 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
         }
         $rows[] = array_merge(
             ['GRAND TOTAL'],
-            array_fill(0, 7, ''),
-            array_fill(0, 3, ''),
-            array_fill(0, 12, ''),
-            ['', number_format($grandBasic, 2), '', '', '0.00', number_format($grandGross, 2), ''],
-            array_fill(0, 4, '0.00'),
+            array_fill(0, 32, ''),
+            ['', number_format($grandBasic, 2), '', '0', '0.00', number_format($grandGross, 2), '0.00'],
             array_fill(0, 5, '0.00'),
             ['0.00', number_format($grandDeductions, 2), number_format($grandNetSalary, 2)],
             array_fill(0, 3, '')

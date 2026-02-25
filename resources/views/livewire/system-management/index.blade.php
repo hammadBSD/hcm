@@ -92,6 +92,18 @@
                         <span>Groups</span>
                         <flux:icon.chevron-right class="h-4 w-4" />
                     </a>
+                    <a href="{{ route('system-management.organization-setting.region') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
+                        <span>Region</span>
+                        <flux:icon.chevron-right class="h-4 w-4" />
+                    </a>
+                    <a href="{{ route('system-management.organization-setting.cost-center') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
+                        <span>Cost Center</span>
+                        <flux:icon.chevron-right class="h-4 w-4" />
+                    </a>
+                    <a href="{{ route('system-management.organization-setting.brands') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
+                        <span>Brands</span>
+                        <flux:icon.chevron-right class="h-4 w-4" />
+                    </a>
                 </div>
                 <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                     <div class="flex space-x-2">
