@@ -127,8 +127,8 @@
                                     <tr>
                                         <th colspan="11" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGrey }}">{{ __('Employee & Identity') }}</th>
                                         <th colspan="4" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hYellow }}">{{ __('Increment & Tenure') }}</th>
-                                        <th colspan="18" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
-                                        <th colspan="14" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
+                                        <th colspan="16" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
+                                        <th colspan="17" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hViolet }}">{{ __('Bank & ID') }}</th>
                                     </tr>
                                     {{-- Row 2: Column headers with same 4 colours --}}
@@ -152,8 +152,6 @@
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('PRESENT DAYS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Extra Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Amount of extra days') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Hourly Rate') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Hourly Deduction Amount') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Leaves (approved)') }}</th>
                                         <th colspan="3" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('LEAVES') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('ABSENT DAYS') }}</th>
@@ -164,20 +162,23 @@
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('MONTHLY EXPECTED HOURS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('SHORT/EXCESS HOURS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('SALARY TYPE') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('GROSS SALARY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BASIC SALARY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('ALLOWANCES') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OT HRS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OT AMT') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('GROSS SALARY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Hourly Rate') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Hourly Deduction Amount') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deduction Absent Days') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET SALARY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BONUS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TAX') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('PROF TAX') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('EOBI') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('ADVANCE') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('LOAN') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('OTHER DEDUCTIONS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TOTAL DEDUCTIONS') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET SALARY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET PAY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('BANK NAME') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('ACCOUNT TITLE') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('BANK ACCOUNT') }}</th>
@@ -212,8 +213,6 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['days_present'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['extra_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['amount_extra_days'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_rate'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_deduction_amount'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['leaves_approved'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['leave_paid'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['leave_unpaid'] ?? 0 }}</td>
@@ -226,14 +225,17 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['monthly_expected_hours'] ?? '0:00' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ str_starts_with((string)($row['short_excess_hours'] ?? '0:00'), '-') ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $row['short_excess_hours'] ?? '0:00' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['salary_type'] ?? '—' }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400">{{ $fmtNum($row['gross_salary']) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($row['basic_salary']) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['allowances'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $row['ot_hrs'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['ot_amt'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-green-600 dark:text-green-400">{{ $fmtNum($row['gross_salary']) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_rate'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_deduction_amount'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['deduction_absent_days'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['net_salary_after_attendance'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['bonus'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['tax'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['prof_tax'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['eobi'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['advance'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['loan'] ?? 0) }}</td>

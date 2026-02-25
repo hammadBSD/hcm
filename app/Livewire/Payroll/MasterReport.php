@@ -134,6 +134,7 @@ class MasterReport extends Component
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
             $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
             $netSalary = $grossWithOt + $bonus - $totalDeductions;
+            $netSalaryAfterAttendance = $grossWithOt + $bonus - $otherDeductions;
             $departmentName = $this->getEmployeeDepartmentName($employee);
             $designationName = $this->getEmployeeDesignationName($employee);
             $reportingManager = $this->getReportingManagerName($employee);
@@ -238,8 +239,10 @@ class MasterReport extends Component
                 'eobi' => $eobi,
                 'advance' => $advance,
                 'loan' => $loan,
+                'deduction_absent_days' => round($absentDeduction, 2),
                 'other_deductions' => $otherDeductions,
                 'total_deductions' => $totalDeductions,
+                'net_salary_after_attendance' => $netSalaryAfterAttendance,
                 'net_salary' => $netSalary,
                 'bank_name' => $bankName,
                 'account_title' => $accountTitle,
@@ -274,11 +277,11 @@ class MasterReport extends Component
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'DOJ', 'Current Status', 'Reporting Manager',
             'MCS', 'Brands', 'Employment Status',
             'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment', 'Job Duration',
-            'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Hourly Rate', 'Hourly Deduction Amount', 'Leaves (approved)',
+            'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Leaves (approved)',
             'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
-            'Salary Type', 'Basic Salary', 'Allowances', 'OT Hrs', 'OT Amt', 'Gross Salary', 'Bonus',
-            'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
-            'Other Deductions', 'Total Deductions', 'Net Salary',
+            'Salary Type', 'Gross Salary', 'Basic Salary', 'Allowances', 'OT Hrs', 'OT Amt', 'Hourly Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Net Salary', 'Bonus',
+            'Tax', 'EOBI', 'Advance', 'Loan',
+            'Other Deductions', 'Total Deductions', 'Net Pay',
             'Bank Name', 'Account Title', 'Bank Account',
             'CNIC',
         ];
@@ -310,8 +313,6 @@ class MasterReport extends Component
                     $row['days_present'] ?? 0,
                     $row['extra_days'] ?? 0,
                     number_format($row['amount_extra_days'] ?? 0, 2),
-                    number_format($row['hourly_rate'] ?? 0, 2),
-                    number_format($row['hourly_deduction_amount'] ?? 0, 2),
                     $row['leaves_approved'] ?? 0,
                     $row['leave_paid'] ?? 0,
                     $row['leave_unpaid'] ?? 0,
@@ -324,14 +325,17 @@ class MasterReport extends Component
                     $row['monthly_expected_hours'] ?? '0:00',
                     $row['short_excess_hours'] ?? '0:00',
                     $row['salary_type'] ?? '—',
+                    number_format($row['gross_salary'], 2),
                     number_format($row['basic_salary'], 2),
                     number_format($row['allowances'] ?? 0, 2),
                     $row['ot_hrs'] ?? 0,
                     number_format($row['ot_amt'] ?? 0, 2),
-                    number_format($row['gross_salary'], 2),
+                    number_format($row['hourly_rate'] ?? 0, 2),
+                    number_format($row['hourly_deduction_amount'] ?? 0, 2),
+                    number_format($row['deduction_absent_days'] ?? 0, 2),
+                    number_format($row['net_salary_after_attendance'] ?? 0, 2),
                     number_format($row['bonus'] ?? 0, 2),
                     number_format($row['tax'] ?? 0, 2),
-                    number_format($row['prof_tax'] ?? 0, 2),
                     number_format($row['eobi'] ?? 0, 2),
                     number_format($row['advance'] ?? 0, 2),
                     number_format($row['loan'] ?? 0, 2),
