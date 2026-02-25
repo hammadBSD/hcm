@@ -28,6 +28,20 @@
                     />
                 </div>
                 
+                <!-- Sort by -->
+                <div class="sm:w-52">
+                    <flux:field>
+                        <flux:label>{{ __('Sort by') }}</flux:label>
+                        <flux:select wire:model.live="sortBy">
+                            <option value="department">{{ __('Department') }}</option>
+                            <option value="designation">{{ __('Designation') }}</option>
+                            <option value="group">{{ __('Group') }}</option>
+                            <option value="region">{{ __('Region') }}</option>
+                            <option value="shift">{{ __('Shift') }}</option>
+                        </flux:select>
+                    </flux:field>
+                </div>
+
                 <!-- Department Filter -->
                 <div class="sm:w-64">
                     <flux:field>

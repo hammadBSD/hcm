@@ -51,8 +51,8 @@ class EmployeeList extends Component
         public $filterBlacklistWhitelist = '';
         public $filterPositionCode = '';
 
-    // Sorting properties
-    public $sortBy = 'name';
+    // Sorting properties (default: order by department)
+    public $sortBy = 'department';
     public $sortDirection = 'asc';
 
     // Pagination
@@ -424,49 +424,59 @@ class EmployeeList extends Component
         // Group by to avoid duplicates from joins (must be before sorting)
         $query->groupBy('users.id');
 
-        // Apply sorting
-        if ($this->sortBy) {
-            if ($this->sortBy === 'shift') {
-                // Sort by shift name using subquery to avoid GROUP BY issues
-                $query->orderByRaw('(
-                    SELECT shifts.shift_name 
-                    FROM shifts 
-                    WHERE shifts.id = employees.shift_id 
-                    LIMIT 1
-                ) ' . ($this->sortDirection === 'asc' ? 'ASC' : 'DESC'));
-            } elseif ($this->sortBy === 'status') {
-                // Sort by employees table status - active first using subquery to avoid GROUP BY issues
-                $query->orderByRaw('(
-                    SELECT CASE 
-                        WHEN LOWER(employees.status) = "active" THEN 0 
-                        ELSE 1 
-                    END
-                    FROM employees 
-                    WHERE employees.user_id = users.id 
-                    LIMIT 1
-                ) ASC')
-                ->orderByRaw('(
-                    SELECT employees.status
-                    FROM employees 
-                    WHERE employees.user_id = users.id 
-                    LIMIT 1
-                ) ' . ($this->sortDirection === 'asc' ? 'ASC' : 'DESC'));
-            } else {
-                $query->orderBy('users.' . $this->sortBy, $this->sortDirection);
-            }
-        } else {
-            // Default sorting: Active employees first (from employees table), then inactive, then by name
-            // Use subquery to avoid GROUP BY issues
+        // Apply sorting (subqueries to avoid GROUP BY issues)
+        $dir = $this->sortDirection === 'asc' ? 'ASC' : 'DESC';
+        if ($this->sortBy === 'department') {
             $query->orderByRaw('(
-                SELECT CASE 
-                    WHEN LOWER(employees.status) = "active" THEN 0 
-                    ELSE 1 
-                END
-                FROM employees 
-                WHERE employees.user_id = users.id 
+                SELECT d.title FROM employees e
+                LEFT JOIN departments d ON d.id = e.department_id
+                WHERE e.user_id = users.id
                 LIMIT 1
+            ) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy === 'designation') {
+            $query->orderByRaw('(
+                SELECT d.name FROM employees e
+                LEFT JOIN designations d ON d.id = e.designation_id
+                WHERE e.user_id = users.id
+                LIMIT 1
+            ) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy === 'group') {
+            $query->orderByRaw('(
+                SELECT g.name FROM employees e
+                LEFT JOIN groups g ON g.id = e.group_id
+                WHERE e.user_id = users.id
+                LIMIT 1
+            ) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy === 'region') {
+            $query->orderByRaw('(
+                SELECT o.region FROM employees e
+                LEFT JOIN employee_organizational_info o ON o.employee_id = e.id
+                WHERE e.user_id = users.id
+                LIMIT 1
+            ) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy === 'shift') {
+            $query->orderByRaw('(
+                SELECT s.shift_name FROM employees e
+                LEFT JOIN shifts s ON s.id = e.shift_id
+                WHERE e.user_id = users.id
+                LIMIT 1
+            ) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy === 'status') {
+            $query->orderByRaw('(
+                SELECT CASE WHEN LOWER(employees.status) = "active" THEN 0 ELSE 1 END
+                FROM employees WHERE employees.user_id = users.id LIMIT 1
             ) ASC')
-            ->orderBy('users.name', 'asc');
+            ->orderByRaw('(SELECT employees.status FROM employees WHERE employees.user_id = users.id LIMIT 1) ' . $dir . ', users.name ASC');
+        } elseif ($this->sortBy && in_array($this->sortBy, ['name', 'email'], true)) {
+            $query->orderBy('users.' . $this->sortBy, $this->sortDirection);
+        } else {
+            // Fallback: department then name
+            $query->orderByRaw('(
+                SELECT d.title FROM employees e
+                LEFT JOIN departments d ON d.id = e.department_id
+                WHERE e.user_id = users.id
+                LIMIT 1
+            ) ASC, users.name ASC');
         }
 
         return $query->paginate(10);

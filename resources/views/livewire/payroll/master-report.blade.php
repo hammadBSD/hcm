@@ -41,8 +41,8 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-3 mb-4">
-                    <div class="flex-1 max-w-md">
+                <div class="flex items-center justify-between gap-3 mb-4 flex-nowrap overflow-x-auto">
+                    <div class="flex-shrink-0 w-64 min-w-[12rem]">
                         <flux:input
                             wire:model.live.debounce.300ms="employeeSearchTerm"
                             type="text"
@@ -50,7 +50,24 @@
                             class="w-full"
                         />
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <flux:field class="mb-0 w-40 flex-shrink-0">
+                            <flux:label class="sr-only">{{ __('Sort by') }}</flux:label>
+                            <flux:select wire:model.live="sortBy" class="w-full max-w-full">
+                                <option value="department">{{ __('Department') }}</option>
+                                <option value="designation">{{ __('Designation') }}</option>
+                                <option value="group">{{ __('Group') }}</option>
+                                <option value="region">{{ __('Region') }}</option>
+                                <option value="shift">{{ __('Shift') }}</option>
+                            </flux:select>
+                        </flux:field>
+                        <flux:field class="mb-0 w-40 flex-shrink-0">
+                            <flux:label class="sr-only">{{ __('View') }}</flux:label>
+                            <flux:select wire:model.live="viewGroupBy" class="w-full max-w-full">
+                                <option value="all">{{ __('All') }}</option>
+                                <option value="department">{{ __('By Department') }}</option>
+                            </flux:select>
+                        </flux:field>
                         <flux:button
                             wire:click="exportToExcel"
                             variant="primary"
@@ -78,18 +95,21 @@
                         >
                             <flux:icon name="arrow-path" class="w-5 h-5 animate-spin" />
                         </div>
-                        <flux:select
-                            wire:model.live="selectedMonth"
-                            placeholder="{{ $currentMonth }}"
-                            class="w-40"
-                            wire:loading.attr="disabled"
-                            wire:target="selectedMonth"
-                        >
-                            <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
-                            @foreach($availableMonths as $month)
-                                <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
-                            @endforeach
-                        </flux:select>
+                        <flux:field class="mb-0 w-40 flex-shrink-0">
+                            <flux:label class="sr-only">{{ __('Month') }}</flux:label>
+                            <flux:select
+                                wire:model.live="selectedMonth"
+                                placeholder="{{ $currentMonth }}"
+                                class="w-full max-w-full"
+                                wire:loading.attr="disabled"
+                                wire:target="selectedMonth"
+                            >
+                                <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
+                                @foreach($availableMonths as $month)
+                                    <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
+                                @endforeach
+                            </flux:select>
+                        </flux:field>
                     </div>
                 </div>
 
@@ -265,16 +285,19 @@
                             />
                         </div>
                         <div class="flex items-center gap-3">
-                            <flux:select
-                                wire:model.live="selectedMonth"
-                                placeholder="{{ $currentMonth }}"
-                                class="w-40"
-                            >
-                                <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
-                                @foreach($availableMonths as $month)
-                                    <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
-                                @endforeach
-                            </flux:select>
+                            <flux:field class="mb-0 w-40">
+                                <flux:label class="sr-only">{{ __('Month') }}</flux:label>
+                                <flux:select
+                                    wire:model.live="selectedMonth"
+                                    placeholder="{{ $currentMonth }}"
+                                    class="w-full max-w-full"
+                                >
+                                    <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
+                                    @foreach($availableMonths as $month)
+                                        <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </flux:field>
                         </div>
                     </div>
                     <div class="text-center py-12 text-zinc-500 dark:text-zinc-400">

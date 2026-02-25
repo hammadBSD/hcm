@@ -16,6 +16,12 @@ class MasterReport extends Component
 
     public $employeeSearchTerm = '';
 
+    /** View: 'department' = by department sections, 'all' = single table */
+    public $viewGroupBy = 'department';
+
+    /** Sort by: department, designation, group, region, shift */
+    public $sortBy = 'department';
+
     public $currentMonth = '';
 
     public $availableMonths = [];
@@ -193,11 +199,17 @@ class MasterReport extends Component
             $mcs = $employee->organizationalInfo && trim((string) ($employee->organizationalInfo->cost_center ?? '')) !== ''
                 ? trim($employee->organizationalInfo->cost_center)
                 : '—';
+            $region = $employee->organizationalInfo && trim((string) ($employee->organizationalInfo->region ?? '')) !== ''
+                ? trim($employee->organizationalInfo->region)
+                : '—';
+            $shiftName = $employee->shift ? ($employee->shift->shift_name ?? '—') : '—';
 
             return [
                 'employee' => $employee,
                 'department' => $departmentName,
                 'designation' => $designationName,
+                'region' => $region,
+                'shift' => $shiftName,
                 'doj' => $doj,
                 'current_status' => $employee->status ?? 'active',
                 'reporting_manager' => $reportingManager,
@@ -425,9 +437,64 @@ class MasterReport extends Component
         return $data->values()->toArray();
     }
 
-    protected function getGroupedByDepartment(): array
+    protected function getSortKey(array $row): string
+    {
+        $key = match ($this->sortBy) {
+            'designation' => $row['designation'] ?? '—',
+            'group' => $row['brands'] ?? '—',
+            'region' => $row['region'] ?? '—',
+            'shift' => $row['shift'] ?? '—',
+            default => $row['department'] ?? '—',
+        };
+        return (string) $key;
+    }
+
+    /** Returns filtered report data sorted by sortBy (department, designation, group, region, shift). */
+    protected function getSortedReportData(): array
     {
         $flat = $this->getFilteredReportData();
+        $key = $this->sortBy ?: 'department';
+        usort($flat, function ($a, $b) use ($key) {
+            $va = $this->getSortKey($a);
+            $vb = $this->getSortKey($b);
+            $cmp = strcasecmp($va, $vb);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            $nameA = trim(($a['employee']->first_name ?? '') . ' ' . ($a['employee']->last_name ?? ''));
+            $nameB = trim(($b['employee']->first_name ?? '') . ' ' . ($b['employee']->last_name ?? ''));
+            return strcasecmp($nameA, $nameB);
+        });
+        return $flat;
+    }
+
+    protected function getGroupedByDepartment(): array
+    {
+        $flat = $this->getSortedReportData();
+        if ($this->viewGroupBy === 'all') {
+            $totalBasic = 0;
+            $totalGross = 0;
+            $totalDeductions = 0;
+            $totalNet = 0;
+            foreach ($flat as $i => $row) {
+                $flat[$i]['sr_no'] = $i + 1;
+                $totalBasic += $row['basic_salary'];
+                $totalGross += $row['gross_salary'];
+                $totalDeductions += $row['total_deductions'] ?? 0;
+                $totalNet += $row['net_salary'] ?? 0;
+            }
+            return [
+                [
+                    'department' => __('All'),
+                    'total_basic' => $totalBasic,
+                    'total_gross' => $totalGross,
+                    'total_deductions' => $totalDeductions,
+                    'total_net_salary' => $totalNet,
+                    'count' => count($flat),
+                    'employees' => $flat,
+                ],
+            ];
+        }
         $groups = [];
         foreach ($flat as $row) {
             $dept = $row['department'];
