@@ -272,7 +272,7 @@ class MasterReport extends Component
 
         $headers = [
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'DOJ', 'Current Status', 'Reporting Manager',
-            'MCS', 'Brands', 'Employment Status', 'CNIC',
+            'MCS', 'Brands', 'Employment Status',
             'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment', 'Job Duration',
             'Working Days', 'Present Days', 'Extra Days', 'Amount of extra days', 'Hourly Rate', 'Hourly Deduction Amount', 'Leaves (approved)',
             'Leave Paid', 'Leave Unpaid', 'Leave LWP', 'Absent Days', 'Late Days', 'Total Break Time', 'Holidays', 'Total Hours Worked', 'Monthly Expected Hours', 'Short/Excess Hours',
@@ -280,6 +280,7 @@ class MasterReport extends Component
             'Tax', 'Prof Tax', 'EOBI', 'Advance', 'Loan',
             'Other Deductions', 'Total Deductions', 'Net Salary',
             'Bank Name', 'Account Title', 'Bank Account',
+            'CNIC',
         ];
         return response()->streamDownload(function () use ($data, $headers) {
             $out = fopen('php://output', 'w');
@@ -301,7 +302,6 @@ class MasterReport extends Component
                     $row['mcs'] ?? '—',
                     $row['brands'] ?? '—',
                     $row['employment_status'] ?? '—',
-                    $row['cnic'] ?? '—',
                     $row['last_increment_date'] ?? '—',
                     number_format($row['last_increment_amount'] ?? 0, 2),
                     $row['months_since_increment'] ?? 0,
@@ -341,6 +341,7 @@ class MasterReport extends Component
                     $row['bank_name'] ?? '—',
                     $row['account_title'] ?? '—',
                     $row['bank_account'] ?? '—',
+                    $row['cnic'] ?? '—',
                 ]);
             }
             fclose($out);
