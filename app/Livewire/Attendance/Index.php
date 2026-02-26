@@ -858,6 +858,7 @@ class Index extends Component
                 'check_out' => null,
                 'total_hours' => null,
                 'breaks' => '0 (0h 0m total)',
+                'excess_breaks' => '—',
                 'status' => $status,
                 'holiday_name' => $isHoliday ? $holiday['name'] : null,
                 'shift_name' => $dayShift ? $dayShift->shift_name : null,
@@ -1393,6 +1394,20 @@ class Index extends Component
                         
                         // Store individual break details for tooltip
                         $processedData[$date]['break_details'] = $this->getBreakDetails($deduplicatedCollection);
+
+                        // Excess breaks (break time exceeding allowed) for display in table
+                        $excessBreakMinutes = 0;
+                        if ($this->allowedBreakTime !== null && $this->allowedBreakTime > 0) {
+                            $excessBreakMinutes = max(0, $totalBreakMinutes - $this->allowedBreakTime);
+                        } elseif ($totalBreakMinutes > 0) {
+                            // No allowed break time set: all break time is considered excess
+                            $excessBreakMinutes = $totalBreakMinutes;
+                        }
+                        $processedData[$date]['excess_breaks'] = $excessBreakMinutes > 0
+                            ? sprintf('%dh %02dm', floor($excessBreakMinutes / 60), $excessBreakMinutes % 60)
+                            : '—';
+                    } else {
+                        $processedData[$date]['excess_breaks'] = '—';
                     }
                 }
             }

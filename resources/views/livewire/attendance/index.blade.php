@@ -272,6 +272,9 @@
                                                 </button>
                                             </th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                {{ __('Excess Breaks') }}
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 <button wire:click="sort('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                                     {{ __('Status') }}
                                                     @if($sortBy === 'status')
@@ -279,9 +282,10 @@
                                                     @endif
                                                 </button>
                                             </th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 tracking-wider">
+                                            {{-- Logs/Tasks column hidden for now --}}
+                                            {{-- <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 tracking-wider">
                                                 {{ __('Logs/Tasks') }}
-                                            </th>
+                                            </th> --}}
                                             <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 {{ __('Actions') }}
                                             </th>
@@ -468,6 +472,12 @@
                                                 </td>
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap">
+                                                    <div class="text-sm {{ ($record['excess_breaks'] ?? '—') !== '—' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-zinc-500 dark:text-zinc-400' }}">
+                                                        {{ $record['excess_breaks'] ?? '—' }}
+                                                    </div>
+                                                </td>
+                                                
+                                                <td class="px-6 py-6 whitespace-nowrap">
                                                     @php
                                                         $statusColor = match($record['status']) {
                                                             'present' => 'green',
@@ -516,6 +526,8 @@
                                                     </div>
                                                 </td>
                                                 
+                                                {{-- Logs/Tasks column hidden for now --}}
+                                                @if(false)
                                                 <td class="px-6 py-6 whitespace-nowrap">
                                                     <div class="flex items-center gap-1">
                                                         @php
@@ -665,6 +677,7 @@
                                                         @endif
                                                     </div>
                                                 </td>
+                                                @endif
                                                 
                                                 <td class="px-6 py-6 whitespace-nowrap text-sm font-medium">
                                         @php
