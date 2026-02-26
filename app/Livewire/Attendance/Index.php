@@ -1404,7 +1404,7 @@ class Index extends Component
                             $excessBreakMinutes = $totalBreakMinutes;
                         }
                         $processedData[$date]['excess_breaks'] = $excessBreakMinutes > 0
-                            ? sprintf('%dh %02dm', floor($excessBreakMinutes / 60), $excessBreakMinutes % 60)
+                            ? sprintf('%d:%02d', floor($excessBreakMinutes / 60), $excessBreakMinutes % 60)
                             : '—';
                     } else {
                         $processedData[$date]['excess_breaks'] = '—';
