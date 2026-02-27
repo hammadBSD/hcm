@@ -67,7 +67,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                 'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
                 'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
                 'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
-                'Total Deductions', 'Net Pay',
+                'Total Deductions', 'Deductions Exempted', 'Net Pay',
                 'Bank Name', 'Account Title', 'Bank Account',
                 'CNIC',
             ];
@@ -117,6 +117,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                     number_format($r['advance'] ?? 0, 2),
                     number_format($r['loan'] ?? 0, 2),
                     number_format($r['total_deductions'] ?? 0, 2),
+                    $r['deductions_exempted'] ?? 'no',
                     number_format($r['net_salary'] ?? 0, 2),
                     $r['bank_name'] ?? '—',
                     $r['account_title'] ?? '—',

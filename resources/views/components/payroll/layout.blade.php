@@ -166,6 +166,21 @@
                     </div>
                 @endif
 
+                @if($canViewTax)
+                    <div class="mb-3">
+                        <flux:navlist.item 
+                            :href="route('payroll.exempt-deductions')" 
+                            wire:navigate
+                            :class="request()->routeIs('payroll.exempt-deductions') ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : ''"
+                        >
+                            <div class="flex items-center">
+                                <flux:icon name="document-text" class="w-4 h-4 mr-3" />
+                                {{ __('Exempt Deductions') }}
+                            </div>
+                        </flux:navlist.item>
+                    </div>
+                @endif
+
                 @if($canViewIncrements)
                     <div class="mb-3">
                         <flux:navlist.item 

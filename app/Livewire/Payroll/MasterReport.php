@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
+use App\Models\DeductionExemption;
 use App\Models\Employee;
 use App\Services\AttendanceStatsForPayrollService;
 use App\Services\PayrollCalculationService;
@@ -85,8 +86,9 @@ class MasterReport extends Component
         $periodMonth = $month ? (int) substr($month, 5, 2) : (int) date('n');
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
+        $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
@@ -129,6 +131,18 @@ class MasterReport extends Component
             $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear, $month);
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
+            $flags = $exemptionMap[$employee->id] ?? ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
+            if (!empty($flags['exempt_all'])) {
+                $shortDeduction = 0;
+                $absentDeduction = 0;
+            } else {
+                if (!empty($flags['exempt_short_hours'])) {
+                    $shortDeduction = 0;
+                }
+                if (!empty($flags['exempt_absent_days'])) {
+                    $absentDeduction = 0;
+                }
+            }
             $otherDeductions = round($shortDeduction + $absentDeduction, 2);
             $epfEe = 0;
             $epfEr = 0;
@@ -266,8 +280,72 @@ class MasterReport extends Component
                 'bank_name' => $bankName,
                 'account_title' => $accountTitle,
                 'bank_account' => $bankAccount,
+                'deductions_exempted' => ($flags['exempt_absent_days'] || $flags['exempt_short_hours'] || $flags['exempt_all']) ? 'yes' : 'no',
             ];
         })->toArray();
+    }
+
+    /**
+     * For the given year-month and employees, return per-employee exemption flags
+     * (exempt_absent_days, exempt_short_hours, exempt_all) based on DeductionExemption records.
+     */
+    protected function getDeductionExemptionMap(string $yearMonth, \Illuminate\Support\Collection $employees): array
+    {
+        $exemptions = DeductionExemption::with('role')->where('year_month', $yearMonth)->get();
+        $map = [];
+        foreach ($employees as $e) {
+            $map[$e->id] = ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
+        }
+        $allEmployeeIds = $employees->pluck('id')->flip()->all();
+        foreach ($exemptions as $ex) {
+            $coveredIds = $this->resolveExemptionCoverage($ex, $employees, $allEmployeeIds);
+            $type = $ex->exemption_type;
+            foreach ($coveredIds as $empId) {
+                if (!isset($map[$empId])) {
+                    continue;
+                }
+                if ($type === 'all') {
+                    $map[$empId]['exempt_all'] = true;
+                    $map[$empId]['exempt_absent_days'] = true;
+                    $map[$empId]['exempt_short_hours'] = true;
+                } elseif ($type === 'absent_days') {
+                    $map[$empId]['exempt_absent_days'] = true;
+                } elseif ($type === 'hourly_deduction_short_hours') {
+                    $map[$empId]['exempt_short_hours'] = true;
+                    $map[$empId]['exempt_absent_days'] = true;
+                }
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * Resolve which employee IDs are covered by a single DeductionExemption.
+     */
+    protected function resolveExemptionCoverage(DeductionExemption $ex, \Illuminate\Support\Collection $employees, array $allEmployeeIds): array
+    {
+        if ($ex->scope_type === 'all') {
+            return array_keys($allEmployeeIds);
+        }
+        if ($ex->scope_type === 'department' && $ex->department_id) {
+            return $employees->where('department_id', $ex->department_id)->pluck('id')->values()->all();
+        }
+        if ($ex->scope_type === 'role' && $ex->role_id) {
+            $role = $ex->role;
+            if (!$role) {
+                return [];
+            }
+            $userIds = \App\Models\User::role($role->name)->pluck('id')->all();
+            return $employees->whereIn('user_id', $userIds)->pluck('id')->values()->all();
+        }
+        if ($ex->scope_type === 'group' && $ex->group_id) {
+            return $employees->where('group_id', $ex->group_id)->pluck('id')->values()->all();
+        }
+        if ($ex->scope_type === 'user' && $ex->user_id) {
+            $emp = $employees->firstWhere('user_id', $ex->user_id);
+            return $emp ? [$emp->id] : [];
+        }
+        return [];
     }
 
     protected function getReportingManagerName(Employee $employee): string
@@ -298,7 +376,7 @@ class MasterReport extends Component
             'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
             'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
             'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
-            'Total Deductions', 'Net Pay',
+            'Total Deductions', 'Deductions Exempted', 'Net Pay',
             'Bank Name', 'Account Title', 'Bank Account',
             'CNIC',
         ];
@@ -353,6 +431,7 @@ class MasterReport extends Component
                     number_format($row['advance'] ?? 0, 2),
                     number_format($row['loan'] ?? 0, 2),
                     number_format($row['total_deductions'] ?? 0, 2),
+                    $row['deductions_exempted'] ?? 'no',
                     number_format($row['net_salary'] ?? 0, 2),
                     $row['bank_name'] ?? '—',
                     $row['account_title'] ?? '—',
