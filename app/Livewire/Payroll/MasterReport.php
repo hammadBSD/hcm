@@ -555,12 +555,16 @@ class MasterReport extends Component
             $totalGross = 0;
             $totalDeductions = 0;
             $totalNet = 0;
+            $totalHourlyDeduction = 0;
+            $totalAbsentDeduction = 0;
             foreach ($flat as $i => $row) {
                 $flat[$i]['sr_no'] = $i + 1;
                 $totalBasic += $row['basic_salary'];
                 $totalGross += $row['gross_salary'];
                 $totalDeductions += $row['total_deductions'] ?? 0;
                 $totalNet += $row['net_salary'] ?? 0;
+                $totalHourlyDeduction += (float) ($row['hourly_deduction_amount'] ?? 0);
+                $totalAbsentDeduction += (float) ($row['deduction_absent_days'] ?? 0);
             }
             return [
                 [
@@ -569,6 +573,8 @@ class MasterReport extends Component
                     'total_gross' => $totalGross,
                     'total_deductions' => $totalDeductions,
                     'total_net_salary' => $totalNet,
+                    'total_hourly_deduction_amount' => $totalHourlyDeduction,
+                    'total_absent_deduction_amount' => $totalAbsentDeduction,
                     'count' => count($flat),
                     'employees' => $flat,
                 ],
@@ -584,6 +590,8 @@ class MasterReport extends Component
                     'total_gross' => 0,
                     'total_deductions' => 0,
                     'total_net_salary' => 0,
+                    'total_hourly_deduction_amount' => 0,
+                    'total_absent_deduction_amount' => 0,
                     'count' => 0,
                     'employees' => [],
                 ];
@@ -592,6 +600,8 @@ class MasterReport extends Component
             $groups[$dept]['total_gross'] += $row['gross_salary'];
             $groups[$dept]['total_deductions'] += $row['total_deductions'] ?? 0;
             $groups[$dept]['total_net_salary'] += $row['net_salary'] ?? 0;
+            $groups[$dept]['total_hourly_deduction_amount'] += (float) ($row['hourly_deduction_amount'] ?? 0);
+            $groups[$dept]['total_absent_deduction_amount'] += (float) ($row['deduction_absent_days'] ?? 0);
             $groups[$dept]['count']++;
             $row['sr_no'] = $groups[$dept]['count'];
             $groups[$dept]['employees'][] = $row;
@@ -611,12 +621,16 @@ class MasterReport extends Component
             'total_gross' => 0,
             'total_deductions' => 0,
             'total_net_salary' => 0,
+            'total_hourly_deduction_amount' => 0,
+            'total_absent_deduction_amount' => 0,
             'count' => 0,
         ];
         foreach ($groupedData as $group) {
             $grandTotals['total_gross'] += $group['total_gross'] ?? 0;
             $grandTotals['total_deductions'] += $group['total_deductions'] ?? 0;
             $grandTotals['total_net_salary'] += $group['total_net_salary'] ?? 0;
+            $grandTotals['total_hourly_deduction_amount'] += $group['total_hourly_deduction_amount'] ?? 0;
+            $grandTotals['total_absent_deduction_amount'] += $group['total_absent_deduction_amount'] ?? 0;
             $grandTotals['count'] += $group['count'] ?? 0;
         }
 

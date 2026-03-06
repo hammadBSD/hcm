@@ -32,6 +32,12 @@
                                 {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ $fmtNum($grandTotals['total_deductions']) }}</span>
                             </span>
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                                {{ __('Total Hourly Deductions') }}: <span class="text-red-600 dark:text-red-400">{{ $fmtNum($grandTotals['total_hourly_deduction_amount'] ?? 0) }}</span>
+                            </span>
+                            <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                                {{ __('Total Absent Deductions') }}: <span class="text-red-600 dark:text-red-400">{{ $fmtNum($grandTotals['total_absent_deduction_amount'] ?? 0) }}</span>
+                            </span>
+                            <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                 {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ $fmtNum($grandTotals['total_net_salary']) }}</span>
                             </span>
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
@@ -123,6 +129,12 @@
                                 </span>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                     {{ __('Total Deductions') }}: <span class="text-amber-600 dark:text-amber-400">{{ $fmtNum($group['total_deductions'] ?? 0) }}</span>
+                                </span>
+                                <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                                    {{ __('Total Hourly Deductions Amount') }}: <span class="text-red-600 dark:text-red-400">{{ $fmtNum($group['total_hourly_deduction_amount'] ?? 0) }}</span>
+                                </span>
+                                <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                                    {{ __('Total Absent Deductions Amount') }}: <span class="text-red-600 dark:text-red-400">{{ $fmtNum($group['total_absent_deduction_amount'] ?? 0) }}</span>
                                 </span>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                     {{ __('Total Net Salary') }}: <span class="text-blue-600 dark:text-blue-400">{{ $fmtNum($group['total_net_salary'] ?? 0) }}</span>
