@@ -293,16 +293,21 @@ class TaxManagement extends Component
             }
         }
         $year = $payrollMonth ? (int) substr($payrollMonth, 0, 4) : (int) date('Y');
+        $exemptBreakdown = $monthly > 0 ? PayrollCalculationService::getTaxableGrossAfterExempt($monthly) : ['gross' => 0.0, 'exempt_amount' => 0.0, 'taxable' => 0.0];
         $monthlyTax = $monthly > 0 ? PayrollCalculationService::getTaxAmount($monthly, $year, $payrollMonth) : 0.0;
         $yearlyIncome = $monthly * 12;
         $yearlyTax = $monthlyTax * 12;
+        $salaryAfterTax = round($monthly - $monthlyTax, 2);
         return [
             'monthly_income' => $monthly,
             'monthly_tax' => round($monthlyTax, 2),
-            'salary_after_tax' => round($monthly - $monthlyTax, 2),
+            'salary_after_tax' => $salaryAfterTax,
             'yearly_income' => round($yearlyIncome, 2),
             'yearly_tax' => round($yearlyTax, 2),
             'yearly_after_tax' => round($yearlyIncome - $yearlyTax, 2),
+            'tax_exempt_amount' => round($exemptBreakdown['exempt_amount'], 2),
+            'taxable_monthly' => round($exemptBreakdown['taxable'], 2),
+            'taxable_yearly' => round($exemptBreakdown['taxable'] * 12, 2),
         ];
     }
 

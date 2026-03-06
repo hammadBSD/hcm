@@ -291,7 +291,7 @@ class MasterReport extends Component
      */
     protected function getDeductionExemptionMap(string $yearMonth, \Illuminate\Support\Collection $employees): array
     {
-        $exemptions = DeductionExemption::with('role')->where('year_month', $yearMonth)->get();
+        $exemptions = DeductionExemption::with(['role', 'department'])->where('year_month', $yearMonth)->get();
         $map = [];
         foreach ($employees as $e) {
             $map[$e->id] = ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
@@ -327,8 +327,9 @@ class MasterReport extends Component
         if ($ex->scope_type === 'all') {
             return array_keys($allEmployeeIds);
         }
-        if ($ex->scope_type === 'department' && $ex->department_id) {
-            return $employees->where('department_id', $ex->department_id)->pluck('id')->values()->all();
+        if ($ex->scope_type === 'department' && $ex->department_id !== null && $ex->department_id !== '') {
+            $deptId = (int) $ex->department_id;
+            return $employees->where('department_id', $deptId)->pluck('id')->values()->all();
         }
         if ($ex->scope_type === 'role' && $ex->role_id) {
             $role = $ex->role;
@@ -338,11 +339,13 @@ class MasterReport extends Component
             $userIds = \App\Models\User::role($role->name)->pluck('id')->all();
             return $employees->whereIn('user_id', $userIds)->pluck('id')->values()->all();
         }
-        if ($ex->scope_type === 'group' && $ex->group_id) {
-            return $employees->where('group_id', $ex->group_id)->pluck('id')->values()->all();
+        if ($ex->scope_type === 'group' && $ex->group_id !== null && $ex->group_id !== '') {
+            $groupId = (int) $ex->group_id;
+            return $employees->where('group_id', $groupId)->pluck('id')->values()->all();
         }
-        if ($ex->scope_type === 'user' && $ex->user_id) {
-            $emp = $employees->firstWhere('user_id', $ex->user_id);
+        if ($ex->scope_type === 'user' && $ex->user_id !== null && $ex->user_id !== '') {
+            $userId = (int) $ex->user_id;
+            $emp = $employees->firstWhere('user_id', $userId);
             return $emp ? [$emp->id] : [];
         }
         return [];

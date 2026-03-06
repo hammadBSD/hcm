@@ -11,7 +11,24 @@ use Illuminate\Support\Facades\Schema;
 class PayrollCalculationService
 {
     /**
+     * Get taxable gross after applying Tax Exempt Percentage from Salary (if set).
+     * Returns ['gross' => original, 'exempt_amount' => deducted amount, 'taxable' => amount used for tax].
+     */
+    public static function getTaxableGrossAfterExempt(float $grossSalary): array
+    {
+        $settings = PayrollSetting::get();
+        $pct = (float) ($settings->tax_exempt_percentage_from_salary ?? 0);
+        if ($pct <= 0) {
+            return ['gross' => $grossSalary, 'exempt_amount' => 0.0, 'taxable' => $grossSalary];
+        }
+        $exemptAmount = round($grossSalary * ($pct / 100), 2);
+        $taxable = round($grossSalary - $exemptAmount, 2);
+        return ['gross' => $grossSalary, 'exempt_amount' => $exemptAmount, 'taxable' => max(0, $taxable)];
+    }
+
+    /**
      * Get tax amount for a given monthly gross salary based on current settings (percentage or tax slabs).
+     * If "Tax Exempt Percentage from Salary" is set, tax is calculated on (salary - exempt % of salary).
      * When using tax slabs (e.g. Pakistan 2025-2026 style):
      * - Annual gross = grossSalary × 12.
      * - Find slab: if $payrollMonth (Y-m) is given and slab has start_year/end_year, match by range; else by tax_year.
@@ -23,10 +40,13 @@ class PayrollCalculationService
     public static function getTaxAmount(float $grossSalary, ?int $taxYear = null, ?string $payrollMonth = null): float
     {
         $settings = PayrollSetting::get();
+        $breakdown = self::getTaxableGrossAfterExempt($grossSalary);
+        $grossForTax = $breakdown['taxable'];
+
         $year = $taxYear ?? (int) date('Y');
 
         if ($settings->useTaxSlabs()) {
-            $annualGross = $grossSalary * 12;
+            $annualGross = $grossForTax * 12;
             $slab = null;
             $hasRangeColumns = Schema::hasColumn((new Tax)->getTable(), 'start_year');
             if ($hasRangeColumns && $payrollMonth !== null && $payrollMonth !== '') {
@@ -69,7 +89,7 @@ class PayrollCalculationService
         }
 
         $pct = (float) $settings->tax_percentage;
-        return round($grossSalary * ($pct / 100), 2);
+        return round($grossForTax * ($pct / 100), 2);
     }
 
     /**

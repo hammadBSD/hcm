@@ -304,10 +304,21 @@
                             </flux:field>
                         </div>
                         <div class="space-y-2 text-sm border-t border-zinc-200 dark:border-zinc-600 pt-3">
-                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Monthly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_income']) }}</span></div>
+                            @if(($calc['tax_exempt_amount'] ?? 0) > 0)
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Actual Monthly Salary') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_income']) }}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Tax Exempt Amount') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['tax_exempt_amount']) }}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Taxable Monthly Salary') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['taxable_monthly']) }}</span></div>
+                            @else
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Monthly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_income']) }}</span></div>
+                            @endif
                             <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Monthly Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['monthly_tax']) }}</span></div>
                             <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Salary After Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['salary_after_tax']) }}</span></div>
-                            <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_income']) }}</span></div>
+                            @if(($calc['tax_exempt_amount'] ?? 0) > 0)
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Actual Yearly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_income']) }}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Taxable Yearly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['taxable_yearly']) }}</span></div>
+                            @else
+                                <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Income') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_income']) }}</span></div>
+                            @endif
                             <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_tax']) }}</span></div>
                             <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-300">{{ __('Yearly Income After Tax') }}</span><span class="font-medium text-zinc-900 dark:text-white">{{ $fmt($calc['yearly_after_tax']) }}</span></div>
                         </div>

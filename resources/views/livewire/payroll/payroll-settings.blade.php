@@ -66,6 +66,12 @@
                         </flux:field>
 
                         <flux:field>
+                            <flux:label>{{ __('Tax Exempt Percentage from Salary (%)') }}</flux:label>
+                            <flux:input type="number" min="0" max="100" step="0.1" wire:model.live="settings.tax_exempt_percentage_from_salary" placeholder="0" />
+                            <flux:description>{{ __('If set, this percentage of salary is exempt before tax is calculated. E.g. 10 means tax is calculated on 90% of salary.') }}</flux:description>
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Provident Fund Percentage (%)') }}</flux:label>
                             <flux:input type="number" step="0.1" wire:model.live="settings.provident_fund_percentage" />
                         </flux:field>
