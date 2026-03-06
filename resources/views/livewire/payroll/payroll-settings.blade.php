@@ -108,6 +108,18 @@
                         </flux:field>
 
                         <flux:field>
+                            <flux:label>{{ __('When short hours exceed threshold') }}</flux:label>
+                            <flux:select
+                                wire:model.live="settings.short_hours_deduction_policy"
+                                :disabled="(float)($settings['short_hours_threshold'] ?? 0) <= 0"
+                            >
+                                <option value="excess_only">{{ __('Deduct only hours over threshold') }}</option>
+                                <option value="full_when_over_threshold">{{ __('Deduct full short hours when over threshold') }}</option>
+                            </flux:select>
+                            <flux:description>{{ __('When threshold is 0, every short hour is deducted. When threshold &gt; 0: choose whether to deduct only the excess over threshold or the full short hours once exceeded.') }}</flux:description>
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Hours per day (for short-hours formula)') }}</flux:label>
                             <flux:input type="number" step="0.5" min="0" wire:model.live="settings.hours_per_day" />
                             <flux:description>{{ __('Hourly rate = gross salary ÷ working days ÷ this value (e.g. 9). Deduction = hourly rate × excess short hours; minutes are included.') }}</flux:description>

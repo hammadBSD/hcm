@@ -127,9 +127,13 @@ class PayrollCalculationService
             return 0.0;
         }
         $hoursOverThreshold = $shortHoursAbs - $threshold;
+        $policy = $settings->short_hours_deduction_policy ?? 'excess_only';
+        $hoursToDeduct = ($threshold > 0 && $policy === 'full_when_over_threshold')
+            ? $shortHoursAbs
+            : $hoursOverThreshold;
         $perHourDeduction = $settings->short_hours_deduction_per_hour;
         if ($perHourDeduction !== null && $perHourDeduction > 0) {
-            return round($hoursOverThreshold * (float) $perHourDeduction, 2);
+            return round($hoursToDeduct * (float) $perHourDeduction, 2);
         }
         $workingDays = max(1, $workingDays);
         $hoursPerDay = (float) ($settings->hours_per_day ?? 9);
@@ -137,7 +141,7 @@ class PayrollCalculationService
             return 0.0;
         }
         $hourlyRate = $grossSalary / $workingDays / $hoursPerDay;
-        return round($hoursOverThreshold * $hourlyRate, 2);
+        return round($hoursToDeduct * $hourlyRate, 2);
     }
 
     /**
