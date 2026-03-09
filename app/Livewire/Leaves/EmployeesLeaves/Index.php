@@ -245,6 +245,37 @@ class Index extends Component
         return $requests->values();
     }
 
+    public function exportToCsv()
+    {
+        $rows = $this->getFilteredRequests();
+        $filename = 'leave-requests-' . now()->format('Y-m-d-His') . '.csv';
+        $headers = ['Employee', 'Department', 'Leave Type', 'Duration', 'Status', 'Added On'];
+
+        return response()->streamDownload(function () use ($rows, $headers) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM for Excel
+            fputcsv($out, $headers);
+            foreach ($rows as $r) {
+                $addedOn = trim(($r['created_date'] ?? '') . ' ' . ($r['created_time'] ?? ''));
+                if ($addedOn === '') {
+                    $addedOn = $r['created_at'] ?? __('N/A');
+                }
+                fputcsv($out, [
+                    $r['employee_name'] ?? '',
+                    $r['department'] ?? '',
+                    $r['leave_type'] ?? '',
+                    number_format((float) ($r['total_days'] ?? 0), 1) . ' ' . __('days'),
+                    $r['status'] ?? '',
+                    $addedOn,
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
     public function openViewFlyout(int $requestId): void
     {
         $this->loadActiveRequest($requestId);

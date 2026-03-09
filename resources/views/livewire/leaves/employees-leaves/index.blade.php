@@ -103,9 +103,15 @@
                 </div>
 
                 <div class="mt-4 flex justify-between items-center">
-                    <flux:button variant="outline" wire:click="resetFilters">
-                        {{ __('Clear Filters') }}
-                    </flux:button>
+                    <div class="flex items-center gap-2">
+                        <flux:button variant="outline" wire:click="resetFilters">
+                            {{ __('Clear Filters') }}
+                        </flux:button>
+                        <flux:button variant="outline" wire:click="exportToCsv" wire:target="exportToCsv" icon="arrow-down-tray">
+                            <span wire:loading.remove wire:target="exportToCsv">{{ __('Export CSV') }}</span>
+                            <span wire:loading wire:target="exportToCsv">{{ __('Exporting...') }}</span>
+                        </flux:button>
+                    </div>
                     
                     <!-- Request Leave Button (for HR to create for employees) -->
                     @can('leaves.manage.all')
