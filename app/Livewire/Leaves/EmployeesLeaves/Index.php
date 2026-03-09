@@ -249,7 +249,7 @@ class Index extends Component
     {
         $rows = $this->getFilteredRequests();
         $filename = 'leave-requests-' . now()->format('Y-m-d-His') . '.csv';
-        $headers = ['Employee', 'Department', 'Leave Type', 'Duration', 'Status', 'Added On'];
+        $headers = ['Employee', 'Department', 'Leave Type', 'Duration', 'Leave Days', 'Status', 'Added On'];
 
         return response()->streamDownload(function () use ($rows, $headers) {
             $out = fopen('php://output', 'w');
@@ -260,10 +260,14 @@ class Index extends Component
                 if ($addedOn === '') {
                     $addedOn = $r['created_at'] ?? __('N/A');
                 }
+                $startDate = $r['start_date'] ?? null;
+                $endDate = $r['end_date'] ?? null;
+                $duration = ($startDate && $endDate) ? $startDate . ' – ' . $endDate : __('N/A');
                 fputcsv($out, [
                     $r['employee_name'] ?? '',
                     $r['department'] ?? '',
                     $r['leave_type'] ?? '',
+                    $duration,
                     number_format((float) ($r['total_days'] ?? 0), 1) . ' ' . __('days'),
                     $r['status'] ?? '',
                     $addedOn,
