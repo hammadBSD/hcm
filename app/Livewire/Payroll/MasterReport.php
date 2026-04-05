@@ -61,9 +61,19 @@ class MasterReport extends Component
         $this->availableMonths = $months;
     }
 
-    public function loadReportData(): void
+    /**
+     * Employees for the master report for a calendar month (Y-m).
+     * - Active, still employed (no leaving_date / resign_date on org record): included if joined by month end (or no org row).
+     * - Anyone with leaving_date or resign_date: included only when that month overlaps employment
+     *   (joined on or before month end; leaving_date if set, else resign_date, on or after month start).
+     *   Applies whether employment status is “resigned” or not, and whether employees.status is active or inactive.
+     */
+    protected function masterReportEmployeesQuery(string $month)
     {
-        $employees = Employee::with([
+        $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $monthEnd = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+
+        return Employee::with([
             'department',
             'designation',
             'salaryLegalCompliance',
@@ -75,13 +85,48 @@ class MasterReport extends Component
             'employmentStatus',
             'group',
         ])
-            ->where('status', 'active')
+            ->where(function ($q) use ($monthStart, $monthEnd) {
+                $q->where(function ($ongoing) use ($monthEnd) {
+                    $ongoing->where('status', 'active')
+                        ->where(function ($inner) use ($monthEnd) {
+                            $inner->whereDoesntHave('organizationalInfo')
+                                ->orWhereHas('organizationalInfo', function ($oq) use ($monthEnd) {
+                                    $oq->where(function ($j) use ($monthEnd) {
+                                        $j->whereNull('joining_date')
+                                            ->orWhere('joining_date', '<=', $monthEnd);
+                                    })->where(function ($dates) {
+                                        $dates->whereNull('leaving_date')
+                                            ->whereNull('resign_date');
+                                    });
+                                });
+                        });
+                })->orWhere(function ($withEnd) use ($monthStart, $monthEnd) {
+                    $withEnd->whereHas('organizationalInfo', function ($oq) use ($monthStart, $monthEnd) {
+                        $oq->where(function ($j) use ($monthEnd) {
+                            $j->whereNull('joining_date')
+                                ->orWhere('joining_date', '<=', $monthEnd);
+                        })->where(function ($e) use ($monthStart) {
+                            $e->where(function ($x) use ($monthStart) {
+                                $x->whereNotNull('leaving_date')
+                                    ->where('leaving_date', '>=', $monthStart);
+                            })->orWhere(function ($x) use ($monthStart) {
+                                $x->whereNull('leaving_date')
+                                    ->whereNotNull('resign_date')
+                                    ->where('resign_date', '>=', $monthStart);
+                            });
+                        });
+                    });
+                });
+            })
             ->orderBy('department_id')
             ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get();
+            ->orderBy('last_name');
+    }
 
+    public function loadReportData(): void
+    {
         $month = $this->selectedMonth ?: now()->format('Y-m');
+        $employees = $this->masterReportEmployeesQuery($month)->get();
         $taxYear = $month ? (int) substr($month, 0, 4) : (int) date('Y');
         $periodMonth = $month ? (int) substr($month, 5, 2) : (int) date('n');
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
