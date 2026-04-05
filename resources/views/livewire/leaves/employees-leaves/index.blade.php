@@ -410,6 +410,75 @@
                         @endif
                     </div>
 
+                    <div class="space-y-4">
+                        @forelse($viewFlyoutLeaveBalances as $balance)
+                            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                <div class="space-y-4">
+                                    <div class="flex items-center gap-2">
+                                        <flux:icon name="calendar-days" class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                            {{ $balance['leave_type_name'] }}@if(!empty($balance['leave_type_code'])) ({{ $balance['leave_type_code'] }}) @endif - {{ __('Leave Balance') }} <span class="text-zinc-500 dark:text-zinc-400 font-normal">({{ __('Current Leave Quota Year') }})</span>
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-6 text-sm">
+                                        <div class="text-center">
+                                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Entitled') }}</div>
+                                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ number_format($balance['entitled'] ?? 0, 1) }}</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Taken') }}</div>
+                                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ number_format($balance['used'] ?? 0, 1) }}</div>
+                                        </div>
+                                        @php
+                                            $vfPending = $balance['pending'] ?? 0;
+                                            $vfPendingClasses = $vfPending > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-zinc-900 dark:text-zinc-100';
+                                        @endphp
+                                        <div class="text-center">
+                                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</div>
+                                            <div class="font-semibold {{ $vfPendingClasses }}">{{ number_format($vfPending, 1) }}</div>
+                                        </div>
+                                        @php $vfBal = $balance['balance'] ?? 0; @endphp
+                                        <div class="text-center">
+                                            <div class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</div>
+                                            <div class="font-bold {{ $vfBal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($vfBal, 1) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                <div class="text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('No leave balances found') }}</div>
+                            </div>
+                        @endforelse
+                    </div>
+
+                    <div class="bg-zinc-50 dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                        <flux:heading size="sm" class="mb-1">{{ __('Approved leaves') }} ({{ now()->format('Y') }})</flux:heading>
+                        <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 mb-4">{{ __('All approved requests whose dates fall in this calendar year.') }}</flux:text>
+                        <div class="space-y-3">
+                            @forelse($viewFlyoutApprovedLeavesYear as $lv)
+                                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 text-sm">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ $lv['leave_type'] }}
+                                        @if(!empty($lv['leave_type_code']))
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ $lv['leave_type_code'] }})</span>
+                                        @endif
+                                        <span class="text-zinc-500 dark:text-zinc-400 font-normal"> · {{ number_format($lv['total_days'], 1) }} {{ __('days') }}</span>
+                                    </div>
+                                    <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                        {{ $lv['start_date'] }} – {{ $lv['end_date'] }}
+                                    </div>
+                                    <div class="mt-2 text-zinc-700 dark:text-zinc-200">
+                                        <span class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Reason') }}</span>
+                                        <p class="mt-0.5 whitespace-pre-line">{{ $lv['reason'] }}</p>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No approved leaves recorded for this year yet.') }}</div>
+                            @endforelse
+                        </div>
+                    </div>
+
                     <div class="bg-zinc-50 dark:bg-zinc-800/70 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                         <flux:heading size="sm" class="mb-3">{{ __('History & Timeline') }}</flux:heading>
                         <div class="space-y-3">

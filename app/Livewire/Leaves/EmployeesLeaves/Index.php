@@ -45,6 +45,10 @@ class Index extends Component
     public ?int $activeRequestId = null;
     public array $activeRequest = [];
     public array $activeEvents = [];
+    /** Leave balance cards on view-details flyout (same shape as create-request balances). */
+    public array $viewFlyoutLeaveBalances = [];
+    /** Approved leave requests overlapping the current calendar year (view flyout). */
+    public array $viewFlyoutApprovedLeavesYear = [];
     public array $approveForm = [
         'decision' => 'approve',
         'notes' => '',
@@ -310,6 +314,8 @@ class Index extends Component
         $this->activeRequestId = null;
         $this->activeRequest = [];
         $this->activeEvents = [];
+        $this->viewFlyoutLeaveBalances = [];
+        $this->viewFlyoutApprovedLeavesYear = [];
         $this->resetApproveForm();
         $this->resetRejectForm();
         $this->resetEditForm();
@@ -376,30 +382,13 @@ class Index extends Component
             return;
         }
 
-        $balances = EmployeeLeaveBalance::query()
-            ->with('leaveType:id,name,code')
-            ->where('employee_id', $employee->id)
-            ->get();
+        $this->createRequestLeaveBalances = $this->employeeLeaveBalancesPayload($employee->id);
 
-        // Store balances per leave type
-        $this->createRequestLeaveBalances = $balances->map(function ($balance) {
-            return [
-                'leave_type_id' => $balance->leave_type_id,
-                'leave_type_name' => $balance->leaveType?->name ?? __('Unknown'),
-                'leave_type_code' => $balance->leaveType?->code,
-                'entitled' => (float) $balance->entitled,
-                'used' => (float) $balance->used,
-                'pending' => (float) $balance->pending,
-                'balance' => (float) $balance->balance,
-            ];
-        })->toArray();
-
-        // Also keep aggregated summary for backward compatibility
         $this->createRequestSummary = [
-            'entitled' => (float) $balances->sum('entitled'),
-            'used' => (float) $balances->sum('used'),
-            'pending' => (float) $balances->sum('pending'),
-            'balance' => (float) $balances->sum('balance'),
+            'entitled' => (float) collect($this->createRequestLeaveBalances)->sum('entitled'),
+            'used' => (float) collect($this->createRequestLeaveBalances)->sum('used'),
+            'pending' => (float) collect($this->createRequestLeaveBalances)->sum('pending'),
+            'balance' => (float) collect($this->createRequestLeaveBalances)->sum('balance'),
         ];
     }
 
@@ -1003,6 +992,74 @@ class Index extends Component
                     'attachment_path' => $event->attachment_path,
                 ];
             })
+            ->toArray();
+
+        if ($employee) {
+            $this->viewFlyoutLeaveBalances = $this->employeeLeaveBalancesPayload($employee->id);
+            $this->viewFlyoutApprovedLeavesYear = $this->approvedLeavesCurrentYearPayload($employee->id);
+        } else {
+            $this->viewFlyoutLeaveBalances = [];
+            $this->viewFlyoutApprovedLeavesYear = [];
+        }
+    }
+
+    /**
+     * @return list<array{leave_type_id: int|null, leave_type_name: string, leave_type_code: string|null, entitled: float, used: float, pending: float, balance: float}>
+     */
+    protected function employeeLeaveBalancesPayload(int $employeeId): array
+    {
+        return EmployeeLeaveBalance::query()
+            ->with('leaveType:id,name,code')
+            ->where('employee_id', $employeeId)
+            ->get()
+            ->map(function (EmployeeLeaveBalance $balance) {
+                return [
+                    'leave_type_id' => $balance->leave_type_id,
+                    'leave_type_name' => $balance->leaveType?->name ?? __('Unknown'),
+                    'leave_type_code' => $balance->leaveType?->code,
+                    'entitled' => (float) $balance->entitled,
+                    'used' => (float) $balance->used,
+                    'pending' => (float) $balance->pending,
+                    'balance' => (float) $balance->balance,
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Approved requests whose leave period overlaps the current calendar year.
+     *
+     * @return list<array{id: int, leave_type: string, leave_type_code: string|null, start_date: string, end_date: string, total_days: float, reason: string}>
+     */
+    protected function approvedLeavesCurrentYearPayload(int $employeeId): array
+    {
+        $year = (int) now()->year;
+        $yearStart = Carbon::createFromDate($year, 1, 1)->startOfDay();
+        $yearEnd = Carbon::createFromDate($year, 12, 31)->endOfDay();
+
+        return LeaveRequestModel::query()
+            ->with('leaveType:id,name,code')
+            ->where('employee_id', $employeeId)
+            ->where('status', LeaveRequestModel::STATUS_APPROVED)
+            ->where('start_date', '<=', $yearEnd)
+            ->where('end_date', '>=', $yearStart)
+            ->orderByDesc('start_date')
+            ->get()
+            ->map(function (LeaveRequestModel $r) {
+                $reason = trim((string) ($r->reason ?? ''));
+
+                return [
+                    'id' => $r->id,
+                    'leave_type' => $r->leaveType?->name ?? __('Unknown'),
+                    'leave_type_code' => $r->leaveType?->code,
+                    'start_date' => $r->start_date?->format('M d, Y') ?? '—',
+                    'end_date' => $r->end_date?->format('M d, Y') ?? '—',
+                    'total_days' => (float) $r->total_days,
+                    'reason' => $reason !== '' ? $reason : '—',
+                ];
+            })
+            ->values()
             ->toArray();
     }
 
