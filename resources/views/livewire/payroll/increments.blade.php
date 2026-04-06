@@ -81,8 +81,9 @@
                                         $incAmount = (float) $inc->increment_amount;
                                         $grossAfter = $inc->gross_salary_after !== null ? (float) $inc->gross_salary_after : null;
                                         $basicAfter = $inc->basic_salary_after !== null ? (float) $inc->basic_salary_after : null;
+                                        [$rowDb] = \App\Services\PayrollCalculationService::incrementAmountToBasicAndAllowances($incAmount, $inc->allowances_after !== null);
                                         $grossBefore = $grossAfter !== null ? $grossAfter - $incAmount : null;
-                                        $basicBefore = $basicAfter !== null ? $basicAfter - $incAmount : null;
+                                        $basicBefore = $basicAfter !== null ? $basicAfter - $rowDb : null;
                                     @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -239,7 +240,9 @@
                         <flux:field>
                             <flux:label>{{ __('Increment/decrement amount') }}</flux:label>
                             <flux:input type="number" step="0.01" placeholder="0.00" wire:model.live="incrementAmount" />
-                            <flux:description>{{ __('Enter a positive amount for an increase, or a negative amount for a decrease.') }}</flux:description>
+                            <flux:description>
+                                {{ __('Enter a positive amount for an increase, or a negative amount for a decrease. The amount is applied as 60% to basic salary and 40% to allowances.') }}
+                            </flux:description>
                         </flux:field>
 
                         @if(abs((float) $incrementAmount) > 0.00001 && !$forHistory)
@@ -248,6 +251,8 @@
                                 <div class="grid grid-cols-2 gap-2 text-sm">
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Basic Salary') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewBasic, 2, '.', ',')) }}</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Allowances') }}:</div>
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewAllowances, 2, '.', ',')) }}</div>
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Gross Salary') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewGross, 2, '.', ',')) }}</div>
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Amount') }}:</div>
@@ -286,14 +291,22 @@
                             $viewGrossAfter = $inc->gross_salary_after !== null ? (float) $inc->gross_salary_after : null;
                             $viewBasicAfter = $inc->basic_salary_after !== null ? (float) $inc->basic_salary_after : null;
                             $viewIncAmt = (float) $inc->increment_amount;
+                            $viewUseSplit = $inc->allowances_after !== null;
+                            [$viewDb, $viewDa] = \App\Services\PayrollCalculationService::incrementAmountToBasicAndAllowances($viewIncAmt, $viewUseSplit);
                             $viewGrossBefore = $viewGrossAfter !== null ? $viewGrossAfter - $viewIncAmt : null;
-                            $viewBasicBefore = $viewBasicAfter !== null ? $viewBasicAfter - $viewIncAmt : null;
+                            $viewBasicBefore = $viewBasicAfter !== null ? $viewBasicAfter - $viewDb : null;
+                            $viewAllowAfter = $inc->allowances_after !== null
+                                ? (float) $inc->allowances_after
+                                : ($viewGrossAfter !== null && $viewBasicAfter !== null ? $viewGrossAfter - $viewBasicAfter : null);
+                            $viewAllowBefore = $viewAllowAfter !== null ? $viewAllowAfter - $viewDa : null;
                         @endphp
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Gross before') }}</span><span class="font-medium">{{ $viewGrossBefore !== null ? preg_replace('/\.00$/', '', number_format($viewGrossBefore, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Basic before') }}</span><span class="font-medium">{{ $viewBasicBefore !== null ? preg_replace('/\.00$/', '', number_format($viewBasicBefore, 2, '.', ',')) : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Allowances before') }}</span><span class="font-medium">{{ $viewAllowBefore !== null ? preg_replace('/\.00$/', '', number_format($viewAllowBefore, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment/decrement amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $inc->increment_amount, 2, '.', ',')) }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Gross after') }}</span><span class="font-medium">{{ $inc->gross_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->gross_salary_after, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Basic after') }}</span><span class="font-medium">{{ $inc->basic_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->basic_salary_after, 2, '.', ',')) : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Allowances after') }}</span><span class="font-medium">{{ $viewAllowAfter !== null ? preg_replace('/\.00$/', '', number_format($viewAllowAfter, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('For history only') }}</span><span class="font-medium">{{ $inc->for_history ? __('Yes') : __('No') }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Updated by') }}</span><span class="font-medium">{{ $inc->updatedByUser?->name ?? '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Updated when') }}</span><span class="font-medium">{{ $inc->updated_at ? $inc->updated_at->format('M d, Y H:i') : '—' }}</span></div>
@@ -355,7 +368,9 @@
                         <flux:field>
                             <flux:label>{{ __('Increment/decrement amount') }}</flux:label>
                             <flux:input type="number" step="0.01" placeholder="0.00" wire:model.live="incrementAmount" />
-                            <flux:description>{{ __('Enter a positive amount for an increase, or a negative amount for a decrease.') }}</flux:description>
+                            <flux:description>
+                                {{ __('Enter a positive amount for an increase, or a negative amount for a decrease. The amount is applied as 60% to basic salary and 40% to allowances.') }}
+                            </flux:description>
                         </flux:field>
                         @if(abs((float) $incrementAmount) > 0.00001 && !$forHistory)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
@@ -363,6 +378,8 @@
                                 <div class="grid grid-cols-2 gap-2 text-sm">
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Basic Salary') }}:</div>
                                     <div class="font-medium">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewBasic, 2, '.', ',')) }}</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Allowances') }}:</div>
+                                    <div class="font-medium">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewAllowances, 2, '.', ',')) }}</div>
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Gross Salary') }}:</div>
                                     <div class="font-medium">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewGross, 2, '.', ',')) }}</div>
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('Tax Amount') }}:</div>

@@ -20,6 +20,7 @@ class EmployeeIncrement extends Model
         'increment_amount',
         'gross_salary_after',
         'basic_salary_after',
+        'allowances_after',
         'for_history',
         'updated_by',
     ];
@@ -30,6 +31,7 @@ class EmployeeIncrement extends Model
         'increment_amount' => 'decimal:2',
         'gross_salary_after' => 'decimal:2',
         'basic_salary_after' => 'decimal:2',
+        'allowances_after' => 'decimal:2',
         'for_history' => 'boolean',
     ];
 

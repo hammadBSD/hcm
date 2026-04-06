@@ -148,26 +148,56 @@ class MasterReport extends Component
             $monthlyExpectedHours = (string) ($hasLeavesOrHolidaysOrAbsent ? ($att['expected_hours_adjusted'] ?? '0:00') : ($att['expected_hours'] ?? '0:00'));
             $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');
             $salary = $employee->salaryLegalCompliance;
-            // Effective salary as of report month: base + sum of all non-history increments effective by end of report month (exclude for_history)
             $reportMonthEnd = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
-            $incrementsInPeriod = $employee->increments
+            // Salary as of end of report month: increments with last_increment_date <= month end apply;
+            // current compliance may already include future-dated increments — subtract those for prior months.
+            $nonHistory = $employee->increments
                 ->where('for_history', false)
                 ->whereNotNull('last_increment_date')
-                ->filter(fn ($i) => $i->last_increment_date->lte($reportMonthEnd))
-                ->sortBy(fn ($i) => $i->last_increment_date->format('Y-m-d'))
                 ->values();
-            if ($incrementsInPeriod->isNotEmpty()) {
-                $first = $incrementsInPeriod->first();
-                $baseBasic = (float) $first->basic_salary_after - (float) $first->increment_amount;
-                $baseGross = (float) $first->gross_salary_after - (float) $first->increment_amount;
-                $totalIncrementAmount = $incrementsInPeriod->sum(fn ($i) => (float) $i->increment_amount);
-                $basic = $baseBasic + $totalIncrementAmount;
-                $allowances = $baseGross - $baseBasic; // allowances unchanged by increments
-                $gross = $basic + $allowances;
+
+            $appliedByMonthEnd = $nonHistory
+                ->filter(fn ($i) => $i->last_increment_date->lte($reportMonthEnd))
+                ->sortBy(fn ($i) => sprintf('%s-%010d', $i->last_increment_date->format('Y-m-d'), (int) $i->id))
+                ->values();
+
+            $futureApplied = $nonHistory
+                ->filter(fn ($i) => $i->last_increment_date->gt($reportMonthEnd))
+                ->sortByDesc(fn ($i) => sprintf('%s-%010d', $i->last_increment_date->format('Y-m-d'), (int) $i->id))
+                ->values();
+
+            if ($appliedByMonthEnd->isNotEmpty()) {
+                $first = $appliedByMonthEnd->first();
+                $useSplitFirst = $first->allowances_after !== null;
+                [$d0b, $d0a] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $first->increment_amount, $useSplitFirst);
+                $allow0 = $first->allowances_after !== null
+                    ? (float) $first->allowances_after
+                    : (float) $first->gross_salary_after - (float) $first->basic_salary_after;
+                $baseBasic = round((float) $first->basic_salary_after - $d0b, 2);
+                $baseAllow = round($allow0 - $d0a, 2);
+                $runningB = $baseBasic;
+                $runningA = $baseAllow;
+                foreach ($appliedByMonthEnd as $inc) {
+                    $useSplit = $inc->allowances_after !== null;
+                    [$db, $da] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $inc->increment_amount, $useSplit);
+                    $runningB = round($runningB + $db, 2);
+                    $runningA = round($runningA + $da, 2);
+                }
+                $basic = $runningB;
+                $allowances = $runningA;
+                $gross = round($basic + $allowances, 2);
             } else {
                 $basic = $salary ? (float) $salary->basic_salary : 0;
                 $allowances = $salary ? (float) ($salary->allowances ?? 0) : 0;
-                $gross = $basic + $allowances;
+                foreach ($futureApplied as $inc) {
+                    $useSplit = $inc->allowances_after !== null;
+                    [$db, $da] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $inc->increment_amount, $useSplit);
+                    $basic -= $db;
+                    $allowances -= $da;
+                }
+                $basic = max(0, round($basic, 2));
+                $allowances = max(0, round($allowances, 2));
+                $gross = round($basic + $allowances, 2);
             }
             $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
             $otHrs = 0;
@@ -214,8 +244,10 @@ class MasterReport extends Component
             $accountTitle = $salary ? (trim((string) ($salary->account_title ?? '')) ?: '—') : '—';
 
             $latestIncrement = $employee->increments
+                ->where('for_history', false)
                 ->whereNotNull('last_increment_date')
-                ->sortByDesc(fn ($i) => $i->last_increment_date->format('Y-m-d'))
+                ->filter(fn ($i) => $i->last_increment_date->lte($reportMonthEnd))
+                ->sortByDesc(fn ($i) => sprintf('%s-%010d', $i->last_increment_date->format('Y-m-d'), (int) $i->id))
                 ->first();
             $lastIncrementDate = $latestIncrement && $latestIncrement->last_increment_date
                 ? $latestIncrement->last_increment_date->format('Y-m-d')

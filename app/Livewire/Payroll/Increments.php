@@ -146,8 +146,10 @@ class Increments extends Component
     protected function computeNewSalaryValues(): void
     {
         $amount = (float) ($this->incrementAmount ?? 0);
-        $newBasic = $this->employeeBasicSalary + $amount;
-        $newGross = $newBasic + $this->employeeAllowances;
+        [$toBasic, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+        $newBasic = $this->employeeBasicSalary + $toBasic;
+        $newAllowances = $this->employeeAllowances + $toAllowances;
+        $newGross = $newBasic + $newAllowances;
 
         $this->grossSalaryAfter = $amount != 0.0 ? (string) $newGross : '';
         $this->basicSalaryAfter = $amount != 0.0 ? (string) $newBasic : '';
@@ -243,12 +245,17 @@ class Increments extends Component
             }
         }
 
-        $newBasic = $this->employeeBasicSalary + $amount;
-        $newGross = $newBasic + $this->employeeAllowances;
-        if ($newBasic < 0 || $newGross < 0) {
-            session()->flash('error', __('The resulting basic or gross salary cannot be negative. Use a smaller decrease.'));
+        [$toBasic, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+        $newBasic = $this->employeeBasicSalary + $toBasic;
+        $newAllowances = $this->employeeAllowances + $toAllowances;
+        $newGross = $newBasic + $newAllowances;
+        if ($newBasic < 0 || $newAllowances < 0 || $newGross < 0) {
+            session()->flash('error', __('The resulting basic, allowances, or gross salary cannot be negative. Use a smaller decrease.'));
             return;
         }
+
+        $removedFromApplied = !$inc->for_history && $forHistory;
+        $snapshotBeforeUpdate = $removedFromApplied ? clone $inc : null;
 
         $inc->update([
             'number_of_increments' => (int) $this->numberOfIncrements ?: 1,
@@ -257,11 +264,15 @@ class Increments extends Component
             'increment_amount' => $amount,
             'gross_salary_after' => $newGross,
             'basic_salary_after' => $newBasic,
+            'allowances_after' => $newAllowances,
             'for_history' => $forHistory,
             'updated_by' => Auth::id(),
         ]);
-        if (!$forHistory) {
-            $this->syncEmployeeSalary($inc->employee_id, $newBasic);
+
+        if ($removedFromApplied && $snapshotBeforeUpdate) {
+            $this->reconcileEmployeeSalaryFromNonHistoryIncrements($inc->employee_id, $snapshotBeforeUpdate);
+        } else {
+            $this->reconcileEmployeeSalaryFromNonHistoryIncrements($inc->employee_id);
         }
 
         $this->closeEditIncrementModal();
@@ -271,12 +282,21 @@ class Increments extends Component
     public function deleteIncrement(int $id): void
     {
         $inc = EmployeeIncrement::find($id);
-        if ($inc) {
-            $inc->delete();
-            session()->flash('message', __('Increment/decrement record deleted successfully.'));
-        } else {
+        if (!$inc) {
             session()->flash('error', __('Increment/decrement record not found.'));
+            return;
         }
+
+        $employeeId = $inc->employee_id;
+        $wasNonHistory = !$inc->for_history;
+        $deleted = $wasNonHistory ? clone $inc : null;
+        $inc->delete();
+
+        if ($wasNonHistory) {
+            $this->reconcileEmployeeSalaryFromNonHistoryIncrements($employeeId, $deleted);
+        }
+
+        session()->flash('message', __('Increment/decrement record deleted successfully.'));
     }
 
     public function addIncrement()
@@ -302,10 +322,12 @@ class Increments extends Component
             }
         }
 
-        $newBasic = $this->employeeBasicSalary + $amount;
-        $newGross = $newBasic + $this->employeeAllowances;
-        if ($newBasic < 0 || $newGross < 0) {
-            session()->flash('error', __('The resulting basic or gross salary cannot be negative. Use a smaller decrease.'));
+        [$toBasic, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+        $newBasic = $this->employeeBasicSalary + $toBasic;
+        $newAllowances = $this->employeeAllowances + $toAllowances;
+        $newGross = $newBasic + $newAllowances;
+        if ($newBasic < 0 || $newAllowances < 0 || $newGross < 0) {
+            session()->flash('error', __('The resulting basic, allowances, or gross salary cannot be negative. Use a smaller decrease.'));
             return;
         }
 
@@ -317,12 +339,13 @@ class Increments extends Component
             'increment_amount' => $amount,
             'gross_salary_after' => $newGross,
             'basic_salary_after' => $newBasic,
+            'allowances_after' => $newAllowances,
             'for_history' => $forHistory,
             'updated_by' => Auth::id(),
         ]);
 
         if (!$forHistory) {
-            $this->syncEmployeeSalary($employeeId, $newBasic);
+            $this->reconcileEmployeeSalaryFromNonHistoryIncrements($employeeId);
         }
 
         $this->closeAddIncrementModal();
@@ -335,7 +358,8 @@ class Increments extends Component
         if ($amount == 0.0) {
             return 0;
         }
-        $newGross = $this->employeeBasicSalary + $amount + $this->employeeAllowances;
+        [$toBasic, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+        $newGross = $this->employeeBasicSalary + $toBasic + $this->employeeAllowances + $toAllowances;
         if ($newGross <= 0) {
             return 0;
         }
@@ -346,13 +370,25 @@ class Increments extends Component
     public function getCalculatedNewGrossProperty(): float
     {
         $amount = (float) ($this->incrementAmount ?? 0);
-        return $this->employeeBasicSalary + $amount + $this->employeeAllowances;
+        [$toBasic, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+
+        return $this->employeeBasicSalary + $toBasic + $this->employeeAllowances + $toAllowances;
     }
 
     public function getCalculatedNewBasicProperty(): float
     {
         $amount = (float) ($this->incrementAmount ?? 0);
-        return $this->employeeBasicSalary + $amount;
+        [$toBasic] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+
+        return $this->employeeBasicSalary + $toBasic;
+    }
+
+    public function getCalculatedNewAllowancesProperty(): float
+    {
+        $amount = (float) ($this->incrementAmount ?? 0);
+        [, $toAllowances] = PayrollCalculationService::splitIncrementBetweenBasicAndAllowances($amount);
+
+        return $this->employeeAllowances + $toAllowances;
     }
 
     public function getCalculatedNetSalaryProperty(): float
@@ -389,20 +425,81 @@ class Increments extends Component
     }
 
     /**
-     * Update employee's current basic salary (used when increment is not for_history).
-     * Creates a compliance record if missing so salary is persisted for payroll/reports.
+     * Recompute basic_salary_after / allowances_after / gross_salary_after for all non-history increments
+     * in chronological order (60% basic / 40% allowances per row when allowances_after is stored; legacy rows use 100% basic),
+     * then sync EmployeeSalaryLegalCompliance basic and allowances.
+     *
+     * When no non-history rows remain, restores salary from the deleted row's implied previous state.
      */
-    protected function syncEmployeeSalary(int $employeeId, float $newBasic): void
+    protected function reconcileEmployeeSalaryFromNonHistoryIncrements(int $employeeId, ?EmployeeIncrement $deleted = null): void
     {
-        $allowances = (float) $this->employeeAllowances;
+        $rows = EmployeeIncrement::query()
+            ->where('employee_id', $employeeId)
+            ->where('for_history', false)
+            ->orderByRaw('COALESCE(last_increment_date, updated_at) ASC')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            if ($deleted && !$deleted->for_history) {
+                $useSplit = $deleted->allowances_after !== null;
+                [$db, $da] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $deleted->increment_amount, $useSplit);
+                $allowOnDeleted = $deleted->allowances_after !== null
+                    ? (float) $deleted->allowances_after
+                    : (float) $deleted->gross_salary_after - (float) $deleted->basic_salary_after;
+                $newBasic = max(0, round((float) $deleted->basic_salary_after - $db, 2));
+                $newAllowances = max(0, round($allowOnDeleted - $da, 2));
+                $this->syncEmployeeSalaryCompliance($employeeId, $newBasic, $newAllowances);
+            }
+
+            return;
+        }
+
+        $first = $rows[0];
+        $useSplitFirst = $first->allowances_after !== null;
+        [$d0b, $d0a] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $first->increment_amount, $useSplitFirst);
+        $allow0 = $first->allowances_after !== null
+            ? (float) $first->allowances_after
+            : (float) $first->gross_salary_after - (float) $first->basic_salary_after;
+        $baseBasic = round((float) $first->basic_salary_after - $d0b, 2);
+        $baseAllow = round($allow0 - $d0a, 2);
+        $runningB = $baseBasic;
+        $runningA = $baseAllow;
+
+        foreach ($rows as $r) {
+            $useSplit = $r->allowances_after !== null;
+            [$db, $da] = PayrollCalculationService::incrementAmountToBasicAndAllowances((float) $r->increment_amount, $useSplit);
+            $runningB = round($runningB + $db, 2);
+            $runningA = round($runningA + $da, 2);
+            $payload = [
+                'basic_salary_after' => $runningB,
+                'gross_salary_after' => round($runningB + $runningA, 2),
+            ];
+            if ($r->allowances_after !== null) {
+                $payload['allowances_after'] = $runningA;
+            }
+            $r->update($payload);
+        }
+
+        $this->syncEmployeeSalaryCompliance($employeeId, $runningB, $runningA);
+    }
+
+    /**
+     * Persist current basic and allowances on the employee salary compliance record.
+     */
+    protected function syncEmployeeSalaryCompliance(int $employeeId, float $newBasic, float $newAllowances): void
+    {
         $salary = EmployeeSalaryLegalCompliance::where('employee_id', $employeeId)->first();
         if ($salary) {
-            $salary->update(['basic_salary' => $newBasic]);
+            $salary->update([
+                'basic_salary' => $newBasic,
+                'allowances' => $newAllowances,
+            ]);
         } else {
             EmployeeSalaryLegalCompliance::create([
                 'employee_id' => $employeeId,
                 'basic_salary' => $newBasic,
-                'allowances' => $allowances,
+                'allowances' => $newAllowances,
             ]);
         }
     }

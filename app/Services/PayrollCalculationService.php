@@ -201,4 +201,34 @@ class PayrollCalculationService
         $m = (int) ($parts[1] ?? 0);
         return $h + ($m / 60);
     }
+
+    /**
+     * Split a gross increment/decrement between basic (60%) and allowances (40%).
+     * Remainder from rounding goes to allowances so basic + allowances equals $incrementAmount.
+     *
+     * @return array{0: float, 1: float} [to_basic, to_allowances]
+     */
+    public static function splitIncrementBetweenBasicAndAllowances(float $incrementAmount): array
+    {
+        $toBasic = round($incrementAmount * 0.6, 2);
+        $toAllowances = round($incrementAmount - $toBasic, 2);
+
+        return [$toBasic, $toAllowances];
+    }
+
+    /**
+     * How much of the increment applied to basic vs allowances for a stored increment row.
+     * When $useSplitApportionment is true (allowances_after was persisted), use 60/40.
+     * Legacy rows had the full amount on basic only.
+     *
+     * @return array{0: float, 1: float} [to_basic, to_allowances]
+     */
+    public static function incrementAmountToBasicAndAllowances(float $incrementAmount, bool $useSplitApportionment): array
+    {
+        if ($useSplitApportionment) {
+            return self::splitIncrementBetweenBasicAndAllowances($incrementAmount);
+        }
+
+        return [round($incrementAmount, 2), 0.0];
+    }
 }
