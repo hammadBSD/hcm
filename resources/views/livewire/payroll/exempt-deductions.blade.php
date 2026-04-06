@@ -1,4 +1,6 @@
 <section class="w-full">
+    @include('partials.payroll-heading')
+
     <x-payroll.layout :heading="__('Exempt Deductions')" :subheading="__('Manage deduction exemptions by month for departments, roles, groups, or employees')">
         <div class="space-y-6 w-full max-w-none">
             @if(session('success'))
