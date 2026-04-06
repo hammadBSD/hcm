@@ -11,8 +11,12 @@ class DeductionExemption extends Model
 {
     use SoftDeletes;
 
+    public const DURATION_MONTHLY = 'monthly';
+    public const DURATION_YEARLY = 'yearly';
+
     protected $fillable = [
         'year_month',
+        'duration',
         'scope_type',
         'department_id',
         'role_id',

@@ -68,6 +68,7 @@
                             <option value="inactive">{{ __('Inactive') }}</option>
                             <option value="on-leave">{{ __('On Leave') }}</option>
                             <option value="terminated">{{ __('Terminated') }}</option>
+                            <option value="resigned">{{ __('Resigned') }}</option>
                         </flux:select>
                     </flux:field>
                 </div>
@@ -274,6 +275,7 @@
                                     <option value="inactive">{{ __('Inactive') }}</option>
                                     <option value="on-leave">{{ __('On Leave') }}</option>
                                     <option value="terminated">{{ __('Terminated') }}</option>
+                                    <option value="resigned">{{ __('Resigned') }}</option>
                                 </flux:select>
                             </flux:field>
                         </div>

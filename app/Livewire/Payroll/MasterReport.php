@@ -336,7 +336,18 @@ class MasterReport extends Component
      */
     protected function getDeductionExemptionMap(string $yearMonth, \Illuminate\Support\Collection $employees): array
     {
-        $exemptions = DeductionExemption::with(['role', 'department'])->where('year_month', $yearMonth)->get();
+        $reportYear = substr($yearMonth, 0, 4);
+        $exemptions = DeductionExemption::with(['role', 'department'])
+            ->where(function ($q) use ($yearMonth, $reportYear) {
+                $q->where(function ($q1) use ($yearMonth) {
+                    $q1->where('duration', DeductionExemption::DURATION_MONTHLY)
+                        ->where('year_month', $yearMonth);
+                })->orWhere(function ($q2) use ($reportYear) {
+                    $q2->where('duration', DeductionExemption::DURATION_YEARLY)
+                        ->where('year_month', 'like', $reportYear . '-%');
+                });
+            })
+            ->get();
         $map = [];
         foreach ($employees as $e) {
             $map[$e->id] = ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];

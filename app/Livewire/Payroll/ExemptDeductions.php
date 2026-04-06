@@ -24,6 +24,7 @@ class ExemptDeductions extends Component
         'role_id' => null,
         'user_id' => null,
         'group_id' => null,
+        'duration' => DeductionExemption::DURATION_MONTHLY,
         'year_month' => '',
         'exemption_type' => 'all',
         'notes' => '',
@@ -40,6 +41,7 @@ class ExemptDeductions extends Component
         'form.role_id' => 'required_if:form.scope_type,role|nullable|exists:roles,id',
         'form.user_id' => 'required_if:form.scope_type,user|nullable|exists:users,id',
         'form.group_id' => 'required_if:form.scope_type,group|nullable|exists:groups,id',
+        'form.duration' => 'required|in:monthly,yearly',
         'form.year_month' => 'required|date_format:Y-m',
         'form.exemption_type' => 'required|in:absent_days,hourly_deduction_short_hours,all',
         'form.notes' => 'nullable|string|max:2000',
@@ -51,6 +53,7 @@ class ExemptDeductions extends Component
         'form.role_id.required_if' => 'Please select a role.',
         'form.user_id.required_if' => 'Please select an employee.',
         'form.group_id.required_if' => 'Please select a group.',
+        'form.duration.required' => 'Please select a duration.',
         'form.year_month.required' => 'Please select year and month.',
         'form.exemption_type.required' => 'Please select an exemption type.',
     ];
@@ -115,6 +118,7 @@ class ExemptDeductions extends Component
             'role_id' => null,
             'user_id' => null,
             'group_id' => null,
+            'duration' => DeductionExemption::DURATION_MONTHLY,
             'year_month' => now()->format('Y-m'),
             'exemption_type' => 'all',
             'notes' => '',
@@ -138,6 +142,9 @@ class ExemptDeductions extends Component
         DB::transaction(function () {
             DeductionExemption::create([
                 'year_month' => $this->form['year_month'],
+                'duration' => $this->form['duration'] === DeductionExemption::DURATION_YEARLY
+                    ? DeductionExemption::DURATION_YEARLY
+                    : DeductionExemption::DURATION_MONTHLY,
                 'scope_type' => $this->form['scope_type'],
                 'department_id' => $this->form['scope_type'] === 'department' && $this->form['department_id'] ? (int) $this->form['department_id'] : null,
                 'role_id' => $this->form['scope_type'] === 'role' && $this->form['role_id'] ? (int) $this->form['role_id'] : null,

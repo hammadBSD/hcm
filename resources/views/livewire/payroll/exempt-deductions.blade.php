@@ -31,6 +31,9 @@
                                     {{ __('Year / Month') }}
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    {{ __('Duration') }}
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                     {{ __('Exemption Type') }}
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -72,7 +75,18 @@
                                             $ym = $exemption->year_month;
                                             $d = \Carbon\Carbon::createFromFormat('Y-m', $ym);
                                         @endphp
-                                        {{ $d->format('F Y') }}
+                                        @if(($exemption->duration ?? 'monthly') === \App\Models\DeductionExemption::DURATION_YEARLY)
+                                            {{ $d->format('Y') }} <span class="text-zinc-500 dark:text-zinc-400">— {{ __('Full calendar year') }}</span>
+                                        @else
+                                            {{ $d->format('F Y') }}
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
+                                        @if(($exemption->duration ?? 'monthly') === \App\Models\DeductionExemption::DURATION_YEARLY)
+                                            <flux:badge color="purple" size="sm">{{ __('Yearly') }}</flux:badge>
+                                        @else
+                                            <flux:badge color="zinc" size="sm">{{ __('Monthly') }}</flux:badge>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
                                         {{ \App\Models\DeductionExemption::EXEMPTION_TYPES[$exemption->exemption_type] ?? $exemption->exemption_type }}
@@ -103,7 +117,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-6 py-12 text-center">
+                                    <td colspan="8" class="px-6 py-12 text-center">
                                         <flux:icon name="document-text" class="mx-auto h-12 w-12 text-zinc-400" />
                                         <flux:heading size="sm" class="mt-2 text-zinc-500 dark:text-zinc-400">
                                             {{ __('No exemption deductions found') }}
@@ -133,7 +147,7 @@
             <div class="px-6 pt-6 pb-4 border-b border-zinc-200 dark:border-zinc-700">
                 <flux:heading size="lg">{{ __('Create Exempt Deduction') }}</flux:heading>
                 <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
-                    {{ __('Create a deduction exemption for a month for all employees, a department, role, group, or specific employees.') }}
+                    {{ __('Create a deduction exemption for all employees, a department, role, group, or specific employees. Choose monthly (single month) or yearly (entire calendar year).') }}
                 </flux:text>
             </div>
 
@@ -204,10 +218,38 @@
                         </flux:field>
                     @endif
 
+                    <!-- Duration -->
+                    <flux:field>
+                        <flux:label>{{ __('Duration') }} <span class="text-red-500">*</span></flux:label>
+                        <flux:select wire:model.live="form.duration">
+                            <option value="monthly">{{ __('Monthly') }}</option>
+                            <option value="yearly">{{ __('Yearly') }}</option>
+                        </flux:select>
+                        <flux:description>
+                            @if(($form['duration'] ?? 'monthly') === 'yearly')
+                                {{ __('Applies to every payroll month in the calendar year of the date you select below.') }}
+                            @else
+                                {{ __('Applies only to the single month you select below.') }}
+                            @endif
+                        </flux:description>
+                        <flux:error name="form.duration" />
+                    </flux:field>
+
                     <!-- Year / Month -->
                     <flux:field>
-                        <flux:label>{{ __('Year / Month') }} <span class="text-red-500">*</span></flux:label>
+                        <flux:label>
+                            @if(($form['duration'] ?? 'monthly') === 'yearly')
+                                {{ __('Year / reference month') }} <span class="text-red-500">*</span>
+                            @else
+                                {{ __('Year / Month') }} <span class="text-red-500">*</span>
+                            @endif
+                        </flux:label>
                         <flux:input wire:model="form.year_month" type="month" />
+                        <flux:description>
+                            @if(($form['duration'] ?? 'monthly') === 'yearly')
+                                {{ __('Pick any month in the target year; the exemption covers January–December of that year.') }}
+                            @endif
+                        </flux:description>
                         <flux:error name="form.year_month" />
                     </flux:field>
 

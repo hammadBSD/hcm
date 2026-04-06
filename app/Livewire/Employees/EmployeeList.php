@@ -400,9 +400,19 @@ class EmployeeList extends Component
             $query->where('users.department', $this->filterDepartment);
         }
 
-        // Apply status filter - use employees table status
+        // Apply status filter — employees.status, except "resigned" (organizational employee_status)
         if ($this->filterStatus) {
-            $query->where('employees.status', $this->filterStatus);
+            if ($this->filterStatus === 'resigned') {
+                $query->where(function ($q) {
+                    $q->whereHas('employee.organizationalInfo', function ($oq) {
+                        $oq->whereRaw('LOWER(TRIM(COALESCE(employee_organizational_info.employee_status, ""))) = ?', ['resigned']);
+                    })->orWhereHas('employee.employmentStatus', function ($eq) {
+                        $eq->whereRaw('LOWER(TRIM(COALESCE(employment_statuses.name, ""))) = ?', ['resigned']);
+                    });
+                });
+            } else {
+                $query->where('employees.status', $this->filterStatus);
+            }
         }
 
         // Apply role filter
