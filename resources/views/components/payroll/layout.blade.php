@@ -190,7 +190,7 @@
                         >
                             <div class="flex items-center">
                                 <flux:icon name="arrow-trending-up" class="w-4 h-4 mr-3" />
-                                {{ __('Increments') }}
+                                {{ __('Increment/Decrement') }}
                             </div>
                         </flux:navlist.item>
                     </div>

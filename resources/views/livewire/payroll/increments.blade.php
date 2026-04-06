@@ -1,7 +1,7 @@
 <section class="w-full">
     @include('partials.payroll-heading')
 
-    <x-payroll.layout :heading="__('Increments')" :subheading="__('View and manage employee increment records')">
+    <x-payroll.layout :heading="__('Increment/Decrement')" :subheading="__('View and manage employee salary increments and decrements')">
         <!-- Search and Filter -->
         <div class="my-6 w-full space-y-4">
             <div class="flex flex-col sm:flex-row gap-4">
@@ -28,7 +28,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <flux:button variant="primary" icon="plus" wire:click="openAddIncrementModal">
-                    {{ __('Add Increment') }}
+                    {{ __('Add increment/decrement') }}
                 </flux:button>
                 <flux:button variant="ghost" size="sm" icon="arrow-path" wire:click="$refresh">
                     {{ __('Refresh') }}
@@ -57,14 +57,16 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Employee') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Type') }}</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('No. of increments') }}</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Increment due date') }}</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Last increment date') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('No. of increment/decrement') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Increment/decrement due date') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Last increment/decrement date') }}</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Gross before') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Basic before') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Increment amount') }}</th>
+                                    {{-- Basic before: hidden from main table only; remove `hidden` class to show again --}}
+                                    <th class="hidden px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Basic before') }}</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Increment/decrement amount') }}</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Gross after') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Basic after') }}</th>
+                                    {{-- Basic after: hidden from main table only; remove `hidden` class to show again --}}
+                                    <th class="hidden px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Basic after') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Updated by') }}</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Updated when') }}</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Actions') }}</th>
@@ -79,8 +81,8 @@
                                         $incAmount = (float) $inc->increment_amount;
                                         $grossAfter = $inc->gross_salary_after !== null ? (float) $inc->gross_salary_after : null;
                                         $basicAfter = $inc->basic_salary_after !== null ? (float) $inc->basic_salary_after : null;
-                                        $grossBefore = ($grossAfter !== null && $incAmount >= 0) ? $grossAfter - $incAmount : null;
-                                        $basicBefore = ($basicAfter !== null && $incAmount >= 0) ? $basicAfter - $incAmount : null;
+                                        $grossBefore = $grossAfter !== null ? $grossAfter - $incAmount : null;
+                                        $basicBefore = $basicAfter !== null ? $basicAfter - $incAmount : null;
                                     @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -108,7 +110,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
                                             {{ $grossBefore !== null ? preg_replace('/\.00$/', '', number_format($grossBefore, 2, '.', ',')) : '—' }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
+                                        <td class="hidden px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
                                             {{ $basicBefore !== null ? preg_replace('/\.00$/', '', number_format($basicBefore, 2, '.', ',')) : '—' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
@@ -117,7 +119,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
                                             {{ $inc->gross_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->gross_salary_after, 2, '.', ',')) : '—' }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
+                                        <td class="hidden px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">
                                             {{ $inc->basic_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->basic_salary_after, 2, '.', ',')) : '—' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
@@ -140,7 +142,7 @@
                                                     <flux:menu.item icon="pencil" wire:click="editIncrement({{ $inc->id }})">
                                                         {{ __('Edit') }}
                                                     </flux:menu.item>
-                                                    <flux:menu.item icon="trash" wire:click="deleteIncrement({{ $inc->id }})" wire:confirm="{{ __('Are you sure you want to delete this increment record? This action cannot be undone.') }}" class="text-red-600 dark:text-red-400">
+                                                    <flux:menu.item icon="trash" wire:click="deleteIncrement({{ $inc->id }})" wire:confirm="{{ __('Are you sure you want to delete this increment/decrement record? This action cannot be undone.') }}" class="text-red-600 dark:text-red-400">
                                                         {{ __('Delete') }}
                                                     </flux:menu.item>
                                                 </flux:menu>
@@ -164,10 +166,10 @@
                         <flux:icon name="arrow-trending-up" class="w-6 h-6 text-zinc-400" />
                     </div>
                     <flux:heading size="lg" level="3" class="text-zinc-600 dark:text-zinc-400">
-                        {{ __('No increment records found') }}
+                        {{ __('No increment/decrement records found') }}
                     </flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-500">
-                        {{ __('No employee increment records match your search.') }}
+                        {{ __('No employee increment/decrement records match your search.') }}
                     </flux:text>
                 </div>
             @endif
@@ -178,8 +180,8 @@
             <flux:modal variant="flyout" :open="$showAddIncrementModal" wire:model="showAddIncrementModal" class="w-[32rem] lg:w-[36rem]">
                 <div class="space-y-6">
                     <div>
-                        <flux:heading size="lg">{{ __('Add Increment') }}</flux:heading>
-                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Record a new salary increment for an employee') }}</flux:text>
+                        <flux:heading size="lg">{{ __('Add increment/decrement') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Record a new salary increment or decrement for an employee') }}</flux:text>
                     </div>
 
                     <div class="space-y-4">
@@ -195,7 +197,7 @@
 
                         <flux:field>
                             <flux:checkbox wire:model.live="forHistory" :label="__('For history / reporting only')" />
-                            <flux:description>{{ __('Check to record a past increment without changing the employee’s current gross or basic salary. Use for maintaining increment history only.') }}</flux:description>
+                            <flux:description>{{ __('Check to record a past increment or decrement without changing the employee’s current gross or basic salary. Use for maintaining history only.') }}</flux:description>
                         </flux:field>
 
                         @if($selectedEmployeeId)
@@ -208,18 +210,18 @@
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format((float) $employeeBasicSalary, 2, '.', ',')) }}</div>
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('Allowances') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format((float) $employeeAllowances, 2, '.', ',')) }}</div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Last Increment') }}:</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Last increment/decrement') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $lastIncrementAmount !== '' ? preg_replace('/\.00$/', '', number_format((float) $lastIncrementAmount, 2, '.', ',')) : '—' }}</div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Last Increment Date') }}:</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Last increment/decrement date') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $lastIncrementDate ? \Carbon\Carbon::parse($lastIncrementDate)->format('M d, Y') : '—' }}</div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Time Since Last Increment') }}:</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">{{ __('Time since last increment/decrement') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $timeSinceLastIncrement ?? '—' }}</div>
                                 </div>
                             </div>
                         @endif
 
                         <flux:field>
-                            <flux:label>{{ __('Increment date') }}</flux:label>
+                            <flux:label>{{ __('Increment/decrement date') }}</flux:label>
                             @if($forHistory)
                                 <flux:input type="date" wire:model="incrementEffectiveDate" max="{{ $this->maxIncrementDateForHistory }}" />
                             @else
@@ -229,19 +231,20 @@
                                 @if($forHistory)
                                     {{ __('For history-only, date must be before the current month (max :date).', ['date' => \Carbon\Carbon::parse($this->maxIncrementDateForHistory)->format('M d, Y')]) }}
                                 @else
-                                    {{ __('From this date onwards the increment will be applied.') }}
+                                    {{ __('From this date onwards the increment or decrement will be applied.') }}
                                 @endif
                             </flux:description>
                         </flux:field>
 
                         <flux:field>
-                            <flux:label>{{ __('Increment Amount') }}</flux:label>
-                            <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model.live="incrementAmount" />
+                            <flux:label>{{ __('Increment/decrement amount') }}</flux:label>
+                            <flux:input type="number" step="0.01" placeholder="0.00" wire:model.live="incrementAmount" />
+                            <flux:description>{{ __('Enter a positive amount for an increase, or a negative amount for a decrease.') }}</flux:description>
                         </flux:field>
 
-                        @if((float) $incrementAmount > 0 && !$forHistory)
+                        @if(abs((float) $incrementAmount) > 0.00001 && !$forHistory)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
-                                <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected Salary After Increment') }}</flux:heading>
+                                <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected salary after change') }}</flux:heading>
                                 <div class="grid grid-cols-2 gap-2 text-sm">
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Basic Salary') }}:</div>
                                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewBasic, 2, '.', ',')) }}</div>
@@ -258,8 +261,8 @@
 
                     <div class="flex justify-end gap-3 pt-4">
                         <flux:button variant="ghost" wire:click="closeAddIncrementModal">{{ __('Cancel') }}</flux:button>
-                        <flux:button variant="primary" wire:click="addIncrement" :disabled="!$selectedEmployeeId || (float) $incrementAmount <= 0">
-                            {{ __('Save Increment') }}
+                        <flux:button variant="primary" wire:click="addIncrement" :disabled="!$selectedEmployeeId || abs((float) $incrementAmount) < 0.00001">
+                            {{ __('Save increment/decrement') }}
                         </flux:button>
                     </div>
                 </div>
@@ -272,23 +275,23 @@
             <flux:modal variant="flyout" :open="$showViewIncrementModal" wire:model="showViewIncrementModal" class="w-[32rem] lg:w-[36rem]">
                 <div class="space-y-6">
                     <div>
-                        <flux:heading size="lg">{{ __('Increment Details') }}</flux:heading>
+                        <flux:heading size="lg">{{ __('Increment/decrement details') }}</flux:heading>
                         <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ $emp ? trim($emp->first_name . ' ' . $emp->last_name) . ' (' . ($emp->employee_code ?? '') . ')' : '—' }}</flux:text>
                     </div>
                     <div class="space-y-3 text-sm">
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('No. of increments') }}</span><span class="font-medium">{{ $inc->number_of_increments }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment due date') }}</span><span class="font-medium">{{ $inc->increment_due_date ? $inc->increment_due_date->format('M d, Y') : '—' }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Last increment date') }}</span><span class="font-medium">{{ $inc->last_increment_date ? $inc->last_increment_date->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('No. of increment/decrement') }}</span><span class="font-medium">{{ $inc->number_of_increments }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment/decrement due date') }}</span><span class="font-medium">{{ $inc->increment_due_date ? $inc->increment_due_date->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Last increment/decrement date') }}</span><span class="font-medium">{{ $inc->last_increment_date ? $inc->last_increment_date->format('M d, Y') : '—' }}</span></div>
                         @php
                             $viewGrossAfter = $inc->gross_salary_after !== null ? (float) $inc->gross_salary_after : null;
                             $viewBasicAfter = $inc->basic_salary_after !== null ? (float) $inc->basic_salary_after : null;
                             $viewIncAmt = (float) $inc->increment_amount;
-                            $viewGrossBefore = ($viewGrossAfter !== null && $viewIncAmt >= 0) ? $viewGrossAfter - $viewIncAmt : null;
-                            $viewBasicBefore = ($viewBasicAfter !== null && $viewIncAmt >= 0) ? $viewBasicAfter - $viewIncAmt : null;
+                            $viewGrossBefore = $viewGrossAfter !== null ? $viewGrossAfter - $viewIncAmt : null;
+                            $viewBasicBefore = $viewBasicAfter !== null ? $viewBasicAfter - $viewIncAmt : null;
                         @endphp
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Gross before') }}</span><span class="font-medium">{{ $viewGrossBefore !== null ? preg_replace('/\.00$/', '', number_format($viewGrossBefore, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Basic before') }}</span><span class="font-medium">{{ $viewBasicBefore !== null ? preg_replace('/\.00$/', '', number_format($viewBasicBefore, 2, '.', ',')) : '—' }}</span></div>
-                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $inc->increment_amount, 2, '.', ',')) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Increment/decrement amount') }}</span><span class="font-medium">{{ preg_replace('/\.00$/', '', number_format((float) $inc->increment_amount, 2, '.', ',')) }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Gross after') }}</span><span class="font-medium">{{ $inc->gross_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->gross_salary_after, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Basic after') }}</span><span class="font-medium">{{ $inc->basic_salary_after !== null ? preg_replace('/\.00$/', '', number_format((float) $inc->basic_salary_after, 2, '.', ',')) : '—' }}</span></div>
                         <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('For history only') }}</span><span class="font-medium">{{ $inc->for_history ? __('Yes') : __('No') }}</span></div>
@@ -307,8 +310,8 @@
             <flux:modal variant="flyout" :open="$showEditIncrementModal" wire:model="showEditIncrementModal" class="w-[32rem] lg:w-[36rem]">
                 <div class="space-y-6">
                     <div>
-                        <flux:heading size="lg">{{ __('Edit Increment') }}</flux:heading>
-                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Update increment record details') }}</flux:text>
+                        <flux:heading size="lg">{{ __('Edit increment/decrement') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Update increment/decrement record details') }}</flux:text>
                     </div>
                     <div class="space-y-4">
                         <flux:field>
@@ -335,7 +338,7 @@
                             </div>
                         @endif
                         <flux:field>
-                            <flux:label>{{ __('Increment date') }}</flux:label>
+                            <flux:label>{{ __('Increment/decrement date') }}</flux:label>
                             @if($forHistory)
                                 <flux:input type="date" wire:model="incrementEffectiveDate" max="{{ $this->maxIncrementDateForHistory }}" />
                             @else
@@ -345,17 +348,18 @@
                                 @if($forHistory)
                                     {{ __('For history-only, date must be before the current month (max :date).', ['date' => \Carbon\Carbon::parse($this->maxIncrementDateForHistory)->format('M d, Y')]) }}
                                 @else
-                                    {{ __('From this date onwards the increment will be applied.') }}
+                                    {{ __('From this date onwards the increment or decrement will be applied.') }}
                                 @endif
                             </flux:description>
                         </flux:field>
                         <flux:field>
-                            <flux:label>{{ __('Increment Amount') }}</flux:label>
-                            <flux:input type="number" step="0.01" min="0" placeholder="0.00" wire:model.live="incrementAmount" />
+                            <flux:label>{{ __('Increment/decrement amount') }}</flux:label>
+                            <flux:input type="number" step="0.01" placeholder="0.00" wire:model.live="incrementAmount" />
+                            <flux:description>{{ __('Enter a positive amount for an increase, or a negative amount for a decrease.') }}</flux:description>
                         </flux:field>
-                        @if((float) $incrementAmount > 0 && !$forHistory)
+                        @if(abs((float) $incrementAmount) > 0.00001 && !$forHistory)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-4 space-y-2">
-                                <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected Salary After Increment') }}</flux:heading>
+                                <flux:heading size="sm" level="4" class="text-zinc-700 dark:text-zinc-300">{{ __('Projected salary after change') }}</flux:heading>
                                 <div class="grid grid-cols-2 gap-2 text-sm">
                                     <div class="text-zinc-600 dark:text-zinc-400">{{ __('New Basic Salary') }}:</div>
                                     <div class="font-medium">{{ preg_replace('/\.00$/', '', number_format($this->calculatedNewBasic, 2, '.', ',')) }}</div>
@@ -369,8 +373,8 @@
                     </div>
                     <div class="flex justify-end gap-3 pt-4">
                         <flux:button variant="ghost" wire:click="closeEditIncrementModal">{{ __('Cancel') }}</flux:button>
-                        <flux:button variant="primary" wire:click="updateIncrement" :disabled="(float) $incrementAmount <= 0">
-                            {{ __('Update Increment') }}
+                        <flux:button variant="primary" wire:click="updateIncrement" :disabled="abs((float) $incrementAmount) < 0.00001">
+                            {{ __('Update increment/decrement') }}
                         </flux:button>
                     </div>
                 </div>

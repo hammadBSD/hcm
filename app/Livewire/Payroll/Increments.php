@@ -148,11 +148,9 @@ class Increments extends Component
         $amount = (float) ($this->incrementAmount ?? 0);
         $newBasic = $this->employeeBasicSalary + $amount;
         $newGross = $newBasic + $this->employeeAllowances;
-        $taxYear = (int) date('Y');
-        $newTax = PayrollCalculationService::getTaxAmount($newGross, $taxYear);
 
-        $this->grossSalaryAfter = $amount > 0 ? (string) $newGross : '';
-        $this->basicSalaryAfter = $amount > 0 ? (string) $newBasic : '';
+        $this->grossSalaryAfter = $amount != 0.0 ? (string) $newGross : '';
+        $this->basicSalaryAfter = $amount != 0.0 ? (string) $newBasic : '';
     }
 
     public function openAddIncrementModal()
@@ -196,7 +194,7 @@ class Increments extends Component
     {
         $inc = EmployeeIncrement::with('employee.salaryLegalCompliance')->find($id);
         if (!$inc) {
-            session()->flash('error', __('Increment record not found.'));
+            session()->flash('error', __('Increment/decrement record not found.'));
             return;
         }
         $this->selectedIncrementId = $id;
@@ -222,17 +220,17 @@ class Increments extends Component
     {
         $id = (int) $this->selectedIncrementId;
         if ($id <= 0) {
-            session()->flash('error', __('Invalid increment record.'));
+            session()->flash('error', __('Invalid increment/decrement record.'));
             return;
         }
         $inc = EmployeeIncrement::find($id);
         if (!$inc) {
-            session()->flash('error', __('Increment record not found.'));
+            session()->flash('error', __('Increment/decrement record not found.'));
             return;
         }
         $amount = (float) $this->incrementAmount;
-        if ($amount <= 0) {
-            session()->flash('error', __('Please enter a valid increment amount.'));
+        if ($amount == 0.0) {
+            session()->flash('error', __('Please enter a non-zero amount (positive for an increase, negative for a decrease).'));
             return;
         }
 
@@ -240,13 +238,17 @@ class Increments extends Component
         if ($forHistory && $this->incrementEffectiveDate) {
             $maxDate = $this->maxIncrementDateForHistory;
             if ($this->incrementEffectiveDate > $maxDate) {
-                session()->flash('error', __('For history-only increments, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
+                session()->flash('error', __('For history-only records, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
                 return;
             }
         }
 
         $newBasic = $this->employeeBasicSalary + $amount;
         $newGross = $newBasic + $this->employeeAllowances;
+        if ($newBasic < 0 || $newGross < 0) {
+            session()->flash('error', __('The resulting basic or gross salary cannot be negative. Use a smaller decrease.'));
+            return;
+        }
 
         $inc->update([
             'number_of_increments' => (int) $this->numberOfIncrements ?: 1,
@@ -263,7 +265,7 @@ class Increments extends Component
         }
 
         $this->closeEditIncrementModal();
-        session()->flash('message', __('Increment record updated successfully.'));
+        session()->flash('message', __('Increment/decrement record updated successfully.'));
     }
 
     public function deleteIncrement(int $id): void
@@ -271,9 +273,9 @@ class Increments extends Component
         $inc = EmployeeIncrement::find($id);
         if ($inc) {
             $inc->delete();
-            session()->flash('message', __('Increment record deleted successfully.'));
+            session()->flash('message', __('Increment/decrement record deleted successfully.'));
         } else {
-            session()->flash('error', __('Increment record not found.'));
+            session()->flash('error', __('Increment/decrement record not found.'));
         }
     }
 
@@ -286,8 +288,8 @@ class Increments extends Component
         }
 
         $amount = (float) $this->incrementAmount;
-        if ($amount <= 0) {
-            session()->flash('error', __('Please enter a valid increment amount.'));
+        if ($amount == 0.0) {
+            session()->flash('error', __('Please enter a non-zero amount (positive for an increase, negative for a decrease).'));
             return;
         }
 
@@ -295,13 +297,17 @@ class Increments extends Component
         if ($forHistory && $this->incrementEffectiveDate) {
             $maxDate = $this->maxIncrementDateForHistory;
             if ($this->incrementEffectiveDate > $maxDate) {
-                session()->flash('error', __('For history-only increments, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
+                session()->flash('error', __('For history-only records, the date must be before the current month (on or before :date).', ['date' => \Carbon\Carbon::parse($maxDate)->format('M d, Y')]));
                 return;
             }
         }
 
         $newBasic = $this->employeeBasicSalary + $amount;
         $newGross = $newBasic + $this->employeeAllowances;
+        if ($newBasic < 0 || $newGross < 0) {
+            session()->flash('error', __('The resulting basic or gross salary cannot be negative. Use a smaller decrease.'));
+            return;
+        }
 
         EmployeeIncrement::create([
             'employee_id' => $employeeId,
@@ -320,16 +326,20 @@ class Increments extends Component
         }
 
         $this->closeAddIncrementModal();
-        session()->flash('message', $forHistory ? __('Increment history record added.') : __('Increment record added successfully.'));
+        session()->flash('message', $forHistory ? __('Increment/decrement history record added.') : __('Increment/decrement record added successfully.'));
     }
 
     public function getCalculatedTaxAmountProperty(): float
     {
         $amount = (float) ($this->incrementAmount ?? 0);
-        if ($amount <= 0) {
+        if ($amount == 0.0) {
             return 0;
         }
         $newGross = $this->employeeBasicSalary + $amount + $this->employeeAllowances;
+        if ($newGross <= 0) {
+            return 0;
+        }
+
         return PayrollCalculationService::getTaxAmount($newGross, (int) date('Y'));
     }
 
