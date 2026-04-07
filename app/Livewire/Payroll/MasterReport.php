@@ -5,6 +5,7 @@ namespace App\Livewire\Payroll;
 use App\Models\DeductionExemption;
 use App\Models\Employee;
 use App\Models\PayrollNetSalaryAdjustment;
+use App\Models\PayrollTaxAdjustment;
 use App\Services\AttendanceStatsForPayrollService;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
@@ -229,8 +230,9 @@ class MasterReport extends Component
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
         $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
         $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
+        $taxAdjustmentMap = $this->getTaxAdjustmentMap($month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
@@ -300,7 +302,9 @@ class MasterReport extends Component
             $otHrs = 0;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
-            $tax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear, $month);
+            $calculatedTax = PayrollCalculationService::getTaxAmount($grossWithOt, $taxYear, $month);
+            $taxAdjustment = (float) ($taxAdjustmentMap[$employee->id] ?? 0);
+            $taxForDeduction = abs($taxAdjustment) > 0.00001 ? $taxAdjustment : $calculatedTax;
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
             $flags = $exemptionMap[$employee->id] ?? ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
@@ -324,7 +328,7 @@ class MasterReport extends Component
             $eobi = 0;
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
-            $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
+            $totalDeductions = $taxForDeduction + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
             $salaryAdjustment = (float) ($salaryAdjustmentMap[$employee->id] ?? 0);
             $netSalary = $grossWithOt + $bonus - $totalDeductions + $salaryAdjustment;
             $netSalaryAfterAttendance = $grossWithOt + $bonus - $otherDeductions;
@@ -441,8 +445,9 @@ class MasterReport extends Component
                 'epf_er' => $epfEr,
                 'esic_ee' => $esicEe,
                 'esic_er' => $esicEr,
-                'tax' => $tax,
-                'tax_adjustment' => $salaryAdjustment,
+                'tax' => $calculatedTax,
+                'tax_adjustment' => $taxAdjustment,
+                'salary_adjustment' => $salaryAdjustment,
                 'prof_tax' => $profTax,
                 'eobi' => $eobi,
                 'advance' => $advance,
@@ -725,6 +730,26 @@ class MasterReport extends Component
             ->pluck('amount', 'employee_id')
             ->map(fn ($amount) => (float) $amount)
             ->toArray();
+    }
+
+    protected function getTaxAdjustmentMap(string $yearMonth): array
+    {
+        $monthEnd = Carbon::createFromFormat('Y-m', $yearMonth)->endOfMonth();
+        $rows = PayrollTaxAdjustment::query()
+            ->whereDate('effective_from', '<=', $monthEnd)
+            ->orderBy('employee_id')
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get(['employee_id', 'adjusted_tax_amount']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            if (!array_key_exists($row->employee_id, $map)) {
+                $map[$row->employee_id] = (float) $row->adjusted_tax_amount;
+            }
+        }
+
+        return $map;
     }
 
     protected function canAdjustSalaryForCurrentMonth(): bool

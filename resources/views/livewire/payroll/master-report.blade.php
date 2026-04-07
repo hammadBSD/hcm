@@ -364,7 +364,7 @@
                                         <flux:input type="number" step="0.01" wire:model="adjustmentRows.{{ $index }}.amount" placeholder="0.00" />
                                     </flux:field>
                                 </div>
-                                <div class="col-span-1">
+                                <div class="col-span-1 pb-2 flex items-center">
                                     <flux:button variant="ghost" icon="trash" wire:click="removeAdjustmentRow({{ $index }})" />
                                 </div>
                             </div>
