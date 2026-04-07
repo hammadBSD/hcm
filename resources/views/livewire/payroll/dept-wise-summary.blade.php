@@ -3,8 +3,8 @@
 
     <x-payroll.layout :heading="__('Dept-wise Summary')" :subheading="$subheading">
         <div class="space-y-6 w-full" style="max-width: 100%; overflow-x: hidden;">
-            <flux:heading size="lg" class="mb-1">{{ __('Dept-wise Summary') }}</flux:heading>
-            <flux:subheading class="mb-4 text-zinc-500 dark:text-zinc-400">{{ $subheading }}</flux:subheading>
+            <!-- <flux:heading size="lg" class="mb-1">{{ __('Dept-wise Summary') }}</flux:heading>
+            <flux:subheading class="mb-4 text-zinc-500 dark:text-zinc-400">{{ $subheading }}</flux:subheading> -->
 
             @if($hasData)
                 <div class="flex items-center justify-between gap-3 mb-4">

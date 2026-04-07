@@ -17,6 +17,12 @@ class AdvanceSalaryRequest extends Model
         'amount',
         'reason',
         'expected_payback_date',
+        'payback_transaction_type',
+        'payback_months',
+        'payback_mode',
+        'expected_receiving_date',
+        'received_amount',
+        'received_at',
         'status',
         'requested_by',
         'approved_by',
@@ -27,6 +33,10 @@ class AdvanceSalaryRequest extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'expected_payback_date' => 'date',
+        'payback_months' => 'integer',
+        'expected_receiving_date' => 'date',
+        'received_amount' => 'decimal:2',
+        'received_at' => 'datetime',
         'approved_at' => 'datetime',
         'confirmed_at' => 'datetime',
     ];

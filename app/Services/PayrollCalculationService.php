@@ -170,11 +170,42 @@ class PayrollCalculationService
      */
     public static function getAdvanceDeduction(int $employeeId, int $month, int $year): float
     {
-        $total = AdvanceSalaryRequest::where('employee_id', $employeeId)
+        $requests = AdvanceSalaryRequest::where('employee_id', $employeeId)
             ->where('status', AdvanceSalaryRequest::STATUS_APPROVED)
-            ->whereYear('expected_payback_date', $year)
-            ->whereMonth('expected_payback_date', $month)
-            ->sum('amount');
+            ->whereNotNull('expected_payback_date')
+            ->get();
+
+        $targetMonthKey = ($year * 12) + $month;
+        $total = 0.0;
+
+        foreach ($requests as $req) {
+            $type = (string) ($req->payback_transaction_type ?? 'deduct_from_salary');
+            if ($type !== 'deduct_from_salary') {
+                continue;
+            }
+
+            $start = $req->expected_payback_date;
+            if (!$start) {
+                continue;
+            }
+            $startMonthKey = (((int) $start->format('Y')) * 12) + ((int) $start->format('n'));
+            $months = max(1, (int) ($req->payback_months ?? 1));
+            $mode = (string) ($req->payback_mode ?? 'all_at_once');
+            $amount = (float) $req->amount;
+
+            if ($months <= 1 || $mode === 'all_at_once') {
+                if ($targetMonthKey === $startMonthKey) {
+                    $total += $amount;
+                }
+                continue;
+            }
+
+            $endMonthKey = $startMonthKey + $months - 1;
+            if ($targetMonthKey >= $startMonthKey && $targetMonthKey <= $endMonthKey) {
+                $total += ($amount / $months);
+            }
+        }
+
         return round((float) $total, 2);
     }
 

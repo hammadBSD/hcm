@@ -124,6 +124,22 @@
                                         {{ __('Remaining') }}
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button wire:click="sort('loan_date')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Loan Issue Date') }}
+                                            @if($sortBy === 'loan_date')
+                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                            @endif
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button wire:click="sort('created_at')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                            {{ __('Created Date') }}
+                                            @if($sortBy === 'created_at')
+                                                <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                            @endif
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         <button wire:click="sort('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                             {{ __('Status') }}
                                             @if($sortBy === 'status')
@@ -142,7 +158,16 @@
                                         $emp = $loan->employee;
                                         $employeeName = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : '—';
                                         $employeeCode = $emp->employee_code ?? '—';
-                                        $departmentName = $emp && $emp->department ? $emp->department->title : 'N/A';
+                                        $departmentName = 'N/A';
+                                        if ($emp) {
+                                            $deptValue = $emp->department ?? null;
+                                            if (is_object($deptValue)) {
+                                                $departmentName = $deptValue->title ?? 'N/A';
+                                            } elseif (is_string($deptValue) && trim($deptValue) !== '') {
+                                                // Fallback for legacy/string department values.
+                                                $departmentName = $deptValue;
+                                            }
+                                        }
                                     @endphp
                                     <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150">
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -170,17 +195,27 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format((float) $loan->loan_amount, 2) }}
+                                                {{ number_format((float) $loan->loan_amount, 2) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                ${{ number_format((float) $loan->installment_amount, 2) }}
+                                                {{ number_format((float) $loan->installment_amount, 2) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
                                                 {{ $loan->remaining_installments }}/{{ $loan->total_installments }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $loan->loan_date ? $loan->loan_date->format('M d, Y') : '—' }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">
+                                                {{ $loan->created_at ? $loan->created_at->format('M d, Y') : '—' }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -285,6 +320,11 @@
                         </flux:field>
 
                         <flux:field>
+                            <flux:label>{{ __('Loan Issue Date') }}</flux:label>
+                            <flux:input type="date" wire:model="loanDate" />
+                        </flux:field>
+
+                        <flux:field>
                             <flux:label>{{ __('Description') }}</flux:label>
                             <flux:textarea placeholder="{{ __('Enter loan description...') }}" wire:model="loanDescription"></flux:textarea>
                         </flux:field>
@@ -293,6 +333,126 @@
                     <div class="flex justify-end gap-3">
                         <flux:button variant="ghost" wire:click="closeAddLoanModal">{{ __('Cancel') }}</flux:button>
                         <flux:button variant="primary" wire:click="addLoan">{{ __('Add Loan') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        @if($showApproveLoanModal)
+            <flux:modal variant="flyout" :open="$showApproveLoanModal" wire:model="showApproveLoanModal">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Approve Loan') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Set approval date and comments.') }}</flux:text>
+                    </div>
+                    <div class="space-y-4">
+                        <flux:field>
+                            <flux:label>{{ __('Approval Date') }}</flux:label>
+                            <flux:input type="date" wire:model="approvalDate" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>{{ __('Comments') }}</flux:label>
+                            <flux:textarea wire:model="approvalComments" placeholder="{{ __('Optional approval comments...') }}"></flux:textarea>
+                        </flux:field>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <flux:button variant="ghost" wire:click="closeApproveLoanModal">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="primary" wire:click="confirmApproveLoan">{{ __('Approve Loan') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        @if($showRejectLoanModal)
+            <flux:modal variant="flyout" :open="$showRejectLoanModal" wire:model="showRejectLoanModal">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Reject Loan') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Set rejection date and reason/comments.') }}</flux:text>
+                    </div>
+                    <div class="space-y-4">
+                        <flux:field>
+                            <flux:label>{{ __('Rejection Date') }}</flux:label>
+                            <flux:input type="date" wire:model="rejectDate" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>{{ __('Comments') }}</flux:label>
+                            <flux:textarea wire:model="rejectComments" placeholder="{{ __('Reason for rejection...') }}"></flux:textarea>
+                        </flux:field>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <flux:button variant="ghost" wire:click="closeRejectLoanModal">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="danger" wire:click="confirmRejectLoan">{{ __('Reject Loan') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        <!-- View Loan Flyout -->
+        @if($showViewLoanModal && $this->selectedLoan)
+            @php
+                $loan = $this->selectedLoan;
+                $emp = $loan->employee;
+                $employeeName = $emp ? trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')) : '—';
+                $employeeCode = $emp->employee_code ?? '—';
+                $departmentName = 'N/A';
+                if ($emp) {
+                    $deptValue = $emp->department ?? null;
+                    if (is_object($deptValue)) {
+                        $departmentName = $deptValue->title ?? 'N/A';
+                    } elseif (is_string($deptValue) && trim($deptValue) !== '') {
+                        $departmentName = $deptValue;
+                    }
+                }
+                $statusColor = match($loan->status) {
+                    'pending' => 'yellow',
+                    'approved' => 'green',
+                    'completed' => 'blue',
+                    'rejected' => 'red',
+                    default => 'yellow'
+                };
+            @endphp
+            <flux:modal variant="flyout" :open="$showViewLoanModal" wire:model="showViewLoanModal">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Loan Details') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ $employeeName }} ({{ $employeeCode }})
+                        </flux:text>
+                    </div>
+
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Department') }}</span><span class="font-medium">{{ $departmentName }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Loan Type') }}</span><span class="font-medium">{{ $loan->loan_type }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Loan Amount') }}</span><span class="font-medium">{{ number_format((float) $loan->loan_amount, 2) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Installment Amount') }}</span><span class="font-medium">{{ number_format((float) $loan->installment_amount, 2) }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Total Installments') }}</span><span class="font-medium">{{ $loan->total_installments }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Remaining Installments') }}</span><span class="font-medium">{{ $loan->remaining_installments }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Loan Issue Date') }}</span><span class="font-medium">{{ $loan->loan_date ? $loan->loan_date->format('M d, Y') : '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Created Date') }}</span><span class="font-medium">{{ $loan->created_at ? $loan->created_at->format('M d, Y H:i') : '—' }}</span></div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-zinc-600 dark:text-zinc-400">{{ __('Status') }}</span>
+                            <flux:badge color="{{ $statusColor }}" size="sm">{{ ucfirst($loan->status) }}</flux:badge>
+                        </div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Requested By') }}</span><span class="font-medium">{{ $loan->requestedByUser?->name ?? '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Approved By') }}</span><span class="font-medium">{{ $loan->approvedByUser?->name ?? '—' }}</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-600 dark:text-zinc-400">{{ __('Approved At') }}</span><span class="font-medium">{{ $loan->approved_at ? $loan->approved_at->format('M d, Y H:i') : '—' }}</span></div>
+                        <div class="pt-2">
+                            <div class="text-zinc-600 dark:text-zinc-400 mb-1">{{ __('Decision Comments') }}</div>
+                            <div class="rounded-md border border-zinc-200 dark:border-zinc-700 p-3 text-zinc-800 dark:text-zinc-200">
+                                {{ trim((string) ($loan->decision_comments ?? '')) !== '' ? $loan->decision_comments : '—' }}
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                            <div class="text-zinc-600 dark:text-zinc-400 mb-1">{{ __('Description') }}</div>
+                            <div class="rounded-md border border-zinc-200 dark:border-zinc-700 p-3 text-zinc-800 dark:text-zinc-200">
+                                {{ trim((string) $loan->description) !== '' ? $loan->description : '—' }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4">
+                        <flux:button variant="ghost" wire:click="closeViewLoanModal">{{ __('Close') }}</flux:button>
                     </div>
                 </div>
             </flux:modal>

@@ -3,8 +3,8 @@
 
     <x-payroll.layout :heading="__('Master Report')" :subheading="$subheading">
         <div class="space-y-6 w-full" style="max-width: 100%; overflow-x: hidden;">
-            <flux:heading size="lg" class="mb-1">{{ __('Master Report') }}</flux:heading>
-            <flux:subheading class="mb-4 text-zinc-500 dark:text-zinc-400">{{ $subheading }}</flux:subheading>
+            <!-- <flux:heading size="lg" class="mb-1">{{ __('Master Report') }}</flux:heading>
+            <flux:subheading class="mb-4 text-zinc-500 dark:text-zinc-400">{{ $subheading }}</flux:subheading> -->
             @if(session('success'))
                 <flux:callout variant="success" icon="check-circle">
                     {{ session('success') }}
@@ -103,18 +103,18 @@
                         </div>
                         <flux:field class="mb-0 w-40 flex-shrink-0">
                             <flux:label class="sr-only">{{ __('Month') }}</flux:label>
-                            <flux:select
-                                wire:model.live="selectedMonth"
-                                placeholder="{{ $currentMonth }}"
+                        <flux:select
+                            wire:model.live="selectedMonth"
+                            placeholder="{{ $currentMonth }}"
                                 class="w-full max-w-full"
-                                wire:loading.attr="disabled"
-                                wire:target="selectedMonth"
-                            >
-                                <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
-                                @foreach($availableMonths as $month)
-                                    <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
-                                @endforeach
-                            </flux:select>
+                            wire:loading.attr="disabled"
+                            wire:target="selectedMonth"
+                        >
+                            <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
+                            @foreach($availableMonths as $month)
+                                <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
+                            @endforeach
+                        </flux:select>
                         </flux:field>
                     </div>
                 </div>
@@ -300,16 +300,16 @@
                         <div class="flex items-center gap-3">
                             <flux:field class="mb-0 w-40">
                                 <flux:label class="sr-only">{{ __('Month') }}</flux:label>
-                                <flux:select
-                                    wire:model.live="selectedMonth"
-                                    placeholder="{{ $currentMonth }}"
+                            <flux:select
+                                wire:model.live="selectedMonth"
+                                placeholder="{{ $currentMonth }}"
                                     class="w-full max-w-full"
-                                >
-                                    <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
-                                    @foreach($availableMonths as $month)
-                                        <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
-                                    @endforeach
-                                </flux:select>
+                            >
+                                <option value="">{{ \Carbon\Carbon::parse($currentMonth . '-01')->format('F Y') }} ({{ __('Current') }})</option>
+                                @foreach($availableMonths as $month)
+                                    <option value="{{ $month['value'] }}">{{ $month['label'] }}</option>
+                                @endforeach
+                            </flux:select>
                             </flux:field>
                         </div>
                     </div>

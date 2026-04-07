@@ -17,6 +17,10 @@ class LoanManagement extends Component
     public $selectedDepartment = '';
     public $loanStatus = '';
     public $showAddLoanModal = false;
+    public $showViewLoanModal = false;
+    public $showApproveLoanModal = false;
+    public $showRejectLoanModal = false;
+    public $selectedLoanId = null;
     public $sortBy = '';
     public $sortDirection = 'asc';
 
@@ -25,7 +29,12 @@ class LoanManagement extends Component
     public $loanType = 'Personal';
     public $loanAmount = '';
     public $totalInstallments = '12';
+    public $loanDate = '';
     public $loanDescription = '';
+    public $approvalDate = '';
+    public $approvalComments = '';
+    public $rejectDate = '';
+    public $rejectComments = '';
 
     public function mount()
     {
@@ -68,6 +77,7 @@ class LoanManagement extends Component
         $this->loanType = 'Personal';
         $this->loanAmount = '';
         $this->totalInstallments = '12';
+        $this->loanDate = now()->format('Y-m-d');
         $this->loanDescription = '';
         $this->showAddLoanModal = true;
     }
@@ -75,6 +85,7 @@ class LoanManagement extends Component
     public function closeAddLoanModal()
     {
         $this->showAddLoanModal = false;
+        $this->loanDate = '';
     }
 
     public function addLoan()
@@ -84,6 +95,7 @@ class LoanManagement extends Component
         $employeeId = (int) $this->selectedEmployeeId;
         $amount = (float) $this->loanAmount;
         $installments = (int) $this->totalInstallments;
+        $loanDate = trim((string) $this->loanDate);
         if ($employeeId <= 0) {
             session()->flash('error', __('Please select an employee.'));
             return;
@@ -96,6 +108,10 @@ class LoanManagement extends Component
             session()->flash('error', __('Number of installments must be at least 1.'));
             return;
         }
+        if ($loanDate === '') {
+            session()->flash('error', __('Please select a loan issue date.'));
+            return;
+        }
 
         $installmentAmount = round($amount / $installments, 2);
 
@@ -106,6 +122,7 @@ class LoanManagement extends Component
             'installment_amount' => $installmentAmount,
             'total_installments' => $installments,
             'remaining_installments' => $installments,
+            'loan_date' => $loanDate,
             'description' => trim((string) $this->loanDescription),
             'status' => Loan::STATUS_PENDING,
             'requested_by' => Auth::id(),
@@ -119,37 +136,121 @@ class LoanManagement extends Component
     {
         $this->authorizeLoanManagement();
         $loan = Loan::find($id);
-        if ($loan && $loan->isPending()) {
-            $loan->update([
-                'status' => Loan::STATUS_APPROVED,
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-            ]);
-            session()->flash('message', __('Loan approved successfully.'));
-        } else {
+        if (!$loan || !$loan->isPending()) {
             session()->flash('error', __('Loan not found or already processed.'));
+            return;
         }
+
+        $this->selectedLoanId = (int) $id;
+        $this->approvalDate = now()->format('Y-m-d');
+        $this->approvalComments = '';
+        $this->showApproveLoanModal = true;
+    }
+
+    public function closeApproveLoanModal(): void
+    {
+        $this->showApproveLoanModal = false;
+        $this->selectedLoanId = null;
+        $this->approvalDate = '';
+        $this->approvalComments = '';
+    }
+
+    public function confirmApproveLoan(): void
+    {
+        $this->authorizeLoanManagement();
+        $loan = Loan::find($this->selectedLoanId);
+        if (!$loan || !$loan->isPending()) {
+            session()->flash('error', __('Loan not found or already processed.'));
+            $this->closeApproveLoanModal();
+            return;
+        }
+        if (trim((string) $this->approvalDate) === '') {
+            session()->flash('error', __('Please select an approval date.'));
+            return;
+        }
+
+        $loan->update([
+            'status' => Loan::STATUS_APPROVED,
+            'approved_by' => Auth::id(),
+            'approved_at' => $this->approvalDate . ' 00:00:00',
+            'decision_comments' => trim((string) $this->approvalComments),
+        ]);
+        $this->closeApproveLoanModal();
+        session()->flash('message', __('Loan approved successfully.'));
     }
 
     public function rejectLoan($id)
     {
         $this->authorizeLoanManagement();
         $loan = Loan::find($id);
-        if ($loan && $loan->isPending()) {
-            $loan->update([
-                'status' => Loan::STATUS_REJECTED,
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-            ]);
-            session()->flash('message', __('Loan rejected.'));
-        } else {
+        if (!$loan || !$loan->isPending()) {
             session()->flash('error', __('Loan not found or already processed.'));
+            return;
         }
+
+        $this->selectedLoanId = (int) $id;
+        $this->rejectDate = now()->format('Y-m-d');
+        $this->rejectComments = '';
+        $this->showRejectLoanModal = true;
+    }
+
+    public function closeRejectLoanModal(): void
+    {
+        $this->showRejectLoanModal = false;
+        $this->selectedLoanId = null;
+        $this->rejectDate = '';
+        $this->rejectComments = '';
+    }
+
+    public function confirmRejectLoan(): void
+    {
+        $this->authorizeLoanManagement();
+        $loan = Loan::find($this->selectedLoanId);
+        if (!$loan || !$loan->isPending()) {
+            session()->flash('error', __('Loan not found or already processed.'));
+            $this->closeRejectLoanModal();
+            return;
+        }
+        if (trim((string) $this->rejectDate) === '') {
+            session()->flash('error', __('Please select a rejection date.'));
+            return;
+        }
+
+        $loan->update([
+            'status' => Loan::STATUS_REJECTED,
+            'approved_by' => Auth::id(),
+            'approved_at' => $this->rejectDate . ' 00:00:00',
+            'decision_comments' => trim((string) $this->rejectComments),
+        ]);
+        $this->closeRejectLoanModal();
+        session()->flash('message', __('Loan rejected.'));
     }
 
     public function viewLoan($id)
     {
-        session()->flash('message', __('View not implemented for this loan.'));
+        $loan = Loan::find($id);
+        if (!$loan) {
+            session()->flash('error', __('Loan record not found.'));
+            return;
+        }
+
+        $this->selectedLoanId = (int) $id;
+        $this->showViewLoanModal = true;
+    }
+
+    public function closeViewLoanModal(): void
+    {
+        $this->showViewLoanModal = false;
+        $this->selectedLoanId = null;
+    }
+
+    public function getSelectedLoanProperty(): ?Loan
+    {
+        if (!$this->selectedLoanId) {
+            return null;
+        }
+
+        return Loan::with(['employee.department', 'requestedByUser', 'approvedByUser'])->find($this->selectedLoanId);
     }
 
     protected function authorizeLoanRequest(): void
@@ -195,7 +296,7 @@ class LoanManagement extends Component
 
         $sortField = $this->sortBy ?: 'created_at';
         $sortDir = $this->sortDirection === 'asc' ? 'asc' : 'desc';
-        $allowedSort = ['loan_amount', 'installment_amount', 'status', 'created_at', 'loan_type', 'employee_name', 'department'];
+        $allowedSort = ['loan_amount', 'installment_amount', 'status', 'created_at', 'loan_type', 'employee_name', 'department', 'loan_date'];
         if (in_array($sortField, $allowedSort, true)) {
             if ($sortField === 'employee_name') {
                 $query->join('employees', 'loans.employee_id', '=', 'employees.id')

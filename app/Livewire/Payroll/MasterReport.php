@@ -357,7 +357,7 @@ class MasterReport extends Component
                 'bank_name' => $bankName,
                 'account_title' => $accountTitle,
                 'bank_account' => $bankAccount,
-                'deductions_exempted' => ($flags['exempt_absent_days'] || $flags['exempt_short_hours'] || $flags['exempt_all']) ? 'yes' : 'no',
+                'deductions_exempted' => $this->formatDeductionExemptionLabel($flags),
             ];
         })->toArray();
     }
@@ -400,11 +400,27 @@ class MasterReport extends Component
                     $map[$empId]['exempt_absent_days'] = true;
                 } elseif ($type === 'hourly_deduction_short_hours') {
                     $map[$empId]['exempt_short_hours'] = true;
-                    $map[$empId]['exempt_absent_days'] = true;
                 }
             }
         }
         return $map;
+    }
+
+    protected function formatDeductionExemptionLabel(array $flags): string
+    {
+        if (!empty($flags['exempt_all'])) {
+            return 'All';
+        }
+
+        $labels = [];
+        if (!empty($flags['exempt_short_hours'])) {
+            $labels[] = 'Short hours';
+        }
+        if (!empty($flags['exempt_absent_days'])) {
+            $labels[] = 'Absent days';
+        }
+
+        return empty($labels) ? 'No' : implode(', ', $labels);
     }
 
     /**

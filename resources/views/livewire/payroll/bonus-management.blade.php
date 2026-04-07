@@ -152,15 +152,15 @@
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">$5,000.00</div>
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">5,000.00</div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">$500.00</div>
+                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">500.00</div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">$5,500.00</div>
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">5,500.00</div>
                                         </td>
                                         
                                         <td class="px-6 py-6 whitespace-nowrap">
@@ -213,7 +213,7 @@
 
         <!-- Add Bonus Modal -->
         @if($showAddBonusModal)
-            <flux:modal wire:model="showAddBonusModal" name="add-bonus-modal">
+            <flux:modal variant="flyout" :open="$showAddBonusModal" wire:model="showAddBonusModal" name="add-bonus-modal">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">{{ __('Add Bonus') }}</flux:heading>

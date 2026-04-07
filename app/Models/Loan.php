@@ -19,8 +19,10 @@ class Loan extends Model
         'installment_amount',
         'total_installments',
         'remaining_installments',
+        'loan_date',
         'description',
         'status',
+        'decision_comments',
         'requested_by',
         'approved_by',
         'approved_at',
@@ -29,6 +31,7 @@ class Loan extends Model
     protected $casts = [
         'loan_amount' => 'decimal:2',
         'installment_amount' => 'decimal:2',
+        'loan_date' => 'date',
         'approved_at' => 'datetime',
     ];
 
