@@ -94,6 +94,15 @@
                             <span wire:loading.remove wire:target="exportToCsv">{{ __('Export CSV') }}</span>
                             <span wire:loading wire:target="exportToCsv">{{ __('Exporting...') }}</span>
                         </flux:button>
+                        @if($canAdjustSalary)
+                            <flux:button
+                                wire:click="openAdjustSalaryModal"
+                                variant="outline"
+                                icon="adjustments-horizontal"
+                            >
+                                {{ __('Adjust Salary') }}
+                            </flux:button>
+                        @endif
                         <div
                             class="text-zinc-400 dark:text-zinc-500 hidden md:flex items-center justify-center"
                             wire:loading.flex
@@ -319,5 +328,61 @@
                 </div>
             @endif
         </div>
+
+        @if($showAdjustSalaryModal)
+            <flux:modal variant="flyout" :open="$showAdjustSalaryModal" wire:model="showAdjustSalaryModal">
+                <div class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">{{ __('Adjust Salary') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Adjustments for :month', ['month' => \Carbon\Carbon::createFromFormat('Y-m', $selectedMonth ?: $currentMonth)->format('F Y')]) }}
+                        </flux:text>
+                    </div>
+
+                    <div class="space-y-3">
+                        @foreach($adjustmentRows as $index => $row)
+                            <div class="grid grid-cols-12 gap-3 items-end">
+                                <div class="col-span-7">
+                                    <flux:field>
+                                        <flux:label>{{ __('Employee') }}</flux:label>
+                                        <flux:select wire:model="adjustmentRows.{{ $index }}.employee_id">
+                                            <option value="">{{ __('Select Employee') }}</option>
+                                            @foreach($groupedData as $group)
+                                                @foreach($group['employees'] as $item)
+                                                    @php $e = $item['employee']; @endphp
+                                                    <option value="{{ $e->id }}">
+                                                        {{ trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')) }} ({{ $e->employee_code ?? 'N/A' }})
+                                                    </option>
+                                                @endforeach
+                                            @endforeach
+                                        </flux:select>
+                                    </flux:field>
+                                </div>
+                                <div class="col-span-4">
+                                    <flux:field>
+                                        <flux:label>{{ __('Amount (+ / -)') }}</flux:label>
+                                        <flux:input type="number" step="0.01" wire:model="adjustmentRows.{{ $index }}.amount" placeholder="0.00" />
+                                    </flux:field>
+                                </div>
+                                <div class="col-span-1">
+                                    <flux:button variant="ghost" icon="trash" wire:click="removeAdjustmentRow({{ $index }})" />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div>
+                        <flux:button variant="ghost" icon="plus" wire:click="addAdjustmentRow">
+                            {{ __('Add Adjustment') }}
+                        </flux:button>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <flux:button variant="ghost" wire:click="closeAdjustSalaryModal">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="primary" wire:click="saveSalaryAdjustments">{{ __('Save Adjustments') }}</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
     </x-payroll.layout>
 </section>

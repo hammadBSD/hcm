@@ -4,6 +4,7 @@ namespace App\Livewire\Payroll;
 
 use App\Models\DeductionExemption;
 use App\Models\Employee;
+use App\Models\PayrollNetSalaryAdjustment;
 use App\Services\AttendanceStatsForPayrollService;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
@@ -28,6 +29,8 @@ class MasterReport extends Component
     public $availableMonths = [];
 
     public $reportData = [];
+    public $showAdjustSalaryModal = false;
+    public $adjustmentRows = [];
 
     public function mount()
     {
@@ -46,6 +49,99 @@ class MasterReport extends Component
     public function updatedSelectedMonth()
     {
         $this->loadReportData();
+    }
+
+    public function openAdjustSalaryModal(): void
+    {
+        if (!$this->canAdjustSalaryForCurrentMonth()) {
+            session()->flash('error', __('Adjust Salary is available only for January 2026 and February 2026.'));
+            return;
+        }
+
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        $existing = PayrollNetSalaryAdjustment::query()
+            ->where('year_month', $month)
+            ->orderBy('employee_id')
+            ->get(['employee_id', 'amount']);
+
+        $this->adjustmentRows = $existing->map(fn ($r) => [
+            'employee_id' => (string) $r->employee_id,
+            'amount' => (string) ((float) $r->amount),
+        ])->values()->toArray();
+
+        if (empty($this->adjustmentRows)) {
+            $this->adjustmentRows = [['employee_id' => '', 'amount' => '']];
+        }
+
+        $this->showAdjustSalaryModal = true;
+    }
+
+    public function closeAdjustSalaryModal(): void
+    {
+        $this->showAdjustSalaryModal = false;
+    }
+
+    public function addAdjustmentRow(): void
+    {
+        $this->adjustmentRows[] = ['employee_id' => '', 'amount' => ''];
+    }
+
+    public function removeAdjustmentRow(int $index): void
+    {
+        if (!isset($this->adjustmentRows[$index])) {
+            return;
+        }
+        unset($this->adjustmentRows[$index]);
+        $this->adjustmentRows = array_values($this->adjustmentRows);
+        if (empty($this->adjustmentRows)) {
+            $this->adjustmentRows = [['employee_id' => '', 'amount' => '']];
+        }
+    }
+
+    public function saveSalaryAdjustments(): void
+    {
+        if (!$this->canAdjustSalaryForCurrentMonth()) {
+            session()->flash('error', __('Adjust Salary is available only for January 2026 and February 2026.'));
+            return;
+        }
+
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        $validEmployeeIds = collect($this->reportData)->pluck('employee.id')->filter()->map(fn ($v) => (int) $v)->all();
+        $validMap = array_flip($validEmployeeIds);
+
+        $aggregated = [];
+        foreach ($this->adjustmentRows as $row) {
+            $employeeId = (int) ($row['employee_id'] ?? 0);
+            $amount = trim((string) ($row['amount'] ?? ''));
+            if ($employeeId <= 0 || $amount === '' || !is_numeric($amount)) {
+                continue;
+            }
+            if (!isset($validMap[$employeeId])) {
+                continue;
+            }
+            $value = round((float) $amount, 2);
+            if (abs($value) < 0.00001) {
+                continue;
+            }
+            $aggregated[$employeeId] = round(($aggregated[$employeeId] ?? 0) + $value, 2);
+        }
+
+        PayrollNetSalaryAdjustment::query()->where('year_month', $month)->delete();
+        foreach ($aggregated as $employeeId => $amount) {
+            PayrollNetSalaryAdjustment::create([
+                'year_month' => $month,
+                'employee_id' => $employeeId,
+                'amount' => $amount,
+                'created_by' => Auth::id(),
+                'updated_by' => Auth::id(),
+            ]);
+        }
+
+        $this->closeAdjustSalaryModal();
+        $this->loadReportData();
+        session()->flash('success', __('Salary adjustments saved for :month.', [
+            'month' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),
+        ]));
     }
 
     public function buildAvailableMonths(): void
@@ -132,8 +228,9 @@ class MasterReport extends Component
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
         $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
+        $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
@@ -228,7 +325,8 @@ class MasterReport extends Component
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
             $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
-            $netSalary = $grossWithOt + $bonus - $totalDeductions;
+            $salaryAdjustment = (float) ($salaryAdjustmentMap[$employee->id] ?? 0);
+            $netSalary = $grossWithOt + $bonus - $totalDeductions + $salaryAdjustment;
             $netSalaryAfterAttendance = $grossWithOt + $bonus - $otherDeductions;
             $departmentName = $this->getEmployeeDepartmentName($employee);
             $designationName = $this->getEmployeeDesignationName($employee);
@@ -344,7 +442,7 @@ class MasterReport extends Component
                 'esic_ee' => $esicEe,
                 'esic_er' => $esicEr,
                 'tax' => $tax,
-                'tax_adjustment' => 0,
+                'tax_adjustment' => $salaryAdjustment,
                 'prof_tax' => $profTax,
                 'eobi' => $eobi,
                 'advance' => $advance,
@@ -620,6 +718,21 @@ class MasterReport extends Component
         return $data->values()->toArray();
     }
 
+    protected function getSalaryAdjustmentMap(string $yearMonth): array
+    {
+        return PayrollNetSalaryAdjustment::query()
+            ->where('year_month', $yearMonth)
+            ->pluck('amount', 'employee_id')
+            ->map(fn ($amount) => (float) $amount)
+            ->toArray();
+    }
+
+    protected function canAdjustSalaryForCurrentMonth(): bool
+    {
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        return in_array($month, ['2026-01', '2026-02'], true);
+    }
+
     protected function getSortKey(array $row): string
     {
         $key = match ($this->sortBy) {
@@ -743,6 +856,7 @@ class MasterReport extends Component
             'hasData' => $hasData,
             'subheading' => $subheading,
             'grandTotals' => $grandTotals,
+            'canAdjustSalary' => $this->canAdjustSalaryForCurrentMonth(),
         ])->layout('components.layouts.app');
     }
 }
