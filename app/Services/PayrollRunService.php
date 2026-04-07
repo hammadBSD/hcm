@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\PayrollEobiYearlySetting;
 use App\Models\PayrollRun;
 use App\Models\PayrollRunLine;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +42,9 @@ class PayrollRunService
             $gross = $basic + $allowances;
             $tax = PayrollCalculationService::getTaxAmount($gross, $year, $monthYmd);
             $eobi = 0;
+            if ($salary && !empty($salary->eobi_enabled) ) {
+                $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($monthYmd);
+            }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $month, $year);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
 

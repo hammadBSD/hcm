@@ -4,6 +4,7 @@ namespace App\Livewire\Payroll;
 
 use App\Models\DeductionExemption;
 use App\Models\Employee;
+use App\Models\PayrollEobiYearlySetting;
 use App\Models\PayrollNetSalaryAdjustment;
 use App\Models\PayrollTaxAdjustment;
 use App\Services\AttendanceStatsForPayrollService;
@@ -232,7 +233,7 @@ class MasterReport extends Component
         $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
         $taxAdjustmentMap = $this->getTaxAdjustmentMap($month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap ) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
@@ -326,6 +327,9 @@ class MasterReport extends Component
             $esicEr = 0;
             $profTax = 0;
             $eobi = 0;
+            if ($salary && !empty($salary->eobi_enabled) ) {
+                $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($month);
+            }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
             $totalDeductions = $taxForDeduction + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;

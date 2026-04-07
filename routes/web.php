@@ -116,6 +116,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payroll/loan-management', \App\Livewire\Payroll\LoanManagement::class)->name('payroll.loan-management');
     Route::get('payroll/tax-management', \App\Livewire\Payroll\TaxManagement::class)->name('payroll.tax-management');
     Route::get('payroll/tax-adjustment', \App\Livewire\Payroll\TaxAdjustment::class)->name('payroll.tax-adjustment');
+    Route::get('payroll/eobi', \App\Livewire\Payroll\EobiManagement::class)->name('payroll.eobi');
     Route::get('payroll/exempt-deductions', \App\Livewire\Payroll\ExemptDeductions::class)->name('payroll.exempt-deductions');
     Route::get('payroll/increments', \App\Livewire\Payroll\Increments::class)->name('payroll.increments');
     Route::get('payroll/payroll-settings', \App\Livewire\Payroll\PayrollSettings::class)->name('payroll.payroll-settings');

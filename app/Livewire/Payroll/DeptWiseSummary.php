@@ -3,6 +3,7 @@
 namespace App\Livewire\Payroll;
 
 use App\Models\Employee;
+use App\Models\PayrollEobiYearlySetting;
 use App\Services\AttendanceStatsForPayrollService;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
@@ -79,7 +80,7 @@ class DeptWiseSummary extends Component
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee ) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $absent = (int) ($att['absent_days'] ?? 0);
             $workingDays = (int) ($att['working_days'] ?? 0);
@@ -101,6 +102,9 @@ class DeptWiseSummary extends Component
             $esicEr = 0;
             $profTax = 0;
             $eobi = 0;
+            if ($salary && !empty($salary->eobi_enabled) ) {
+                $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($month);
+            }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
             $loan = PayrollCalculationService::getLoanDeduction($employee->id);
             $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;

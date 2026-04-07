@@ -28,6 +28,7 @@ class EmployeeSalaryLegalCompliance extends Model
         'eobi_registration_no',
         'eobi_entry_date',
         'social_security_no',
+        'eobi_enabled',
     ];
 
     protected $casts = [
@@ -35,6 +36,7 @@ class EmployeeSalaryLegalCompliance extends Model
         'allowances' => 'decimal:2',
         'bonus' => 'decimal:2',
         'eobi_entry_date' => 'date',
+        'eobi_enabled' => 'boolean',
     ];
 
     public function employee(): BelongsTo

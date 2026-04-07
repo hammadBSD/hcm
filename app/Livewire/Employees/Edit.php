@@ -128,6 +128,7 @@ class Edit extends Component
     public $eobi_registration_no = '';
     public $eobi_entry_date = '';
     public $social_security_no = '';
+    public $eobi_enabled = false;
 
     public function mount($id)
     {
@@ -254,6 +255,7 @@ class Edit extends Component
             $this->eobi_registration_no = $salary->eobi_registration_no ?? '';
             $this->eobi_entry_date = $salary->eobi_entry_date ? $salary->eobi_entry_date->format('Y-m-d') : '';
             $this->social_security_no = $salary->social_security_no ?? '';
+            $this->eobi_enabled = (bool) ($salary->eobi_enabled ?? false);
         }
     }
 
@@ -540,6 +542,7 @@ class Edit extends Component
                 $salaryInfo->eobi_registration_no = $this->eobi_registration_no ?: null;
                 $salaryInfo->eobi_entry_date = $this->eobi_entry_date ?: null;
                 $salaryInfo->social_security_no = $this->social_security_no ?: null;
+                $salaryInfo->eobi_enabled = (bool) $this->eobi_enabled;
                 $salaryInfo->save();
             });
 

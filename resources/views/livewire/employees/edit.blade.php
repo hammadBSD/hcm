@@ -946,6 +946,15 @@
                         <!-- Legal/Compliance Section -->
                         <div class="space-y-4">
                             <flux:heading size="md">{{ __('Legal/Compliance') }}</flux:heading>
+
+                            <div class="flex flex-wrap -mx-2 mb-2">
+                                <div class="w-full px-2 mb-4">
+                                    <flux:field>
+                                        <flux:checkbox wire:model.live="eobi_enabled" :label="__('Enable EOBI')" />
+                                        <flux:description>{{ __('When enabled, the monthly EOBI amount for the payroll year is deducted in salary reports.') }}</flux:description>
+                                    </flux:field>
+                                </div>
+                            </div>
                             
                             <!-- Legal/Compliance - Row 1 -->
                             <div class="flex flex-wrap -mx-2">
