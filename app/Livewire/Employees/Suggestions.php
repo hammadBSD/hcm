@@ -18,6 +18,9 @@ class Suggestions extends Component
     public $filterPriority = '';
     public $filterStatus = '';
     public $filterMonth = '';
+    public $search = '';
+    public $sortBy = 'created_at';
+    public $sortDirection = 'desc';
 
     // Status change flyout
     public $showStatusFlyout = false;
@@ -44,6 +47,27 @@ class Suggestions extends Component
     public function updatingFilterMonth()
     {
         $this->resetPage();
+    }
+
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function sort(string $field): void
+    {
+        $allowed = ['created_at', 'employee', 'type', 'department', 'priority', 'status', 'updated_at'];
+        if (!in_array($field, $allowed, true)) {
+            return;
+        }
+
+        if ($this->sortBy === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+            return;
+        }
+
+        $this->sortBy = $field;
+        $this->sortDirection = 'asc';
     }
 
     public function openStatusFlyout($suggestionId)
@@ -299,8 +323,7 @@ class Suggestions extends Component
         $user = Auth::user();
         $employee = \App\Models\Employee::where('user_id', $user->id)->first();
 
-        $query = EmployeeSuggestion::with(['employee.user', 'respondedBy', 'statusHistory.changedBy', 'department'])
-            ->orderBy('created_at', 'desc');
+        $query = EmployeeSuggestion::with(['employee.user', 'respondedBy', 'statusHistory.changedBy', 'department']);
 
         // Visibility: Super Admin / view.all = all; view.own_department = own + department's; view.self = own only
         if ($user->hasRole('Super Admin') || $user->can('complaints.view.all')) {
@@ -339,6 +362,46 @@ class Suggestions extends Component
         if ($this->filterMonth) {
             $query->whereYear('created_at', Carbon::parse($this->filterMonth)->year)
                   ->whereMonth('created_at', Carbon::parse($this->filterMonth)->month);
+        }
+
+        if (trim($this->search) !== '') {
+            $term = '%' . trim($this->search) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('message', 'like', $term)
+                    ->orWhere('type', 'like', $term)
+                    ->orWhere('complaint_type', 'like', $term)
+                    ->orWhere('status', 'like', $term)
+                    ->orWhereHas('employee', function ($e) use ($term) {
+                        $e->where('first_name', 'like', $term)
+                            ->orWhere('last_name', 'like', $term);
+                    })
+                    ->orWhereHas('department', function ($d) use ($term) {
+                        $d->where('title', 'like', $term);
+                    });
+            });
+        }
+
+        switch ($this->sortBy) {
+            case 'employee':
+                $query->join('employees', 'employee_suggestions.employee_id', '=', 'employees.id')
+                    ->orderByRaw('CONCAT(employees.first_name, " ", employees.last_name) ' . ($this->sortDirection === 'asc' ? 'asc' : 'desc'))
+                    ->select('employee_suggestions.*');
+                break;
+            case 'department':
+                $query->leftJoin('departments', 'employee_suggestions.department_id', '=', 'departments.id')
+                    ->orderBy('departments.title', $this->sortDirection === 'asc' ? 'asc' : 'desc')
+                    ->select('employee_suggestions.*');
+                break;
+            case 'type':
+            case 'priority':
+            case 'status':
+            case 'created_at':
+            case 'updated_at':
+                $query->orderBy($this->sortBy, $this->sortDirection === 'asc' ? 'asc' : 'desc');
+                break;
+            default:
+                $query->orderBy('created_at', 'desc');
+                break;
         }
 
         $suggestions = $query->paginate(15);

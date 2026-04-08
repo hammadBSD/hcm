@@ -4,7 +4,11 @@
         <div class="space-y-6">
             <!-- Filters -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                <div class="grid gap-4 md:grid-cols-3">
+                <div class="grid gap-4 md:grid-cols-4">
+                    <div>
+                        <flux:label for="search" class="mb-2">{{ __('Search') }}</flux:label>
+                        <flux:input wire:model.live.debounce.300ms="search" id="search" type="text" icon="magnifying-glass" placeholder="{{ __('Search employee, type, status, note...') }}" />
+                    </div>
                     <div>
                         <flux:label for="filterPriority" class="mb-2">{{ __('Priority') }}</flux:label>
                         <flux:select wire:model.live="filterPriority" id="filterPriority" placeholder="{{ __('All Priorities') }}">
@@ -43,14 +47,63 @@
                     <table class="w-full">
                         <thead class="bg-zinc-50 dark:bg-zinc-700">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Date') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Employee') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Type') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('For Dept') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Priority') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('created_at')" class="inline-flex items-center gap-1">
+                                        {{ __('Date') }}
+                                        @if($sortBy === 'created_at')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('employee')" class="inline-flex items-center gap-1">
+                                        {{ __('Employee') }}
+                                        @if($sortBy === 'employee')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('type')" class="inline-flex items-center gap-1">
+                                        {{ __('Type') }}
+                                        @if($sortBy === 'type')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('department')" class="inline-flex items-center gap-1">
+                                        {{ __('For Dept') }}
+                                        @if($sortBy === 'department')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('priority')" class="inline-flex items-center gap-1">
+                                        {{ __('Priority') }}
+                                        @if($sortBy === 'priority')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Note') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Status') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Last Updated') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('status')" class="inline-flex items-center gap-1">
+                                        {{ __('Status') }}
+                                        @if($sortBy === 'status')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button wire:click="sort('updated_at')" class="inline-flex items-center gap-1">
+                                        {{ __('Last Updated') }}
+                                        @if($sortBy === 'updated_at')
+                                            <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                        @endif
+                                    </button>
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
