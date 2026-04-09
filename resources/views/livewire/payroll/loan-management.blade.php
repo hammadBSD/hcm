@@ -641,6 +641,7 @@
                                 <option value="reschedule">{{ __('Reschedule') }}</option>
                                 <option value="freeze">{{ __('Freeze') }}</option>
                                 <option value="topup">{{ __('Topup') }}</option>
+                                <option value="custom_pay">{{ __('Custom Pay') }}</option>
                             </flux:select>
                         </flux:field>
 
@@ -699,6 +700,24 @@
                                         <flux:label>{{ __('Topup Amount') }}</flux:label>
                                         <flux:input type="number" min="0" step="0.01" wire:model.live="scenarioTopupAmount" />
                                     </flux:field>
+                                @endif
+
+                                @if($activeScheduleScenario === 'custom_pay')
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <flux:field>
+                                            <flux:label>{{ __('Custom Pay Amount') }}</flux:label>
+                                            <flux:input type="number" min="0" step="0.01" wire:model.live="scenarioCustomPayAmount" />
+                                        </flux:field>
+                                        <flux:field>
+                                            <flux:label>{{ __('Payment Method') }}</flux:label>
+                                            <flux:select wire:model.live="scenarioCustomPayMethod">
+                                                <option value="salary_deduction">{{ __('Salary Deduction') }}</option>
+                                                <option value="cash">{{ __('Cash') }}</option>
+                                                <option value="bank_transfer">{{ __('Bank Transfer') }}</option>
+                                            </flux:select>
+                                        </flux:field>
+                                    </div>
+                                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Cash/Bank custom pay reduces balance but does not deduct from payroll reports.') }}</flux:text>
                                 @endif
 
                                 <div class="flex justify-end">

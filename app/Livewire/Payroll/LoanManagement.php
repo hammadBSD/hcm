@@ -56,6 +56,8 @@ class LoanManagement extends Component
     public $scenarioFreezeFromMonth = '';
     public $scenarioResumeMonth = '';
     public $scenarioTopupAmount = '';
+    public $scenarioCustomPayAmount = '';
+    public $scenarioCustomPayMethod = 'salary_deduction';
 
     public function mount()
     {
@@ -407,7 +409,7 @@ class LoanManagement extends Component
 
     public function chooseScheduleScenario(string $scenario): void
     {
-        $allowed = ['setoff', 'terminate', 'partial_payback', 'reschedule', 'freeze', 'topup'];
+        $allowed = ['setoff', 'terminate', 'partial_payback', 'reschedule', 'freeze', 'topup', 'custom_pay'];
         if (!in_array($scenario, $allowed, true)) {
             return;
         }
@@ -416,6 +418,10 @@ class LoanManagement extends Component
         if ($scenario === 'freeze') {
             $this->scenarioFreezeFromMonth = now()->format('Y-m');
             $this->scenarioResumeMonth = now()->addMonth()->format('Y-m');
+        }
+        if ($scenario === 'custom_pay') {
+            $this->scenarioCustomPayMethod = 'salary_deduction';
+            $this->scenarioCustomPayAmount = '';
         }
     }
 
@@ -439,6 +445,8 @@ class LoanManagement extends Component
         $this->scenarioFreezeFromMonth = '';
         $this->scenarioResumeMonth = '';
         $this->scenarioTopupAmount = '';
+        $this->scenarioCustomPayAmount = '';
+        $this->scenarioCustomPayMethod = 'salary_deduction';
     }
 
     public function getSelectedLoanProperty(): ?Loan
@@ -544,6 +552,22 @@ class LoanManagement extends Component
                     return;
                 }
                 $payload['topup_amount'] = $topupAmount;
+                break;
+
+            case 'custom_pay':
+                $customAmount = round((float) $this->scenarioCustomPayAmount, 2);
+                $method = trim((string) $this->scenarioCustomPayMethod);
+                $allowedMethods = ['salary_deduction', 'cash', 'bank_transfer'];
+                if ($customAmount <= 0) {
+                    session()->flash('error', __('Custom pay amount must be greater than zero.'));
+                    return;
+                }
+                if (!in_array($method, $allowedMethods, true)) {
+                    session()->flash('error', __('Please select a valid custom pay method.'));
+                    return;
+                }
+                $payload['payback_amount'] = $customAmount;
+                $payload['payment_method'] = $method;
                 break;
         }
 
@@ -750,6 +774,16 @@ class LoanManagement extends Component
                     return __('Topup amount: :amount', ['amount' => number_format((float) $payload['topup_amount'], 2)]);
                 }
                 return '—';
+
+            case 'custom_pay':
+                $amount = isset($payload['payback_amount']) ? number_format((float) $payload['payback_amount'], 2) : '0.00';
+                $method = (string) ($payload['payment_method'] ?? 'salary_deduction');
+                $methodLabel = match ($method) {
+                    'cash' => __('Cash'),
+                    'bank_transfer' => __('Bank transfer'),
+                    default => __('Salary deduction'),
+                };
+                return __('Custom pay: :amount via :method', ['amount' => $amount, 'method' => $methodLabel]);
 
             case 'setoff':
                 return __('Complete setoff');

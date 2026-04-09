@@ -56,11 +56,13 @@ class LoanScenarioService
             $monthKey = $month->format('Y-m');
             $principal = $balance;
             $payback = min($installment, $principal);
+            $deductionPayback = $payback;
             $rowType = 'normal';
             $isFrozenMonth = $this->isMonthInFreezeWindows($monthKey, $freezeWindows);
 
             if ($isFrozenMonth) {
                 $payback = 0.0;
+                $deductionPayback = 0.0;
                 $rowType = 'freeze';
             }
 
@@ -71,6 +73,7 @@ class LoanScenarioService
                         case 'setoff':
                         case 'terminate':
                             $payback = $principal;
+                            $deductionPayback = $payback;
                             $rowType = $action->scenario;
                             $manualFinish = true;
                             break;
@@ -78,6 +81,7 @@ class LoanScenarioService
                         case 'partial_payback':
                             $custom = max(0, round((float) ($payload['payback_amount'] ?? 0), 2));
                             $payback = min($custom, $principal);
+                            $deductionPayback = $payback;
                             $rowType = 'partial_payback';
                             break;
 
@@ -90,11 +94,13 @@ class LoanScenarioService
                                 $installment = round($principal / $months, 2);
                             }
                             $payback = min($installment, $principal);
+                            $deductionPayback = $payback;
                             $rowType = 'reschedule';
                             break;
 
                         case 'freeze':
                             $payback = 0.0;
+                            $deductionPayback = 0.0;
                             $rowType = 'freeze';
                             break;
 
@@ -106,11 +112,21 @@ class LoanScenarioService
                             }
                             $rowType = 'topup';
                             $payback = min($installment, $principal);
+                            $deductionPayback = $payback;
+                            break;
+
+                        case 'custom_pay':
+                            $custom = max(0, round((float) ($payload['payback_amount'] ?? 0), 2));
+                            $method = (string) ($payload['payment_method'] ?? 'salary_deduction');
+                            $payback = min($custom, $principal);
+                            $deductionPayback = $method === 'salary_deduction' ? $payback : 0.0;
+                            $rowType = 'custom_pay';
                             break;
                     }
                 }
             }
             $payback = round(max(0, min($payback, $principal)), 2);
+            $deductionPayback = round(max(0, min($deductionPayback, $payback)), 2);
             $balance = round(max(0, $principal - $payback), 2);
 
             $rows[] = [
@@ -119,6 +135,7 @@ class LoanScenarioService
                 'month_key' => $monthKey,
                 'principle_amount' => $principal,
                 'payback_amount' => $payback,
+                'deduction_payback_amount' => $deductionPayback,
                 'balance' => $balance,
                 'row_type' => $rowType,
                 'display_payback_amount' => $rowType === 'freeze' ? null : $payback,
@@ -152,7 +169,7 @@ class LoanScenarioService
         $rows = $this->buildSchedule($loan);
         foreach ($rows as $row) {
             if (($row['month_key'] ?? '') === $monthKey) {
-                return round((float) ($row['payback_amount'] ?? 0), 2);
+                return round((float) ($row['deduction_payback_amount'] ?? 0), 2);
             }
         }
 
