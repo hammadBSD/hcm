@@ -68,12 +68,23 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                 'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
                 'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
                 'Total Deductions', 'Deductions Exempted', 'Net Pay',
+                'Hold', 'Interbank', 'IBFT', 'Cash', 'Cheque',
                 'Bank Name', 'Account Title', 'Bank Account',
                 'CNIC',
+                'Row Color',
             ];
             foreach ($group['employees'] as $r) {
                 $emp = $r['employee'];
                 $name = trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? ''));
+                $employmentStatusKey = strtolower(trim((string) ($r['employment_status'] ?? '')));
+                $rowColor = '';
+                if (str_contains($employmentStatusKey, 'resign')) {
+                    $rowColor = 'YELLOW';
+                } elseif (str_contains($employmentStatusKey, 'terminat')) {
+                    $rowColor = 'RED';
+                } elseif (str_contains($employmentStatusKey, 'probation')) {
+                    $rowColor = 'GREEN';
+                }
                 $rows[] = [
                     $r['sr_no'] ?? '',
                     $emp->employee_code ?? 'N/A',
@@ -119,10 +130,16 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                     number_format($r['total_deductions'] ?? 0, 2),
                     $r['deductions_exempted'] ?? 'no',
                     number_format($r['net_salary'] ?? 0, 2),
+                    is_numeric($r['transaction_hold'] ?? null) ? number_format((float) $r['transaction_hold'], 2) : '—',
+                    is_numeric($r['transaction_interbank'] ?? null) ? number_format((float) $r['transaction_interbank'], 2) : '—',
+                    is_numeric($r['transaction_ibft'] ?? null) ? number_format((float) $r['transaction_ibft'], 2) : '—',
+                    is_numeric($r['transaction_cash'] ?? null) ? number_format((float) $r['transaction_cash'], 2) : '—',
+                    is_numeric($r['transaction_cheque'] ?? null) ? number_format((float) $r['transaction_cheque'], 2) : '—',
                     $r['bank_name'] ?? '—',
                     $r['account_title'] ?? '—',
                     $r['bank_account'] ?? '—',
                     $r['cnic'] ?? '—',
+                    $rowColor,
                 ];
             }
             $rows[] = [''];
@@ -235,6 +252,25 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '0d9488']]],
                         ]);
                         $sheet->getRowDimension($excelRow)->setRowHeight(24);
+                        continue;
+                    }
+
+                    $statusCell = strtolower(trim((string) $sheet->getCell('I' . $excelRow)->getValue()));
+                    $isEmployeeRow = is_numeric($cellA) && ((string) $sheet->getCell('B' . $excelRow)->getValue()) !== '';
+                    if ($isEmployeeRow) {
+                        $fillColor = 'FFFFFF';
+                        if (str_contains($statusCell, 'resign')) {
+                            $fillColor = 'FEF9C3';
+                        } elseif (str_contains($statusCell, 'terminat')) {
+                            $fillColor = 'FEE2E2';
+                        } elseif (str_contains($statusCell, 'probation')) {
+                            $fillColor = 'DCFCE7';
+                        }
+                        $sheet->getStyle($range)->applyFromArray([
+                            'font' => ['color' => ['rgb' => '000000']],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $fillColor]],
+                            'borders' => ['outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'e2e8f0']]],
+                        ]);
                         continue;
                     }
 

@@ -162,15 +162,17 @@
                                         $hYellow = 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 border-r border-amber-200 dark:border-amber-700';
                                         $hGreen = 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 border-r border-emerald-200 dark:border-emerald-700';
                                         $hBlue = 'bg-sky-100 dark:bg-sky-900/50 text-sky-900 dark:text-sky-100 border-r border-sky-200 dark:border-sky-700';
+                                        $hTransactional = 'bg-[#334155] dark:bg-[#334155] text-white border-r border-[#6f6f5c] dark:border-[#6f6f5c]';
                                         $hViolet = 'bg-violet-100 dark:bg-violet-900/50 text-violet-900 dark:text-violet-100 border-r border-violet-200 dark:border-violet-700';
                                     @endphp
-                                    {{-- Row 1: Employee & Identity (10 inc. Shift) | Increment & Tenure (5) | Attendance | Salary | Bank --}}
+                                    {{-- Row 1: Employee & Identity (10 inc. Shift) | Increment & Tenure (5) | Attendance | Salary | Transactional | Bank --}}
                                     <tr>
                                         <th colspan="10" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGrey }}">{{ __('Employee & Identity') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hYellow }}">{{ __('Increment & Tenure') }}</th>
                                         <th colspan="11" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
                                         <th colspan="18" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
-                                        <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hViolet }}">{{ __('Bank & ID') }}</th>
+                                        <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hTransactional }}">{{ __('Transactional') }}</th>
+                                        <th colspan="4" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hViolet }}">{{ __('Bank & ID') }}</th>
                                     </tr>
                                     {{-- Row 2: Column headers with same 4 colours --}}
                                     <tr>
@@ -222,6 +224,11 @@
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TOTAL DEDUCTIONS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deductions Exempted') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET PAY') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hTransactional }}">{{ __('Hold') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hTransactional }}">{{ __('Interbank') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hTransactional }}">{{ __('IBFT') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hTransactional }}">{{ __('Cash') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hTransactional }}">{{ __('Cheque') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('BANK NAME') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('ACCOUNT TITLE') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hViolet }}">{{ __('BANK ACCOUNT') }}</th>
@@ -235,12 +242,73 @@
                                     </tr> --}}
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    @php
+                                        $sumBasicSalary = 0.0;
+                                        $sumAllowances = 0.0;
+                                        $sumGrossSalary = 0.0;
+                                        $sumHourlyRate = 0.0;
+                                        $sumDailyRate = 0.0;
+                                        $sumHourlyDeductionAmount = 0.0;
+                                        $sumDeductionAbsentDays = 0.0;
+                                        $sumSalaryDeduction = 0.0;
+                                        $sumNetSalary = 0.0;
+                                        $sumBonus = 0.0;
+                                        $sumTax = 0.0;
+                                        $sumTaxAdjustment = 0.0;
+                                        $sumEobi = 0.0;
+                                        $sumAdvance = 0.0;
+                                        $sumLoan = 0.0;
+                                        $sumTotalDeductions = 0.0;
+                                        $sumNetPay = 0.0;
+                                        $sumTransactionHold = 0.0;
+                                        $sumTransactionInterbank = 0.0;
+                                        $sumTransactionIbft = 0.0;
+                                        $sumTransactionCash = 0.0;
+                                        $sumTransactionCheque = 0.0;
+                                    @endphp
                                     @foreach($group['employees'] as $row)
-                                        @php $emp = $row['employee']; @endphp
-                                        <tr class="hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-150 group">
-                                            <td class="sticky left-0 z-10 bg-white dark:bg-zinc-800 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-600 px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300" style="width: 56px; min-width: 56px; max-width: 56px;">{{ $row['sr_no'] ?? '' }}</td>
-                                            <td class="sticky z-10 bg-white dark:bg-zinc-800 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-600 px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ $emp->employee_code ?? 'N/A' }}</td>
-                                            <td class="sticky z-10 bg-white dark:bg-zinc-800 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-600 px-3 py-3 border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;"><span class="block break-words max-w-full" style="min-width: 0;">{{ trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')) }}</span></td>
+                                        @php
+                                            $emp = $row['employee'];
+                                            $employmentStatusKey = strtolower(trim((string) ($row['employment_status'] ?? '')));
+                                            $rowBgClass = 'bg-white dark:bg-zinc-800';
+                                            $rowHoverClass = 'hover:bg-zinc-100 dark:hover:bg-zinc-600';
+                                            if (str_contains($employmentStatusKey, 'resign')) {
+                                                $rowBgClass = 'bg-yellow-50 dark:bg-yellow-900/20';
+                                                $rowHoverClass = 'hover:bg-yellow-100 dark:hover:bg-yellow-900/30';
+                                            } elseif (str_contains($employmentStatusKey, 'terminat')) {
+                                                $rowBgClass = 'bg-red-50 dark:bg-red-900/20';
+                                                $rowHoverClass = 'hover:bg-red-100 dark:hover:bg-red-900/30';
+                                            } elseif (str_contains($employmentStatusKey, 'probation')) {
+                                                $rowBgClass = 'bg-green-50 dark:bg-green-900/20';
+                                                $rowHoverClass = 'hover:bg-green-100 dark:hover:bg-green-900/30';
+                                            }
+                                            $sumBasicSalary += (float) ($row['basic_salary'] ?? 0);
+                                            $sumAllowances += (float) ($row['allowances'] ?? 0);
+                                            $sumGrossSalary += (float) ($row['gross_salary'] ?? 0);
+                                            $sumHourlyRate += (float) ($row['hourly_rate'] ?? 0);
+                                            $sumDailyRate += (float) ($row['daily_rate'] ?? 0);
+                                            $sumHourlyDeductionAmount += (float) ($row['hourly_deduction_amount'] ?? 0);
+                                            $sumDeductionAbsentDays += (float) ($row['deduction_absent_days'] ?? 0);
+                                            $sumSalaryDeduction += (float) ($row['other_deductions'] ?? 0);
+                                            $sumNetSalary += (float) ($row['net_salary_after_attendance'] ?? 0);
+                                            $sumBonus += (float) ($row['bonus'] ?? 0);
+                                            $sumTax += (float) ($row['tax'] ?? 0);
+                                            $sumTaxAdjustment += (float) ($row['tax_adjustment'] ?? 0);
+                                            $sumEobi += (float) ($row['eobi'] ?? 0);
+                                            $sumAdvance += (float) ($row['advance'] ?? 0);
+                                            $sumLoan += (float) ($row['loan'] ?? 0);
+                                            $sumTotalDeductions += (float) ($row['total_deductions'] ?? 0);
+                                            $sumNetPay += (float) ($row['net_salary'] ?? 0);
+                                            $sumTransactionHold += is_numeric($row['transaction_hold'] ?? null) ? (float) $row['transaction_hold'] : 0.0;
+                                            $sumTransactionInterbank += is_numeric($row['transaction_interbank'] ?? null) ? (float) $row['transaction_interbank'] : 0.0;
+                                            $sumTransactionIbft += is_numeric($row['transaction_ibft'] ?? null) ? (float) $row['transaction_ibft'] : 0.0;
+                                            $sumTransactionCash += is_numeric($row['transaction_cash'] ?? null) ? (float) $row['transaction_cash'] : 0.0;
+                                            $sumTransactionCheque += is_numeric($row['transaction_cheque'] ?? null) ? (float) $row['transaction_cheque'] : 0.0;
+                                        @endphp
+                                        <tr class="{{ $rowBgClass }} {{ $rowHoverClass }} transition-colors duration-150 group">
+                                            <td class="sticky left-0 z-10 {{ $rowBgClass }} px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300" style="width: 56px; min-width: 56px; max-width: 56px;">{{ $row['sr_no'] ?? '' }}</td>
+                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ $emp->employee_code ?? 'N/A' }}</td>
+                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;"><span class="block break-words max-w-full" style="min-width: 0;">{{ trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')) }}</span></td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">{{ $row['department'] }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">{{ $row['designation'] }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['reporting_manager'] ?? '—' }}</td>
@@ -284,12 +352,72 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['total_deductions'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['deductions_exempted'] ?? 'no' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right font-medium text-blue-600 dark:text-blue-400">{{ $fmtNum($row['net_salary'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ is_numeric($row['transaction_hold'] ?? null) ? $fmtNum($row['transaction_hold']) : '—' }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ is_numeric($row['transaction_interbank'] ?? null) ? $fmtNum($row['transaction_interbank']) : '—' }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ is_numeric($row['transaction_ibft'] ?? null) ? $fmtNum($row['transaction_ibft']) : '—' }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ is_numeric($row['transaction_cash'] ?? null) ? $fmtNum($row['transaction_cash']) : '—' }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ is_numeric($row['transaction_cheque'] ?? null) ? $fmtNum($row['transaction_cheque']) : '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['bank_name'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['account_title'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['bank_account'] ?? '—' }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['cnic'] ?? '—' }}</td>
                                         </tr>
                                     @endforeach
+                                    <tr class="bg-zinc-200 dark:bg-zinc-700 font-bold">
+                                        <td class="sticky left-0 z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 whitespace-nowrap border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100">{{ __('TOTAL') }}</td>
+                                        <td class="sticky z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 whitespace-nowrap border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100" style="left: 56px;"></td>
+                                        <td class="sticky z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100" style="left: 152px;"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumBasicSalary) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumAllowances) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumGrossSalary) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumHourlyRate) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumDailyRate) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumHourlyDeductionAmount) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumDeductionAbsentDays) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumSalaryDeduction) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumNetSalary) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumBonus) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumTax) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumTaxAdjustment) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumEobi) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumAdvance) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumLoan) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumTotalDeductions) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">—</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumNetPay) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumTransactionHold > 0 ? $fmtNum($sumTransactionHold) : '—' }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumTransactionInterbank > 0 ? $fmtNum($sumTransactionInterbank) : '—' }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumTransactionIbft > 0 ? $fmtNum($sumTransactionIbft) : '—' }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumTransactionCash > 0 ? $fmtNum($sumTransactionCash) : '—' }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumTransactionCheque > 0 ? $fmtNum($sumTransactionCheque) : '—' }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>

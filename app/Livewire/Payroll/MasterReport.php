@@ -348,6 +348,27 @@ class MasterReport extends Component
             $bankName = $salary ? (trim((string) ($salary->bank ?? '')) ?: '—') : '—';
             $bankAccount = $salary ? (trim((string) ($salary->bank_account ?? '')) ?: '—') : '—';
             $accountTitle = $salary ? (trim((string) ($salary->account_title ?? '')) ?: '—') : '—';
+            $transactionType = $salary ? strtolower(trim((string) ($salary->transaction_type ?? ''))) : '';
+            $transactionAllowed = ['interbank', 'ibft', 'cash', 'cheque'];
+            if (!in_array($transactionType, $transactionAllowed, true)) {
+                $transactionType = '';
+            }
+
+            $transactionHold = '—';
+            $transactionInterbank = '—';
+            $transactionIbft = '—';
+            $transactionCash = '—';
+            $transactionCheque = '—';
+            $netPayForTransaction = round((float) $netSalary, 2);
+            if ($transactionType === 'interbank') {
+                $transactionInterbank = $netPayForTransaction;
+            } elseif ($transactionType === 'ibft') {
+                $transactionIbft = $netPayForTransaction;
+            } elseif ($transactionType === 'cash') {
+                $transactionCash = $netPayForTransaction;
+            } elseif ($transactionType === 'cheque') {
+                $transactionCheque = $netPayForTransaction;
+            }
 
             $latestIncrement = $employee->increments
                 ->where('for_history', false)
@@ -464,6 +485,12 @@ class MasterReport extends Component
                 'bank_name' => $bankName,
                 'account_title' => $accountTitle,
                 'bank_account' => $bankAccount,
+                'transaction_type' => $transactionType ?: '',
+                'transaction_hold' => $transactionHold,
+                'transaction_interbank' => $transactionInterbank,
+                'transaction_ibft' => $transactionIbft,
+                'transaction_cash' => $transactionCash,
+                'transaction_cheque' => $transactionCheque,
                 'deductions_exempted' => $this->formatDeductionExemptionLabel($flags),
             ];
         })->toArray();
@@ -591,8 +618,10 @@ class MasterReport extends Component
             'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
             'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
             'Total Deductions', 'Deductions Exempted', 'Net Pay',
+            'Hold', 'Interbank', 'IBFT', 'Cash', 'Cheque',
             'Bank Name', 'Account Title', 'Bank Account',
             'CNIC',
+            'Row Color',
         ];
         return response()->streamDownload(function () use ($data, $headers) {
             $out = fopen('php://output', 'w');
@@ -602,6 +631,15 @@ class MasterReport extends Component
                 $sr++;
                 $emp = $row['employee'];
                 $name = trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? ''));
+                $employmentStatusKey = strtolower(trim((string) ($row['employment_status'] ?? '')));
+                $rowColor = '';
+                if (str_contains($employmentStatusKey, 'resign')) {
+                    $rowColor = 'YELLOW';
+                } elseif (str_contains($employmentStatusKey, 'terminat')) {
+                    $rowColor = 'RED';
+                } elseif (str_contains($employmentStatusKey, 'probation')) {
+                    $rowColor = 'GREEN';
+                }
                 fputcsv($out, [
                     $sr,
                     $emp->employee_code ?? 'N/A',
@@ -647,10 +685,16 @@ class MasterReport extends Component
                     number_format($row['total_deductions'] ?? 0, 2),
                     $row['deductions_exempted'] ?? 'no',
                     number_format($row['net_salary'] ?? 0, 2),
+                    is_numeric($row['transaction_hold'] ?? null) ? number_format((float) $row['transaction_hold'], 2) : '—',
+                    is_numeric($row['transaction_interbank'] ?? null) ? number_format((float) $row['transaction_interbank'], 2) : '—',
+                    is_numeric($row['transaction_ibft'] ?? null) ? number_format((float) $row['transaction_ibft'], 2) : '—',
+                    is_numeric($row['transaction_cash'] ?? null) ? number_format((float) $row['transaction_cash'], 2) : '—',
+                    is_numeric($row['transaction_cheque'] ?? null) ? number_format((float) $row['transaction_cheque'], 2) : '—',
                     $row['bank_name'] ?? '—',
                     $row['account_title'] ?? '—',
                     $row['bank_account'] ?? '—',
                     $row['cnic'] ?? '—',
+                    $rowColor,
                 ]);
             }
             fclose($out);

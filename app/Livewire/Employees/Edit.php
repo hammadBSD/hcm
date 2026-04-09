@@ -123,6 +123,7 @@ class Edit extends Component
     public $account_title = '';
     public $bank = '';
     public $branch_code = '';
+    public $transaction_type = 'interbank';
     public $tax_id = '';
     public $salary_notes = '';
     public $eobi_registration_no = '';
@@ -250,6 +251,7 @@ class Edit extends Component
             $this->account_title = $salary->account_title ?? '';
             $this->bank = $salary->bank ?? '';
             $this->branch_code = $salary->branch_code ?? '';
+            $this->transaction_type = $salary->transaction_type ?: 'interbank';
             $this->tax_id = $salary->tax_id ?? '';
             $this->salary_notes = $salary->salary_notes ?? '';
             $this->eobi_registration_no = $salary->eobi_registration_no ?? '';
@@ -391,6 +393,7 @@ class Edit extends Component
             'reportsTo' => 'nullable|exists:employees,id',
             'shift' => 'nullable|exists:shifts,id',
             'role' => 'nullable|exists:roles,id',
+            'transaction_type' => 'nullable|in:interbank,ibft,cash,cheque',
         ]);
 
         try {
@@ -537,6 +540,7 @@ class Edit extends Component
                 $salaryInfo->account_title = $this->account_title ?: null;
                 $salaryInfo->bank = $this->bank ?: null;
                 $salaryInfo->branch_code = $this->branch_code ?: null;
+                $salaryInfo->transaction_type = $this->transaction_type ?: null;
                 $salaryInfo->tax_id = $this->tax_id ?: null;
                 $salaryInfo->salary_notes = $this->salary_notes ?: null;
                 $salaryInfo->eobi_registration_no = $this->eobi_registration_no ?: null;

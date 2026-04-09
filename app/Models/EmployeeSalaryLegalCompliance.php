@@ -23,6 +23,7 @@ class EmployeeSalaryLegalCompliance extends Model
         'account_title',
         'bank',
         'branch_code',
+        'transaction_type',
         'tax_id',
         'salary_notes',
         'eobi_registration_no',

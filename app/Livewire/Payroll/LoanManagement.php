@@ -841,16 +841,34 @@ class LoanManagement extends Component
         $loans = $query->paginate(15);
         $loanDisplayMap = [];
         $scheduleService = app(LoanScenarioService::class);
+        $currentMonthKey = now()->format('Y-m');
         foreach ($loans as $loan) {
             if (in_array($loan->status, [Loan::STATUS_APPROVED, Loan::STATUS_COMPLETED], true)) {
                 $this->syncLoanComputedState($loan);
                 $rows = $scheduleService->buildSchedule($loan);
+                $totalRows = count($rows);
+
+                $currentBalance = !empty($rows) ? (float) ($rows[0]['principle_amount'] ?? 0) : 0.0;
+                foreach ($rows as $r) {
+                    if (($r['month_key'] ?? '') <= $currentMonthKey) {
+                        $currentBalance = (float) ($r['balance'] ?? $currentBalance);
+                    } else {
+                        break;
+                    }
+                }
+                $currentBalance = round(max(0, $currentBalance), 2);
+
+                $remainingRows = 0;
+                foreach ($rows as $r) {
+                    if (($r['month_key'] ?? '') > $currentMonthKey) {
+                        $remainingRows++;
+                    }
+                }
+
                 $loanDisplayMap[$loan->id] = [
-                    'total_rows' => count($rows),
-                    // Remaining/total in this UI is schedule rows count-based.
-                    // It reflects current configured plan, not payroll-run progress.
-                    'remaining_rows' => count($rows),
-                    'balance' => !empty($rows) ? (float) ($rows[0]['principle_amount'] ?? 0) : 0.0,
+                    'total_rows' => $totalRows,
+                    'remaining_rows' => $remainingRows,
+                    'balance' => $currentBalance,
                 ];
             } else {
                 $loanDisplayMap[$loan->id] = [

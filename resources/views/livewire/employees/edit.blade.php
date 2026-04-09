@@ -925,6 +925,20 @@
                                     <flux:input wire:model="branch_code" placeholder="Branch code" />
                                 </flux:field>
                             </div>
+
+                            <!-- Transaction Type -->
+                            <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
+                                <flux:field>
+                                    <flux:label>{{ __('Transaction Type') }}</flux:label>
+                                    <flux:select wire:model="transaction_type">
+                                        <option value="">{{ __('Select Transaction Type') }}</option>
+                                        <option value="interbank">{{ __('Interbank') }}</option>
+                                        <option value="ibft">{{ __('IBFT') }}</option>
+                                        <option value="cash">{{ __('Cash') }}</option>
+                                        <option value="cheque">{{ __('Cheque') }}</option>
+                                    </flux:select>
+                                </flux:field>
+                            </div>
                         </div>
 
                         <!-- Salary Info - Row 3 -->
