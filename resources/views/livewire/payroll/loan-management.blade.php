@@ -596,21 +596,32 @@
                                         <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Month') }}</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Principle Amount') }}</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Payback Amount') }}</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Status') }}</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{{ __('Balance') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                                     @forelse($rows as $row)
+                                        <?php
+                                            $isPaid = ($row['month_key'] ?? '') <= now()->format('Y-m');
+                                        ?>
                                         <tr>
                                             <td class="px-4 py-2 text-sm text-zinc-800 dark:text-zinc-200">{{ $row['no'] }}</td>
                                             <td class="px-4 py-2 text-sm text-zinc-800 dark:text-zinc-200">{{ $row['month'] }}</td>
                                             <td class="px-4 py-2 text-sm text-right text-zinc-800 dark:text-zinc-200">{{ number_format((float) $row['principle_amount'], 2) }}</td>
                                             <td class="px-4 py-2 text-sm text-right text-zinc-800 dark:text-zinc-200">{{ ($row['display_payback_amount'] ?? null) === null ? '—' : number_format((float) $row['display_payback_amount'], 2) }}</td>
+                                            <td class="px-4 py-2 text-center">
+                                                @if($isPaid)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">{{ __('Paid') }}</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">{{ __('Unpaid') }}</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">{{ ($row['display_balance'] ?? null) === null ? '—' : number_format((float) $row['display_balance'], 2) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="5" class="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('No schedule available.') }}</td>
+                                            <td colspan="6" class="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('No schedule available.') }}</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
