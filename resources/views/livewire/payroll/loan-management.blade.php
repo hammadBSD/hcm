@@ -161,6 +161,7 @@
                                         $emp = $loan->employee;
                                         $employeeName = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : '—';
                                         $employeeCode = $emp->employee_code ?? '—';
+                                        $display = $loanDisplayMap[$loan->id] ?? ['total_rows' => (int) $loan->total_installments, 'remaining_rows' => (int) $loan->remaining_installments, 'balance' => round((float) $loan->installment_amount * (int) $loan->remaining_installments, 2)];
                                         $departmentName = 'N/A';
                                         if ($emp) {
                                             $deptValue = $emp->department ?? null;
@@ -208,12 +209,12 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                {{ number_format((float) $loan->installment_amount * (int) $loan->remaining_installments, 2) }}
+                                                {{ number_format((float) ($display['balance'] ?? 0), 2) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-zinc-900 dark:text-zinc-100">
-                                                {{ $loan->remaining_installments }}/{{ $loan->total_installments }}
+                                                {{ (int) ($display['remaining_rows'] ?? 0) }}/{{ (int) ($display['total_rows'] ?? 0) }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -700,7 +701,7 @@
 
                     @if($this->selectedLoanScenarioHistory->isNotEmpty())
                         <div class="space-y-2">
-                            <flux:heading size="sm">{{ __('Scenario History') }}</flux:heading>
+                            <flux:heading size="sm">{{ __('History') }}</flux:heading>
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                 <div class="overflow-x-auto">
                                     <table class="w-full">

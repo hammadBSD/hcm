@@ -805,9 +805,25 @@ class LoanManagement extends Component
         }
 
         $loans = $query->paginate(15);
+        $loanDisplayMap = [];
+        $scheduleService = app(LoanScenarioService::class);
         foreach ($loans as $loan) {
             if (in_array($loan->status, [Loan::STATUS_APPROVED, Loan::STATUS_COMPLETED], true)) {
                 $this->syncLoanComputedState($loan);
+                $rows = $scheduleService->buildSchedule($loan);
+                $loanDisplayMap[$loan->id] = [
+                    'total_rows' => count($rows),
+                    // Remaining/total in this UI is schedule rows count-based.
+                    // It reflects current configured plan, not payroll-run progress.
+                    'remaining_rows' => count($rows),
+                    'balance' => !empty($rows) ? (float) ($rows[0]['principle_amount'] ?? 0) : 0.0,
+                ];
+            } else {
+                $loanDisplayMap[$loan->id] = [
+                    'total_rows' => (int) $loan->total_installments,
+                    'remaining_rows' => (int) $loan->remaining_installments,
+                    'balance' => round((float) $loan->installment_amount * (int) $loan->remaining_installments, 2),
+                ];
             }
         }
 
@@ -838,6 +854,7 @@ class LoanManagement extends Component
             'statuses' => $statuses,
             'activeEmployees' => $activeEmployees,
             'canDeleteAnyLoan' => $canDeleteAnyLoan,
+            'loanDisplayMap' => $loanDisplayMap,
         ])->layout('components.layouts.app');
     }
 }
