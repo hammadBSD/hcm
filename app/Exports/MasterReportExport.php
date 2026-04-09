@@ -64,7 +64,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
             $rows[] = [
                 'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'Reporting Manager', 'MCS', 'Brands', 'Employment Status',
                 'Shift', 'DOJ', 'Job Duration', 'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
-                'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
+                'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Applied Leaves', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
                 'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
                 'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
                 'Total Deductions', 'Deductions Exempted', 'Net Pay',
@@ -107,6 +107,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                     $r['extra_days'] ?? 0,
                     number_format($r['amount_extra_days'] ?? 0, 2),
                     $r['total_absent_days'] ?? 0,
+                    $r['applied_leaves'] ?? 0,
                     $r['leaves_approved'] ?? 0,
                     $r['leaves_unapproved'] ?? 0,
                     $r['monthly_expected_hours'] ?? '0:00',

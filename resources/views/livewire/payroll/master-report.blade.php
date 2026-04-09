@@ -169,7 +169,7 @@
                                     <tr>
                                         <th colspan="10" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGrey }}">{{ __('Employee & Identity') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hYellow }}">{{ __('Increment & Tenure') }}</th>
-                                        <th colspan="11" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
+                                        <th colspan="12" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
                                         <th colspan="18" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hTransactional }}">{{ __('Transactional') }}</th>
                                         <th colspan="4" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hViolet }}">{{ __('Bank & ID') }}</th>
@@ -191,13 +191,14 @@
                                         <th rowspan="2" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('DATE OF LAST INCREMENT') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('INCREMENT AMOUNT') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hYellow }}">{{ __('# MONTHS SINCE LAST INCREMENT') }}</th>
-                                        {{-- Attendance & Hours: Working Days, Holidays, Present Days, Extra Days, Amount of extra days, Total Absent Days, Leaves (approved), Leaves (Unapproved), Monthly Expected Hours, Total Hours Worked, Short/Excess Hours --}}
+                                        {{-- Attendance & Hours: Working Days, Holidays, Present Days, Extra Days, Amount of extra days, Total Absent Days, Applied Leaves, Leaves (approved), Leaves (Unapproved), Monthly Expected Hours, Total Hours Worked, Short/Excess Hours --}}
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('WORKING DAYS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('HOLIDAYS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('PRESENT DAYS') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Extra Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Amount of extra days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Total Absent Days') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Applied Leaves') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Leaves (approved)') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('Leaves (Unapproved)') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hGreen }}">{{ __('MONTHLY EXPECTED HOURS') }}</th>
@@ -327,6 +328,7 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['extra_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['amount_extra_days'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ ($row['total_absent_days'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $row['total_absent_days'] ?? 0 }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['applied_leaves'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['leaves_approved'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['leaves_unapproved'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-700 dark:text-zinc-300">{{ $row['monthly_expected_hours'] ?? '0:00' }}</td>
@@ -367,6 +369,7 @@
                                         <td class="sticky left-0 z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 whitespace-nowrap border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100">{{ __('TOTAL') }}</td>
                                         <td class="sticky z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 whitespace-nowrap border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100" style="left: 56px;"></td>
                                         <td class="sticky z-10 bg-zinc-200 dark:bg-zinc-700 px-3 py-3 border-r border-zinc-300 dark:border-zinc-600 text-sm text-zinc-900 dark:text-zinc-100" style="left: 152px;"></td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"></td>

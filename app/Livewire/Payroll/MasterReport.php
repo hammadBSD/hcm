@@ -4,6 +4,7 @@ namespace App\Livewire\Payroll;
 
 use App\Models\DeductionExemption;
 use App\Models\Employee;
+use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\PayrollEobiYearlySetting;
 use App\Models\PayrollNetSalaryAdjustment;
 use App\Models\PayrollTaxAdjustment;
@@ -229,12 +230,14 @@ class MasterReport extends Component
         $periodMonth = $month ? (int) substr($month, 5, 2) : (int) date('n');
         $attendanceStatsService = app(AttendanceStatsForPayrollService::class);
         $attendanceStatsByEmployee = $attendanceStatsService->getStatsForEmployeesAndMonth($employees, $month);
+        $appliedLeavesMap = $this->getAppliedLeavesMap($month, $employees);
         $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
         $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
         $taxAdjustmentMap = $this->getTaxAdjustmentMap($month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap ) {
+        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $appliedLeavesMap, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap ) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
+            $appliedLeaves = (float) ($appliedLeavesMap[$employee->id] ?? 0);
             $workingDays = (int) ($att['working_days'] ?? 0);
             $daysPresent = (float) ($att['attended_days'] ?? 0);
             $onLeaveDays = (float) ($att['on_leave_days'] ?? 0);
@@ -453,6 +456,7 @@ class MasterReport extends Component
                 'absent' => $absent,
                 'holiday' => $holiday,
                 'total_absent_days' => $absent + $leavePaid + $leaveUnpaid + $leaveLwp,
+                'applied_leaves' => $appliedLeaves,
                 'leaves_unapproved' => max(0, ($absent + $leavePaid + $leaveUnpaid + $leaveLwp) - $leavePaid),
                 'late_days' => $lateDays,
                 'total_break_time' => $totalBreakTime,
@@ -540,6 +544,65 @@ class MasterReport extends Component
         return $map;
     }
 
+    protected function getAppliedLeavesMap(string $yearMonth, \Illuminate\Support\Collection $employees): array
+    {
+        $employeeIds = $employees->pluck('id')->filter()->values()->all();
+        if (empty($employeeIds)) {
+            return [];
+        }
+
+        $monthStart = Carbon::createFromFormat('Y-m', $yearMonth)->startOfMonth();
+        $monthEnd = Carbon::createFromFormat('Y-m', $yearMonth)->endOfMonth();
+
+        $requests = LeaveRequestModel::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereIn('status', [LeaveRequestModel::STATUS_PENDING, LeaveRequestModel::STATUS_APPROVED])
+            ->whereDate('start_date', '<=', $monthEnd)
+            ->whereDate('end_date', '>=', $monthStart)
+            ->get(['employee_id', 'start_date', 'end_date', 'duration', 'total_days']);
+
+        $map = [];
+        foreach ($requests as $request) {
+            $employeeId = (int) $request->employee_id;
+            if ($employeeId <= 0) {
+                continue;
+            }
+
+            $start = $request->start_date ? $request->start_date->copy()->startOfDay() : null;
+            $end = $request->end_date ? $request->end_date->copy()->startOfDay() : null;
+            if (!$start || !$end) {
+                continue;
+            }
+
+            $rangeStart = $start->lt($monthStart) ? $monthStart->copy() : $start->copy();
+            $rangeEnd = $end->gt($monthEnd) ? $monthEnd->copy() : $end->copy();
+            if ($rangeEnd->lt($rangeStart)) {
+                continue;
+            }
+
+            $days = 0.0;
+            if (in_array((string) $request->duration, ['half_day_morning', 'half_day_afternoon'], true)) {
+                if ($rangeStart->isWeekday() && $rangeStart->equalTo($rangeEnd)) {
+                    $days = 0.5;
+                }
+            } else {
+                $cursor = $rangeStart->copy();
+                while ($cursor->lte($rangeEnd)) {
+                    if ($cursor->isWeekday()) {
+                        $days += 1.0;
+                    }
+                    $cursor->addDay();
+                }
+            }
+
+            if ($days > 0) {
+                $map[$employeeId] = round(($map[$employeeId] ?? 0) + $days, 2);
+            }
+        }
+
+        return $map;
+    }
+
     protected function formatDeductionExemptionLabel(array $flags): string
     {
         if (!empty($flags['exempt_all'])) {
@@ -614,7 +677,7 @@ class MasterReport extends Component
         $headers = [
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'Reporting Manager', 'MCS', 'Brands', 'Employment Status',
             'Shift', 'DOJ', 'Job Duration', 'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
-            'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
+            'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Applied Leaves', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
             'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
             'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
             'Total Deductions', 'Deductions Exempted', 'Net Pay',
@@ -662,6 +725,7 @@ class MasterReport extends Component
                     $row['extra_days'] ?? 0,
                     number_format($row['amount_extra_days'] ?? 0, 2),
                     $row['total_absent_days'] ?? 0,
+                    $row['applied_leaves'] ?? 0,
                     $row['leaves_approved'] ?? 0,
                     $row['leaves_unapproved'] ?? 0,
                     $row['monthly_expected_hours'] ?? '0:00',
