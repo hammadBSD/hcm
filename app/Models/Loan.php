@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Loan extends Model
 {
@@ -20,6 +21,7 @@ class Loan extends Model
         'total_installments',
         'remaining_installments',
         'loan_date',
+        'repayment_start_month',
         'description',
         'status',
         'decision_comments',
@@ -32,6 +34,7 @@ class Loan extends Model
         'loan_amount' => 'decimal:2',
         'installment_amount' => 'decimal:2',
         'loan_date' => 'date',
+        'repayment_start_month' => 'date',
         'approved_at' => 'datetime',
     ];
 
@@ -58,5 +61,10 @@ class Loan extends Model
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    public function scenarioActions(): HasMany
+    {
+        return $this->hasMany(LoanScenarioAction::class)->orderBy('effective_month')->orderBy('id');
     }
 }

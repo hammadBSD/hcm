@@ -46,7 +46,7 @@ class PayrollRunService
                 $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($monthYmd);
             }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $month, $year);
-            $loan = PayrollCalculationService::getLoanDeduction($employee->id);
+            $loan = PayrollCalculationService::getLoanDeduction($employee->id, $periodMonth, $taxYear);
 
             $absentDays = (int) ($att['absent_days'] ?? 0);
             $shortExcessHours = (string) ($att['short_excess_hours'] ?? '0:00');

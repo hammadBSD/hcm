@@ -6,6 +6,7 @@ use App\Models\AdvanceSalaryRequest;
 use App\Models\Loan;
 use App\Models\PayrollSetting;
 use App\Models\Tax;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class PayrollCalculationService
@@ -213,12 +214,17 @@ class PayrollCalculationService
      * Loan deduction for an employee: sum of installment amounts for approved loans
      * that still have remaining installments.
      */
-    public static function getLoanDeduction(int $employeeId): float
+    public static function getLoanDeduction(int $employeeId, int $month, int $year): float
     {
-        $total = Loan::where('employee_id', $employeeId)
+        $loans = Loan::where('employee_id', $employeeId)
             ->where('status', Loan::STATUS_APPROVED)
-            ->where('remaining_installments', '>', 0)
-            ->sum('installment_amount');
+            ->get();
+
+        $service = app(LoanScenarioService::class);
+        $total = 0.0;
+        foreach ($loans as $loan) {
+            $total += $service->getDeductionForMonth($loan, $year, $month);
+        }
         return round((float) $total, 2);
     }
 

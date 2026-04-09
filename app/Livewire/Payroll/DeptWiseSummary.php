@@ -106,7 +106,7 @@ class DeptWiseSummary extends Component
                 $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($month);
             }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
-            $loan = PayrollCalculationService::getLoanDeduction($employee->id);
+            $loan = PayrollCalculationService::getLoanDeduction($employee->id, $periodMonth, $taxYear);
             $totalDeductions = $tax + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
             $netSalary = $grossWithOt + $bonus - $totalDeductions;
             $departmentName = $this->getEmployeeDepartmentName($employee);

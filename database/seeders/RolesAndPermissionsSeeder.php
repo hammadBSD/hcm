@@ -106,6 +106,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.advance.request',
             'payroll.loan.manage',
             'payroll.loan.request',
+            'payroll.loan.delete.any',
 
             // Leaves Module
             'leaves.sidebar.my_leaves',

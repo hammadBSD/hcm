@@ -331,7 +331,7 @@ class MasterReport extends Component
                 $eobi = PayrollEobiYearlySetting::monthlyAmountForMonth($month);
             }
             $advance = PayrollCalculationService::getAdvanceDeduction($employee->id, $periodMonth, $taxYear);
-            $loan = PayrollCalculationService::getLoanDeduction($employee->id);
+            $loan = PayrollCalculationService::getLoanDeduction($employee->id, $periodMonth, $taxYear);
             $totalDeductions = $taxForDeduction + $epfEe + $epfEr + $esicEe + $esicEr + $profTax + $eobi + $advance + $loan + $otherDeductions;
             $salaryAdjustment = (float) ($salaryAdjustmentMap[$employee->id] ?? 0);
             $netSalary = $grossWithOt + $bonus - $totalDeductions + $salaryAdjustment;
