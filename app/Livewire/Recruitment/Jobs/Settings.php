@@ -12,6 +12,7 @@ class Settings extends Component
 {
     public $form = [
         'restrict_applicant_access' => false,
+        'restrict_job_post_access' => false,
         'show_hire_button_last_stage_only' => true,
         'auto_assign_applicant_number' => true,
         'require_rating_before_move' => false,
@@ -32,10 +33,9 @@ class Settings extends Component
     public function mount()
     {
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
-            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
+
+        if (!$user || !$user->can('recruitment.settings')) {
+            abort(403, 'Unauthorized access.');
         }
 
         // Load settings
@@ -55,6 +55,7 @@ class Settings extends Component
     {
         $validated = $this->validate([
             'form.restrict_applicant_access' => 'required|boolean',
+            'form.restrict_job_post_access' => 'required|boolean',
             'form.show_hire_button_last_stage_only' => 'required|boolean',
             'form.auto_assign_applicant_number' => 'required|boolean',
             'form.require_rating_before_move' => 'required|boolean',
@@ -75,6 +76,7 @@ class Settings extends Component
             
             // Convert boolean values
             $payload['restrict_applicant_access'] = (bool) ($payload['restrict_applicant_access'] ?? false);
+            $payload['restrict_job_post_access'] = (bool) ($payload['restrict_job_post_access'] ?? false);
             $payload['show_hire_button_last_stage_only'] = (bool) ($payload['show_hire_button_last_stage_only'] ?? true);
             $payload['auto_assign_applicant_number'] = (bool) ($payload['auto_assign_applicant_number'] ?? true);
             $payload['require_rating_before_move'] = (bool) ($payload['require_rating_before_move'] ?? false);

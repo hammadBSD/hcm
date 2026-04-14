@@ -5,6 +5,7 @@ namespace App\Livewire\Recruitment;
 use App\Models\Department;
 use App\Models\Recruitment\JobPost;
 use App\Models\Recruitment\JobPostHistory;
+use App\Models\Recruitment\RecruitmentSetting;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -28,10 +29,9 @@ class Index extends Component
     public function mount()
     {
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
-            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
+
+        if (!$user || !$user->can('recruitment.view')) {
+            abort(403, 'Unauthorized access.');
         }
     }
 
@@ -100,9 +100,8 @@ class Index extends Component
     public function updateStatus($jobId, $status)
     {
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
+
+        if (!$user || !$user->can('recruitment.edit')) {
             session()->flash('error', 'Unauthorized access.');
             return;
         }
@@ -115,6 +114,10 @@ class Index extends Component
 
         try {
             $jobPost = JobPost::findOrFail($jobId);
+            if ($this->shouldRestrictToOwnJobs($user) && (int) $jobPost->created_by !== (int) $user->id) {
+                session()->flash('error', 'Unauthorized access.');
+                return;
+            }
             $oldStatus = $jobPost->status;
             
             $jobPost->update(['status' => $status]);
@@ -141,13 +144,17 @@ class Index extends Component
     {
         $user = Auth::user();
 
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
+        if (!$user || !$user->can('recruitment.edit')) {
             session()->flash('error', 'Unauthorized access.');
             return;
         }
 
         try {
             $jobPost = JobPost::findOrFail($jobId);
+            if ($this->shouldRestrictToOwnJobs($user) && (int) $jobPost->created_by !== (int) $user->id) {
+                session()->flash('error', 'Unauthorized access.');
+                return;
+            }
             $jobPost->delete();
             session()->flash('message', 'Job post deleted successfully.');
             $this->resetPage();
@@ -158,9 +165,14 @@ class Index extends Component
 
     public function render()
     {
+        $user = Auth::user();
         // Build query with relationships
         $query = JobPost::with(['department', 'candidates'])
             ->withCount('candidates as applications_count');
+
+        if ($this->shouldRestrictToOwnJobs($user)) {
+            $query->where('created_by', $user->id);
+        }
 
         // Apply search filter
         if ($this->search) {
@@ -272,6 +284,17 @@ class Index extends Component
             'workTypeOptions' => $workTypeOptions,
             'priorityOptions' => $priorityOptions,
         ])->layout('components.layouts.app');
+    }
+
+    private function shouldRestrictToOwnJobs($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $settings = RecruitmentSetting::getInstance();
+
+        return (bool) ($settings->restrict_job_post_access ?? false);
     }
 
     private function formatEntryLevel($level)

@@ -10,6 +10,7 @@ class RecruitmentSetting extends Model
 
     protected $fillable = [
         'restrict_applicant_access',
+        'restrict_job_post_access',
         'show_hire_button_last_stage_only',
         'auto_assign_applicant_number',
         'require_rating_before_move',
@@ -25,6 +26,7 @@ class RecruitmentSetting extends Model
 
     protected $casts = [
         'restrict_applicant_access' => 'boolean',
+        'restrict_job_post_access' => 'boolean',
         'show_hire_button_last_stage_only' => 'boolean',
         'auto_assign_applicant_number' => 'boolean',
         'require_rating_before_move' => 'boolean',
@@ -45,6 +47,7 @@ class RecruitmentSetting extends Model
     {
         return static::firstOrCreate([], [
             'restrict_applicant_access' => false,
+            'restrict_job_post_access' => false,
             'show_hire_button_last_stage_only' => true,
             'auto_assign_applicant_number' => true,
             'require_rating_before_move' => false,

@@ -13,10 +13,9 @@ class ShowSettings extends Component
     public function mount($id)
     {
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
-            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
+
+        if (!$user || !$user->can('recruitment.settings')) {
+            abort(403, 'Unauthorized access.');
         }
 
         $this->jobId = $id;

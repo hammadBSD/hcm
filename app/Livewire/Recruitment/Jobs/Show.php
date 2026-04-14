@@ -74,10 +74,9 @@ class Show extends Component
     public function mount($id)
     {
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
-            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
+
+        if (!$user || !$user->can('recruitment.view')) {
+            abort(403, 'Unauthorized access.');
         }
 
         $this->jobId = $id;
@@ -122,6 +121,9 @@ class Show extends Component
         $jobPost = JobPost::with(['department', 'designation', 'defaultPipeline.stages', 'createdBy'])
             ->withCount('candidates')
             ->findOrFail($id);
+        if (($this->settings->restrict_job_post_access ?? false) && (int) $jobPost->created_by !== (int) $user->id) {
+            abort(403, 'Unauthorized access.');
+        }
         
         $this->job = [
             'id' => $jobPost->id,

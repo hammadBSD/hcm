@@ -108,6 +108,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.loan.request',
             'payroll.loan.delete.any',
 
+            // Recruitment Module
+            'recruitment.view',
+            'recruitment.create',
+            'recruitment.edit',
+            'recruitment.settings',
+            'recruitment.summary',
+
             // Leaves Module
             'leaves.sidebar.my_leaves',
             'leaves.sidebar.all_leaves',
@@ -414,6 +421,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.sidebar.settings',
         ];
 
+        $recruitmentPermissions = [
+            'recruitment.view',
+            'recruitment.create',
+            'recruitment.edit',
+            'recruitment.settings',
+            'recruitment.summary',
+        ];
+
         // HR Director - High-level HR management
         $hrDirector = Role::firstOrCreate(
             ['name' => 'HR Director', 'guard_name' => 'web']
@@ -434,6 +449,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $tasksAdmin,
             $dailyLogsAdmin,
             $payrollSidebar,
+            $recruitmentPermissions,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.delete', 'employee.export',
                 'department.view', 'department.create', 'department.edit', 'department.delete',
@@ -476,6 +492,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $tasksManager,
             $dailyLogsManager,
             $payrollSidebar,
+            $recruitmentPermissions,
             [
                 'employee.view', 'employee.create', 'employee.edit', 'employee.export',
                 'department.view', 'department.create', 'department.edit',
@@ -511,6 +528,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $systemSidebarFull,
             $leavesManager,
             $payrollSidebar,
+            ['recruitment.view', 'recruitment.create', 'recruitment.edit', 'recruitment.summary'],
             [
                 'employee.view', 'employee.create', 'employee.edit',
                 'department.view', 'department.create', 'department.edit',

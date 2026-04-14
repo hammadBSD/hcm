@@ -40,7 +40,7 @@ Route::middleware(['auth'])->group(function () {
         }
         
         return \Illuminate\Support\Facades\Storage::disk('public')->download($filePath, $attachment->file_name);
-    })->name('recruitment.candidates.attachment.download');
+    })->middleware(['permission:recruitment.view'])->name('recruitment.candidates.attachment.download');
     
     // Profile Route
     Route::get('profile', \App\Livewire\Profile::class)->name('profile');
@@ -179,12 +179,25 @@ Route::get('system-management/organization-setting/organization-settings', \App\
     Route::get('tasks/daily-log', \App\Livewire\Tasks\DailyLog::class)->name('tasks.daily-log');
     
     // Recruitment Routes
-    Route::get('recruitment', \App\Livewire\Recruitment\Index::class)->name('recruitment.index');
-    Route::get('recruitment/jobs/create', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.create');
-    Route::get('recruitment/jobs/{id}/edit', \App\Livewire\Recruitment\Jobs\Create::class)->name('recruitment.jobs.edit');
-    Route::get('recruitment/jobs/{id}', \App\Livewire\Recruitment\Jobs\Show::class)->name('recruitment.jobs.show');
-    Route::get('recruitment/settings', \App\Livewire\Recruitment\Jobs\Settings::class)->name('recruitment.settings');
-    Route::get('recruitment/summary', \App\Livewire\Recruitment\Summary::class)->name('recruitment.summary');
+    Route::get('recruitment/jobs/create', \App\Livewire\Recruitment\Jobs\Create::class)
+        ->middleware(['permission:recruitment.create'])
+        ->name('recruitment.jobs.create');
+    Route::get('recruitment/jobs/{id}/edit', \App\Livewire\Recruitment\Jobs\Create::class)
+        ->middleware(['permission:recruitment.edit'])
+        ->whereNumber('id')
+        ->name('recruitment.jobs.edit');
+    Route::middleware(['permission:recruitment.view'])->group(function () {
+        Route::get('recruitment', \App\Livewire\Recruitment\Index::class)->name('recruitment.index');
+        Route::get('recruitment/jobs/{id}', \App\Livewire\Recruitment\Jobs\Show::class)
+            ->whereNumber('id')
+            ->name('recruitment.jobs.show');
+    });
+    Route::get('recruitment/settings', \App\Livewire\Recruitment\Jobs\Settings::class)
+        ->middleware(['permission:recruitment.settings'])
+        ->name('recruitment.settings');
+    Route::get('recruitment/summary', \App\Livewire\Recruitment\Summary::class)
+        ->middleware(['permission:recruitment.summary'])
+        ->name('recruitment.summary');
     
     // Attendance Settings
     Route::get('system-management/attendance-settings/shift-schedule', \App\Livewire\SystemManagement\AttendanceSettings\ShiftSchedule\Index::class)->name('system-management.attendance-settings.shift-schedule');

@@ -9,6 +9,7 @@ use App\Models\Recruitment\JobPost;
 use App\Models\Recruitment\Pipeline;
 use App\Models\Recruitment\PipelineStage;
 use App\Models\Recruitment\JobPostHistory;
+use App\Models\Recruitment\RecruitmentSetting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ use Livewire\Component;
 class Create extends Component
 {
     /** When set, component is in edit mode and loads this job post. */
-    public $id = null;
+    public $jobPostId = null;
 
     public $jobTitle = '';
     public $jobDescription = '';
@@ -76,13 +77,15 @@ class Create extends Component
     public $lineManager = '';
     public $applicationUrl = null;
 
-    public function mount()
+    public function mount($id = null)
     {
+        $this->jobPostId = $id ? (int) $id : null;
         $user = Auth::user();
-        
-        // Check if user is Super Admin or HR Manager
-        if (!$user || (!$user->hasRole('Super Admin') && !$user->hasRole('HR Manager'))) {
-            abort(403, 'Unauthorized access. Only Super Admin and HR Manager can access this module.');
+
+        $isEdit = !empty($this->jobPostId);
+        $requiredPermission = $isEdit ? 'recruitment.edit' : 'recruitment.create';
+        if (!$user || !$user->can($requiredPermission)) {
+            abort(403, 'Unauthorized access.');
         }
 
         // Load departments
@@ -120,10 +123,14 @@ class Create extends Component
             })->toArray();
 
         // Set default values or load job for edit
-        if ($this->id) {
-            $job = JobPost::find($this->id);
+        if ($this->jobPostId) {
+            $job = JobPost::find($this->jobPostId);
             if (!$job) {
                 abort(404, 'Job post not found.');
+            }
+            $settings = RecruitmentSetting::getInstance();
+            if (($settings->restrict_job_post_access ?? false) && (int) $job->created_by !== (int) $user->id) {
+                abort(403, 'Unauthorized access.');
             }
             $this->jobTitle = $job->title ?? '';
             $this->jobDescription = $job->description ?? '';
@@ -176,9 +183,9 @@ class Create extends Component
 
             $user = Auth::user();
 
-            if ($this->id) {
+            if ($this->jobPostId) {
                 // Update existing job post
-                $jobPost = JobPost::findOrFail($this->id);
+                $jobPost = JobPost::findOrFail($this->jobPostId);
                 $updateData = [
                     'title' => $this->jobTitle,
                     'description' => $this->jobDescription ?: null,
@@ -256,7 +263,7 @@ class Create extends Component
             return $this->redirect(route('recruitment.jobs.show', $jobPost->id), navigate: true);
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', $this->id ? __('Failed to update job post: ') . $e->getMessage() : 'Failed to create job post: ' . $e->getMessage());
+            session()->flash('error', $this->jobPostId ? __('Failed to update job post: ') . $e->getMessage() : 'Failed to create job post: ' . $e->getMessage());
         }
     }
 

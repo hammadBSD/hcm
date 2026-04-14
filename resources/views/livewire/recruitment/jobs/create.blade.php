@@ -4,9 +4,9 @@
     <x-recruitment.layout>
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
             <div class="p-6 border-b border-zinc-200 dark:border-zinc-700">
-                <flux:heading size="lg">{{ $id ? __('Edit Job Post') : __('Create Job Post') }}</flux:heading>
+                <flux:heading size="lg">{{ $jobPostId ? __('Edit Job Post') : __('Create Job Post') }}</flux:heading>
                 <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
-                    {{ $id ? __('Update the job posting details') : __('Fill in the details to create a new job posting') }}
+                    {{ $jobPostId ? __('Update the job posting details') : __('Fill in the details to create a new job posting') }}
                 </flux:text>
             </div>
 
@@ -188,7 +188,7 @@
                         {{ __('Cancel') }}
                     </flux:button>
                     <flux:button variant="primary" type="submit">
-                        {{ $id ? __('Update Job Post') : __('Create Job Post') }}
+                        {{ $jobPostId ? __('Update Job Post') : __('Create Job Post') }}
                     </flux:button>
                 </div>
             </form>
