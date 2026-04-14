@@ -121,7 +121,7 @@ class Show extends Component
         $jobPost = JobPost::with(['department', 'designation', 'defaultPipeline.stages', 'createdBy'])
             ->withCount('candidates')
             ->findOrFail($id);
-        if (($this->settings->restrict_job_post_access ?? false) && (int) $jobPost->created_by !== (int) $user->id) {
+        if ($user->can('recruitment.view.own_jobs') && (int) $jobPost->created_by !== (int) $user->id) {
             abort(403, 'Unauthorized access.');
         }
         

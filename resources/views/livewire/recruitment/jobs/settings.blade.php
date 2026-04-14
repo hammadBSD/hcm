@@ -30,13 +30,6 @@
                         description="{{ __('When enabled, only the user who added the applicant can work on and move their cards. When disabled, all authorized users can work on any applicant.') }}"
                     />
 
-                    <flux:separator variant="subtle" />
-
-                    <flux:switch
-                        wire:model.live="form.restrict_job_post_access"
-                        label="{{ __('Restrict Job Post Access') }}"
-                        description="{{ __('When enabled, users can only view and manage job posts created only by them. When disabled, authorized users can access all job posts.') }}"
-                    />
                 </div>
             </div>
 

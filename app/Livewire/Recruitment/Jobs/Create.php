@@ -9,7 +9,6 @@ use App\Models\Recruitment\JobPost;
 use App\Models\Recruitment\Pipeline;
 use App\Models\Recruitment\PipelineStage;
 use App\Models\Recruitment\JobPostHistory;
-use App\Models\Recruitment\RecruitmentSetting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -128,8 +127,7 @@ class Create extends Component
             if (!$job) {
                 abort(404, 'Job post not found.');
             }
-            $settings = RecruitmentSetting::getInstance();
-            if (($settings->restrict_job_post_access ?? false) && (int) $job->created_by !== (int) $user->id) {
+            if ($user->can('recruitment.view.own_jobs') && (int) $job->created_by !== (int) $user->id) {
                 abort(403, 'Unauthorized access.');
             }
             $this->jobTitle = $job->title ?? '';

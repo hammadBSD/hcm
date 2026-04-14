@@ -110,6 +110,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Recruitment Module
             'recruitment.view',
+            'recruitment.view.own_jobs',
             'recruitment.create',
             'recruitment.edit',
             'recruitment.settings',

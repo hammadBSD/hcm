@@ -5,7 +5,6 @@ namespace App\Livewire\Recruitment;
 use App\Models\Department;
 use App\Models\Recruitment\JobPost;
 use App\Models\Recruitment\JobPostHistory;
-use App\Models\Recruitment\RecruitmentSetting;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -291,10 +290,7 @@ class Index extends Component
         if (!$user) {
             return false;
         }
-
-        $settings = RecruitmentSetting::getInstance();
-
-        return (bool) ($settings->restrict_job_post_access ?? false);
+        return $user->can('recruitment.view.own_jobs');
     }
 
     private function formatEntryLevel($level)
