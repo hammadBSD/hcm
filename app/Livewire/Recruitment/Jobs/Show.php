@@ -730,6 +730,44 @@ class Show extends Component
         }
     }
 
+    public function deleteCandidate($candidateId): void
+    {
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+            $candidate = Candidate::where('job_post_id', $this->jobId)->find($candidateId);
+
+            if (!$candidate) {
+                DB::rollBack();
+                session()->flash('error', __('Candidate not found.'));
+                return;
+            }
+
+            // Respect applicant access restriction setting
+            if ($this->settings && $this->settings->restrict_applicant_access && (int) $candidate->created_by !== (int) $user->id) {
+                DB::rollBack();
+                session()->flash('error', __('You do not have permission to delete this applicant.'));
+                return;
+            }
+
+            $candidateName = $candidate->full_name ?: ('Applicant #' . ($candidate->applicant_number ?? $candidate->id));
+            $candidate->delete();
+
+            DB::commit();
+
+            if ($this->showCardDetailModal && $this->selectedCard && (int) ($this->selectedCard['id'] ?? 0) === (int) $candidateId) {
+                $this->closeCardDetail();
+            }
+
+            $this->loadPipelines();
+            session()->flash('message', __('Candidate deleted successfully: :name', ['name' => $candidateName]));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', __('Failed to delete candidate: ') . $e->getMessage());
+        }
+    }
+
     /**
      * Load pipelines with stages and candidates
      */

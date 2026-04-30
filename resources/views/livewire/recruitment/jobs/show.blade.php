@@ -389,7 +389,7 @@
                                                     <flux:menu.item icon="pencil">
                                                         {{ __('Edit') }}
                                                     </flux:menu.item>
-                                                    <flux:menu.item icon="trash" variant="danger">
+                                                    <flux:menu.item icon="trash" variant="danger" wire:click.stop="deleteCandidate({{ $candidate['id'] }})">
                                                         {{ __('Delete') }}
                                                     </flux:menu.item>
                                                 </flux:menu>
@@ -558,7 +558,7 @@
                                                             {{ __('View Details') }}
                                                         </flux:menu.item>
                                                         <flux:menu.item icon="pencil">{{ __('Edit') }}</flux:menu.item>
-                                                        <flux:menu.item icon="trash" variant="danger">{{ __('Delete') }}</flux:menu.item>
+                                                        <flux:menu.item icon="trash" variant="danger" wire:click.stop="deleteCandidate({{ $card['id'] }})">{{ __('Delete') }}</flux:menu.item>
                                                     </flux:menu>
                                                 </flux:dropdown>
                                             </div>

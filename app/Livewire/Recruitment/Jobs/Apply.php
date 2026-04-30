@@ -10,6 +10,7 @@ use App\Models\Recruitment\Candidate;
 use App\Models\Recruitment\CandidateAttachment;
 use App\Models\Recruitment\CandidatePreviousCompany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -124,31 +125,39 @@ class Apply extends Component
 
     public function submitApplication()
     {
+        $this->showSuccessMessage = false;
+
         // Validate required fields
-        $this->validate([
-            'candidateFirstName' => 'required|string|max:255',
-            'candidateLastName' => 'required|string|max:255',
-            'candidateEmail' => 'required|email|max:255',
-            'candidatePhone' => 'nullable|string|max:20',
-            'candidateDob' => 'nullable|date',
-            'candidatePosition' => 'nullable|string|max:255',
-            'candidateDesignation' => 'nullable|string|max:255',
-            'candidateExperience' => 'nullable|numeric|min:0|max:50',
-            'candidateCurrentAddress' => 'nullable|string|max:500',
-            'candidateCurrentCompany' => 'nullable|string|max:255',
-            'candidateCity' => 'nullable|string|max:100',
-            'candidateCountry' => 'nullable|string|max:100',
-            'candidateSource' => 'nullable|string|max:100',
-            'candidateNoticePeriod' => 'nullable|numeric|min:0|max:365',
-            'candidateLinkedIn' => 'nullable|url|max:255',
-            'candidateExpectedSalary' => 'nullable|numeric|min:0',
-            'candidateCurrentSalary' => 'nullable|numeric|min:0',
-            'candidateAvailabilityDate' => 'nullable|date',
-            'previousCompanies.*.company' => 'nullable|string|max:255',
-            'previousCompanies.*.position' => 'nullable|string|max:255',
-            'previousCompanies.*.duration' => 'nullable|string|max:100',
-            'candidateAttachments.*' => 'nullable|file|max:20480', // 20MB max per file
-        ]);
+        try {
+            $this->validate([
+                'candidateFirstName' => 'required|string|max:255',
+                'candidateLastName' => 'required|string|max:255',
+                'candidateEmail' => 'required|email|max:255',
+                'candidatePhone' => 'nullable|string|max:20',
+                'candidateDob' => 'nullable|date',
+                'candidatePosition' => 'nullable|string|max:255',
+                'candidateDesignation' => 'nullable|integer|exists:designations,id',
+                'candidateExperience' => 'nullable|numeric|min:0|max:50',
+                'candidateCurrentAddress' => 'nullable|string|max:500',
+                'candidateCurrentCompany' => 'nullable|string|max:255',
+                'candidateCity' => 'nullable|string|max:100',
+                // This field is text input in UI; do not force country_id integer here.
+                'candidateCountry' => 'nullable|string|max:100',
+                'candidateSource' => 'nullable|string|max:100',
+                'candidateNoticePeriod' => 'nullable|numeric|min:0|max:365',
+                'candidateLinkedIn' => 'nullable|url|max:255',
+                'candidateExpectedSalary' => 'nullable|numeric|min:0',
+                'candidateCurrentSalary' => 'nullable|numeric|min:0',
+                'candidateAvailabilityDate' => 'nullable|date',
+                'previousCompanies.*.company' => 'nullable|string|max:255',
+                'previousCompanies.*.position' => 'nullable|string|max:255',
+                'previousCompanies.*.duration' => 'nullable|string|max:100',
+                'candidateAttachments.*' => 'nullable|file|max:20480', // 20MB max per file
+            ]);
+        } catch (ValidationException $e) {
+            $this->dispatch('application-submit-result', status: 'validation_error');
+            throw $e;
+        }
 
         try {
             DB::beginTransaction();
@@ -222,7 +231,8 @@ class Apply extends Component
                 'source' => $this->candidateSource ?: 'self',
                 'current_address' => $this->candidateCurrentAddress ?: null,
                 'city' => $this->candidateCity ?: null,
-                'country_id' => $this->candidateCountry ?: null,
+                // candidateCountry is a text field in current UI, so keep FK null to avoid DB failures.
+                'country_id' => null,
                 'current_company' => $this->candidateCurrentCompany ?: null,
                 'notice_period' => $this->candidateNoticePeriod ?: null,
                 'expected_salary' => $this->candidateExpectedSalary ?: null,
@@ -278,9 +288,12 @@ class Apply extends Component
 
             $this->showSuccessMessage = true;
             $this->resetForm();
+            session()->forget('error');
+            $this->dispatch('application-submit-result', status: 'success');
         } catch (\Exception $e) {
             DB::rollBack();
             session()->flash('error', 'Failed to submit application: ' . $e->getMessage());
+            $this->dispatch('application-submit-result', status: 'error');
         }
     }
     

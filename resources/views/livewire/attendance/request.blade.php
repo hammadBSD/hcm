@@ -3,6 +3,18 @@
 
     <x-attendance.layout :heading="__('Attendance Request')" :subheading="__('Request attendance corrections for missing check-ins/outs')">
         <div class="space-y-6">
+            @if(session('success'))
+                <flux:callout variant="success" icon="check-circle" dismissible>
+                    {{ session('success') }}
+                </flux:callout>
+            @endif
+
+            @if(session('error'))
+                <flux:callout variant="danger" icon="exclamation-circle" dismissible>
+                    {{ session('error') }}
+                </flux:callout>
+            @endif
+
             <!-- Attendance Request Form -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-8">
                 <div class="mb-8">
@@ -17,12 +29,19 @@
                         <!-- Employee -->
                         <flux:field>
                             <flux:label>Employee <span class="text-red-500">*</span></flux:label>
-                            <flux:select wire:model="employeeId" placeholder="Select One">
-                                <option value="">Select One</option>
-                                <option value="1">John Doe (EMP001)</option>
-                                <option value="2">Jane Smith (EMP002)</option>
-                                <option value="3">Mike Johnson (EMP003)</option>
-                                <option value="4">Sarah Wilson (EMP004)</option>
+                            <flux:select wire:model="employeeId" placeholder="Select One" :disabled="$employeeSelectDisabled">
+                                @unless($employeeSelectDisabled)
+                                    <option value="">Select One</option>
+                                @endunless
+                                @foreach($employees as $emp)
+                                    <option
+                                        value="{{ $emp['id'] }}"
+                                        @if((string) $emp['id'] === (string) $employeeId) selected @endif
+                                    >
+                                        {{ $emp['first_name'] }} {{ $emp['last_name'] }}
+                                        ({{ $emp['employee_code'] }})
+                                    </option>
+                                @endforeach
                             </flux:select>
                             <flux:error name="employeeId" />
                         </flux:field>

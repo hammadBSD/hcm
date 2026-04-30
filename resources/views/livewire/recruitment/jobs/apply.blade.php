@@ -1,4 +1,8 @@
-<div class="w-full">
+<div
+    class="w-full"
+    x-data
+    x-on:application-submit-result.window="window.scrollTo({ top: 0, behavior: 'smooth' })"
+>
     <!-- Header with Logo -->
     <div class="mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-700">
         <div class="flex items-center gap-3">
@@ -32,6 +36,29 @@
                 <flux:callout.text>
                     {{ __('Thank you for your interest! We have received your application and will review it shortly.') }}
                 </flux:callout.text>
+            </flux:callout>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="mb-6">
+            <flux:callout variant="danger" icon="exclamation-circle">
+                <flux:callout.heading>
+                    {{ __('Unable to submit application') }}
+                </flux:callout.heading>
+                <flux:callout.text>
+                    {{ session('error') }}
+                </flux:callout.text>
+            </flux:callout>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="mb-6">
+            <flux:callout variant="warning" icon="exclamation-triangle">
+                <flux:callout.heading>
+                    {{ __('Please fix the highlighted fields and try again.') }}
+                </flux:callout.heading>
             </flux:callout>
         </div>
     @endif
@@ -342,7 +369,7 @@
 
                 <!-- Submit Button -->
                 <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                    <flux:button type="submit" variant="primary" icon="paper-airplane">
+                    <flux:button type="submit" variant="primary" icon="paper-airplane" wire:loading.attr="disabled" wire:target="submitApplication">
                         {{ __('Submit Application') }}
                     </flux:button>
                 </div>
