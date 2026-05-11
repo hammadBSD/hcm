@@ -3920,6 +3920,113 @@ class Report extends Component
         ];
     }
 
+    /**
+     * Dashboard widget: count of workdays with status "absent" in the selected month
+     * (through yesterday for the current month, else full month), after leave enrichment — matches attendance grid.
+     *
+     * @return array{count: int}|null
+     */
+    public function evaluateEmployeeAbsentDaysForDashboard(Employee $employee, string $ym): ?array
+    {
+        if ($employee->status !== 'active' || empty($employee->punch_code)) {
+            return null;
+        }
+
+        $this->selectedMonth = $ym;
+        $this->employee = $employee->loadMissing(['shift', 'user.roles']);
+        if ($this->employee->department_id) {
+            $dept = Department::query()->with('shift')->find($this->employee->department_id);
+            $this->employee->setRelation('department', $dept);
+        } else {
+            $this->employee->setRelation('department', null);
+        }
+        $this->isBreakTrackingExcluded = $this->determineBreakExclusionStatus();
+        $breakSettings = AttendanceBreakSetting::current();
+        $this->showBreaksInGrid = $breakSettings->show_in_attendance_grid;
+        $this->allowedBreakTime = $breakSettings->allowed_break_time;
+        $this->punchCode = $this->employee->punch_code;
+
+        $this->employeeShift = $this->employee->getEffectiveShift();
+        if (! $this->employeeShift && $this->employee->department_id) {
+            $dept = Department::query()->with('shift')->find($this->employee->department_id);
+            $this->employee->setRelation('department', $dept);
+            $this->employeeShift = $this->employee->getEffectiveShift();
+        }
+
+        $startOfMonth = Carbon::createFromFormat('Y-m', $ym)->startOfMonth();
+        $endOfMonth = Carbon::createFromFormat('Y-m', $ym)->endOfMonth();
+
+        $extendedEndDate = $endOfMonth->copy()->addHours(5);
+        if ($this->employeeShift) {
+            $timeFromParts = explode(':', $this->employeeShift->time_from);
+            $timeToParts = explode(':', $this->employeeShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int) ($timeFromParts[0] ?? 0),
+                (int) ($timeFromParts[1] ?? 0),
+                (int) ($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int) ($timeToParts[0] ?? 0),
+                (int) ($timeToParts[1] ?? 0),
+                (int) ($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+
+            if ($isOvernight && $timeFrom->hour >= 12) {
+                $nextDay = $endOfMonth->copy()->addDay();
+                $shiftEndOnNextDay = $nextDay->copy()->setTime(
+                    $timeTo->hour,
+                    $timeTo->minute,
+                    $timeTo->second
+                );
+                $extendedEndDate = $shiftEndOnNextDay->copy()->addHours(5);
+            }
+        }
+
+        $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
+            ->where(function ($query) {
+                $query->whereNull('verify_mode')
+                    ->orWhere('verify_mode', '!=', 2);
+            })
+            ->orderBy('punch_time', 'desc')
+            ->get();
+
+        $processed = $this->processAttendanceData($attendanceRecords);
+        $this->attendanceData = $processed;
+        $this->enrichAttendanceDataWithLeaveRequests();
+        $data = $this->attendanceData;
+
+        $today = Carbon::today();
+        $rangeEnd = $startOfMonth->format('Y-m') === $today->format('Y-m')
+            ? Carbon::yesterday()->startOfDay()
+            : $endOfMonth->copy()->startOfDay();
+
+        if ($rangeEnd->lt($startOfMonth)) {
+            return null;
+        }
+
+        $monthStartStr = $startOfMonth->format('Y-m-d');
+        $rangeEndStr = $rangeEnd->format('Y-m-d');
+
+        $absentDays = 0;
+        foreach ($data as $row) {
+            $d = $row['date'] ?? null;
+            if (! $d || $d < $monthStartStr || $d > $rangeEndStr) {
+                continue;
+            }
+            if (($row['status'] ?? '') === 'absent') {
+                $absentDays++;
+            }
+        }
+
+        if ($absentDays === 0) {
+            return null;
+        }
+
+        return ['count' => $absentDays];
+    }
+
     public function render()
     {
         $user = Auth::user();

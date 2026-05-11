@@ -53,6 +53,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view.company',
             'dashboard.view.absent_late',
             'dashboard.view.attendance_na_total_hours',
+            'dashboard.view.attendance_month_absents',
 
             // Employees Module
             'employees.sidebar.directory',
@@ -287,6 +288,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $dashboardCompany = array_merge($dashboardTeam, [
             'dashboard.view.company',
             'dashboard.view.attendance_na_total_hours',
+            'dashboard.view.attendance_month_absents',
         ]);
 
         $employeesSidebarBasic = [];
@@ -345,6 +347,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'attendance.manage.manual_entries',
             'attendance.export',
             'dashboard.view.attendance_na_total_hours',
+            'dashboard.view.attendance_month_absents',
         ]);
 
         $systemSidebarFull = [

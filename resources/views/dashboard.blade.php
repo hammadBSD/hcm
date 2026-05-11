@@ -125,7 +125,7 @@
             </div>
         </div> --}}
 
-        <!-- Bottom Section - 2 cards per row; My Tasks last -->
+        <!-- Bottom Section - 2 cards per row -->
         <div class="grid gap-6 grid-cols-1 md:grid-cols-2">
             <!-- Absent & Late Employees -->
             @can('dashboard.view.absent_late')
@@ -137,12 +137,18 @@
                 <livewire:dashboard.suggestions-shortcut />
             </div>
 
-            <!-- My Tasks -->
-            <livewire:dashboard.tasks />
+            {{-- Attendance summary cards side by side; My Tasks spans full width at the end --}}
+            @can('dashboard.view.attendance_month_absents')
+                <livewire:dashboard.employees-with-monthly-absences />
+            @endcan
 
             @can('dashboard.view.attendance_na_total_hours')
                 <livewire:dashboard.employees-with-na-attendance-hours />
             @endcan
+
+            <div class="col-span-1 md:col-span-2">
+                <livewire:dashboard.tasks />
+            </div>
 
             <!-- Quick Actions -->
             {{-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
