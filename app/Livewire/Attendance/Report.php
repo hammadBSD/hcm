@@ -1864,7 +1864,7 @@ class Report extends Component
                 // But don't add entry if this is the first OUT (we already added "Missing Check-in")
                 if ($lastCheckOut !== null && !$isFirstOut) {
                     $breakDetails[] = [
-                        'start' => $lastCheckOut->format('h:i:s A'),
+                        'start' => $formatBreakClock($lastCheckOut),
                         'end' => '--',
                         'duration' => '--',
                         'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
