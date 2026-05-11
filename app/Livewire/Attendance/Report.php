@@ -771,7 +771,9 @@ class Report extends Component
         $dateCarbon = Carbon::parse($date);
         $userId = $this->employee->user_id;
         $departmentId = $this->employee->department_id;
-        $userRoles = Auth::user()->roles->pluck('id')->toArray();
+        $userRoles = $this->employee->user
+            ? $this->employee->user->roles->pluck('id')->toArray()
+            : (Auth::user()?->roles->pluck('id')->toArray() ?? []);
 
         // Check for exemption days that apply to this employee
         $exemptions = ExemptionDay::where(function ($query) use ($dateCarbon) {
@@ -839,7 +841,9 @@ class Report extends Component
         $employeeId = $this->employee->id;
         $departmentId = $this->employee->department_id;
         $groupId = $this->employee->group_id;
-        $userRoles = Auth::user()->roles->pluck('id')->toArray();
+        $userRoles = $this->employee->user
+            ? $this->employee->user->roles->pluck('id')->toArray()
+            : (Auth::user()?->roles->pluck('id')->toArray() ?? []);
 
         // Load active holidays that fall within the month range
         $holidays = Holiday::where('status', 'active')
@@ -3806,6 +3810,114 @@ class Report extends Component
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    /**
+     * Dashboard widget: dates in the selected month (through yesterday for the current month, else full month)
+     * where processed "Total hours" equals N/A — matches attendance grid logic.
+     *
+     * @return array{count: int, dates: list<string>}|null
+     */
+    public function evaluateEmployeeNaTotalHoursForDashboard(Employee $employee, string $ym): ?array
+    {
+        if ($employee->status !== 'active' || empty($employee->punch_code)) {
+            return null;
+        }
+
+        $this->selectedMonth = $ym;
+        $this->employee = $employee->loadMissing(['shift', 'user.roles']);
+        if ($this->employee->department_id) {
+            $dept = Department::query()->with('shift')->find($this->employee->department_id);
+            $this->employee->setRelation('department', $dept);
+        } else {
+            $this->employee->setRelation('department', null);
+        }
+        $this->isBreakTrackingExcluded = $this->determineBreakExclusionStatus();
+        $breakSettings = AttendanceBreakSetting::current();
+        $this->showBreaksInGrid = $breakSettings->show_in_attendance_grid;
+        $this->allowedBreakTime = $breakSettings->allowed_break_time;
+        $this->punchCode = $this->employee->punch_code;
+
+        $this->employeeShift = $this->employee->getEffectiveShift();
+        if (! $this->employeeShift && $this->employee->department_id) {
+            $dept = Department::query()->with('shift')->find($this->employee->department_id);
+            $this->employee->setRelation('department', $dept);
+            $this->employeeShift = $this->employee->getEffectiveShift();
+        }
+
+        $startOfMonth = Carbon::createFromFormat('Y-m', $ym)->startOfMonth();
+        $endOfMonth = Carbon::createFromFormat('Y-m', $ym)->endOfMonth();
+
+        $extendedEndDate = $endOfMonth->copy()->addHours(5);
+        if ($this->employeeShift) {
+            $timeFromParts = explode(':', $this->employeeShift->time_from);
+            $timeToParts = explode(':', $this->employeeShift->time_to);
+            $timeFrom = Carbon::createFromTime(
+                (int) ($timeFromParts[0] ?? 0),
+                (int) ($timeFromParts[1] ?? 0),
+                (int) ($timeFromParts[2] ?? 0)
+            );
+            $timeTo = Carbon::createFromTime(
+                (int) ($timeToParts[0] ?? 0),
+                (int) ($timeToParts[1] ?? 0),
+                (int) ($timeToParts[2] ?? 0)
+            );
+            $isOvernight = $timeFrom->gt($timeTo);
+
+            if ($isOvernight && $timeFrom->hour >= 12) {
+                $nextDay = $endOfMonth->copy()->addDay();
+                $shiftEndOnNextDay = $nextDay->copy()->setTime(
+                    $timeTo->hour,
+                    $timeTo->minute,
+                    $timeTo->second
+                );
+                $extendedEndDate = $shiftEndOnNextDay->copy()->addHours(5);
+            }
+        }
+
+        $attendanceRecords = DeviceAttendance::where('punch_code', $this->punchCode)
+            ->whereBetween('punch_time', [$startOfMonth, $extendedEndDate])
+            ->where(function ($query) {
+                $query->whereNull('verify_mode')
+                    ->orWhere('verify_mode', '!=', 2);
+            })
+            ->orderBy('punch_time', 'desc')
+            ->get();
+
+        $processed = $this->processAttendanceData($attendanceRecords);
+
+        $today = Carbon::today();
+        $rangeEnd = $startOfMonth->format('Y-m') === $today->format('Y-m')
+            ? Carbon::yesterday()->startOfDay()
+            : $endOfMonth->copy()->startOfDay();
+
+        if ($rangeEnd->lt($startOfMonth)) {
+            return null;
+        }
+
+        $monthStartStr = $startOfMonth->format('Y-m-d');
+        $rangeEndStr = $rangeEnd->format('Y-m-d');
+
+        $naDates = [];
+        foreach ($processed as $row) {
+            $d = $row['date'] ?? null;
+            if (! $d || $d < $monthStartStr || $d > $rangeEndStr) {
+                continue;
+            }
+            $th = $row['total_hours'] ?? null;
+            if (is_string($th) && strtoupper(trim($th)) === 'N/A') {
+                $naDates[] = $d;
+            }
+        }
+
+        if ($naDates === []) {
+            return null;
+        }
+
+        return [
+            'count' => count($naDates),
+            'dates' => $naDates,
+        ];
     }
 
     public function render()

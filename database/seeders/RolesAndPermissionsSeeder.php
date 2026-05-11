@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
@@ -24,19 +24,19 @@ class RolesAndPermissionsSeeder extends Seeder
             'employee.edit',
             'employee.delete',
             'employee.export',
-            
+
             // Department Management
             'department.view',
             'department.create',
             'department.edit',
             'department.delete',
-            
+
             // Position Management
             'position.view',
             'position.create',
             'position.edit',
             'position.delete',
-            
+
             // Payroll Management
             'payroll.view',
             'payroll.create',
@@ -45,13 +45,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.process',
             'payroll.approve',
             'payroll.export',
-            
+
             // Dashboard Module
             'dashboard.sidebar.main',
             'dashboard.view.self',
             'dashboard.view.team',
             'dashboard.view.company',
             'dashboard.view.absent_late',
+            'dashboard.view.attendance_na_total_hours',
 
             // Employees Module
             'employees.sidebar.directory',
@@ -143,7 +144,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tasks.delete',
             'tasks.update.status',
             'tasks.complete.after_shift_end',
-            
+
             // Daily Logs Module
             'daily-logs.view.self',
             'daily-logs.view.all',
@@ -173,7 +174,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'salary.view',
             'salary.edit',
             'salary.history',
-            
+
             // Time & Attendance
             'attendance.view',
             'attendance.request',
@@ -186,14 +187,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'timesheet.edit',
             'timesheet.approve',
             'timesheet.export',
-            
+
             // Leave Management (Legacy)
             'leave.view',
             'leave.create',
             'leave.edit',
             'leave.approve',
             'leave.export',
-            
+
             // Leaves Module (UI scoped)
             'leaves.sidebar.my_leaves',
             'leaves.sidebar.all_leaves',
@@ -203,20 +204,20 @@ class RolesAndPermissionsSeeder extends Seeder
             'leaves.manage.all',
             'leaves.request.submit',
             'leaves.approve.requests',
-            
+
             // Performance Management
             'performance.view',
             'performance.create',
             'performance.edit',
             'performance.approve',
             'performance.export',
-            
+
             // Reports & Analytics
             'reports.view',
             'reports.generate',
             'reports.export',
             'reports.advanced',
-            
+
             // User Management
             'user.view',
             'user.create',
@@ -224,38 +225,38 @@ class RolesAndPermissionsSeeder extends Seeder
             'user.delete',
             'user.activate',
             'user.deactivate',
-            
+
             // Role & Permission Management
             'role.view',
             'role.create',
             'role.edit',
             'role.delete',
             'role.assign',
-            
+
             // System Settings
             'settings.view',
             'settings.edit',
             'settings.advanced',
-            
+
             // Company Management
             'company.view',
             'company.edit',
-            
+
             // Audit & Logs
             'audit.view',
             'audit.export',
-            
+
             // Notifications
             'notification.view',
             'notification.send',
             'notification.manage',
-            
+
             // Documents
             'document.view',
             'document.upload',
             'document.download',
             'document.delete',
-            
+
         ];
 
         foreach ($permissions as $permission) {
@@ -283,7 +284,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $dashboardSelf = ['dashboard.sidebar.main', 'dashboard.view.self'];
         $dashboardTeam = array_merge($dashboardSelf, ['dashboard.view.team', 'dashboard.view.absent_late']);
-        $dashboardCompany = array_merge($dashboardTeam, ['dashboard.view.company']);
+        $dashboardCompany = array_merge($dashboardTeam, [
+            'dashboard.view.company',
+            'dashboard.view.attendance_na_total_hours',
+        ]);
 
         $employeesSidebarBasic = [];
         $employeesSidebarExtended = [
@@ -340,6 +344,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'attendance.manage.missing_entries',
             'attendance.manage.manual_entries',
             'attendance.export',
+            'dashboard.view.attendance_na_total_hours',
         ]);
 
         $systemSidebarFull = [
@@ -363,7 +368,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'leaves.request.submit',
             'leaves.approve.requests',
         ];
-        
+
         $leavesSelf = [
             'leaves.sidebar.my_leaves',
             'leaves.sidebar.request_form',
@@ -399,7 +404,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tasks.view.all',
             'tasks.delete',
         ]);
-        
+
         // Daily Logs Permissions
         $dailyLogsSelf = [
             'daily-logs.view.self',

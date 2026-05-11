@@ -73,6 +73,11 @@ select:focus[data-flux-control] {
     background: transparent;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+    background: #27272a;
+    border-radius: 3px;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #a3a3a3;
     border-radius: 3px;

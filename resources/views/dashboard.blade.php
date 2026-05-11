@@ -137,8 +137,12 @@
                 <livewire:dashboard.suggestions-shortcut />
             </div>
 
-            <!-- My Tasks (last) -->
+            <!-- My Tasks -->
             <livewire:dashboard.tasks />
+
+            @can('dashboard.view.attendance_na_total_hours')
+                <livewire:dashboard.employees-with-na-attendance-hours />
+            @endcan
 
             <!-- Quick Actions -->
             {{-- <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
