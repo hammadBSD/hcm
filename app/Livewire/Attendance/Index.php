@@ -1534,8 +1534,8 @@ class Index extends Component
                         }
                         
                         $breakDetails[] = [
-                            'start' => $lastCheckOut->format('h:i:s A'),
-                            'end' => $recordTime->format('h:i:s A'),
+                            'start' => $formatBreakClock($lastCheckOut),
+                            'end' => $formatBreakClock($recordTime),
                             'duration' => $this->formatDuration($breakDuration),
                             'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
                             'end_manual' => $isManualCheckIn,
@@ -1547,7 +1547,7 @@ class Index extends Component
                     // IN without prior OUT → missing OUT, show '--' → IN
                     $breakDetails[] = [
                         'start' => '--',
-                        'end' => $recordTime->format('h:i:s A'),
+                        'end' => $formatBreakClock($recordTime),
                         'duration' => '--',
                         'end_manual' => $isManualCheckIn,
                     ];
@@ -1559,7 +1559,7 @@ class Index extends Component
         if ($firstOutTime !== null && !$firstOutWasPaired) {
             $firstOutManual = isset($firstOutRecord['is_manual_entry']) && $firstOutRecord['is_manual_entry'] ? true : false;
             $breakDetails[] = [
-                'start' => $firstOutTime->format('h:i:s A'),
+                'start' => $formatBreakClock($firstOutTime),
                 'end' => '--',
                 'duration' => '--',
                 'start_manual' => $firstOutManual,
@@ -1570,7 +1570,7 @@ class Index extends Component
         // But only if it's not the first OUT (which we already handled above)
         if ($lastCheckOut !== null && (!$firstOutTime || !$lastCheckOut->equalTo($firstOutTime))) {
             $breakDetails[] = [
-                'start' => $lastCheckOut->format('h:i:s A'),
+                'start' => $formatBreakClock($lastCheckOut),
                 'end' => '--',
                 'duration' => '--',
                 'start_manual' => $lastCheckOutRecord && isset($lastCheckOutRecord['is_manual_entry']) && $lastCheckOutRecord['is_manual_entry'] ? true : false,
