@@ -168,3 +168,30 @@ select:focus[data-flux-control] {
 .rating input[type="radio"]:hover ~ input[type="radio"]::before {
     background-color: #fbbf24;
 }
+
+/* Dashboard login announcement popup — pulsing border / glow */
+@keyframes announcement-login-border-glow {
+    0%,
+    100% {
+        border-color: rgba(245, 158, 11, 0.85);
+        box-shadow:
+            0 0 0 1px rgba(245, 158, 11, 0.45),
+            0 0 32px rgba(245, 158, 11, 0.4),
+            0 0 64px rgba(245, 158, 11, 0.15);
+    }
+
+    50% {
+        border-color: rgba(245, 158, 11, 0.15);
+        box-shadow:
+            0 0 0 1px rgba(245, 158, 11, 0.08),
+            0 0 8px rgba(245, 158, 11, 0.06),
+            0 0 16px rgba(245, 158, 11, 0.03);
+    }
+}
+
+.announcement-login-popup-frame {
+    border-width: 2px;
+    border-style: solid;
+    border-radius: 0.875rem;
+    animation: announcement-login-border-glow 2.4s ease-in-out infinite;
+}

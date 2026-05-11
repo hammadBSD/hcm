@@ -21,6 +21,8 @@
             </div>
         </div>
 
+        <livewire:dashboard.announcements />
+
         <!-- Stats Cards Row -->
         <div class="grid gap-6 md:grid-cols-3">
             <!-- Attendance Status Card -->
