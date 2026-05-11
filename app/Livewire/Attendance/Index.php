@@ -1454,6 +1454,12 @@ class Index extends Component
         $breakDetails = [];
         $lastCheckOut = null;
         $lastCheckOutRecord = null; // Track the record for manual entry check
+
+        // Tooltip only: model->toArray() serializes punch_time as UTC ISO; format in app timezone
+        // so displayed clock matches check-in/out column (calculations still use parsed instants above).
+        $formatBreakClock = function (Carbon $dt): string {
+            return $dt->copy()->timezone(config('app.timezone'))->format('h:i:s A');
+        };
         
         // Convert Collection to array if needed
         $recordsArray = is_array($sortedRecords) ? $sortedRecords : $sortedRecords->toArray();

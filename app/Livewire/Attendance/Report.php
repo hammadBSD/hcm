@@ -20,6 +20,7 @@ use App\Models\Constant;
 use App\Models\AttendanceBreakSetting;
 use App\Models\LeaveType;
 use App\Models\Holiday;
+use App\Models\EmployeeShift;
 use App\Services\AttendancePunchDayGroupingService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -89,6 +90,20 @@ class Report extends Component
     public bool $isBreakTrackingExcluded = false;
     public bool $showBreaksInGrid = true;
     public $allowedBreakTime = null; // Allowed break time in minutes
+
+    /**
+     * Populated for the duration of processAttendanceData() to avoid per-day DB queries
+     * (shift, exemption, exclude-breaks) that otherwise explode on bulk/payroll paths.
+     *
+     * @var array<string, bool>|null
+     */
+    protected ?array $attendanceExemptionByDate = null;
+
+    /** @var array<string, bool>|null */
+    protected ?array $attendanceExcludeBreaksByDate = null;
+
+    /** @var array<string, Shift|null>|null */
+    protected ?array $attendanceShiftByDate = null;
 
     public function mount()
     {
@@ -703,6 +718,14 @@ class Report extends Component
             return false;
         }
 
+        if ($this->attendanceExemptionByDate !== null) {
+            $dateKey = is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+                ? $date
+                : Carbon::parse($date)->format('Y-m-d');
+
+            return !empty($this->attendanceExemptionByDate[$dateKey]);
+        }
+
         $dateCarbon = Carbon::parse($date);
         $userId = $this->employee->user_id;
         $departmentId = $this->employee->department_id;
@@ -737,6 +760,14 @@ class Report extends Component
     {
         if (!$this->punchCode) {
             return false;
+        }
+
+        if ($this->attendanceExcludeBreaksByDate !== null) {
+            $dateKey = is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+                ? $date
+                : Carbon::parse($date)->format('Y-m-d');
+
+            return !empty($this->attendanceExcludeBreaksByDate[$dateKey]);
         }
 
         $dateCarbon = Carbon::parse($date)->startOfDay();
@@ -843,6 +874,132 @@ class Report extends Component
         return $holidaysMap;
     }
 
+    private function clearAttendanceDayProcessCaches(): void
+    {
+        $this->attendanceExemptionByDate = null;
+        $this->attendanceExcludeBreaksByDate = null;
+        $this->attendanceShiftByDate = null;
+    }
+
+    /**
+     * Preload per-day lookups for the date range processed in processAttendanceData (inclusive).
+     */
+    private function warmAttendanceDayProcessCaches(Carbon $startOfMonth, Carbon $endDate): void
+    {
+        $this->clearAttendanceDayProcessCaches();
+
+        if (!$this->employee) {
+            return;
+        }
+
+        $startStr = $startOfMonth->format('Y-m-d');
+        $endStr = $endDate->format('Y-m-d');
+        $userId = $this->employee->user_id;
+        $departmentId = $this->employee->department_id;
+        $auth = Auth::user();
+        $userRoles = $auth ? $auth->roles->pluck('id')->toArray() : [];
+
+        $exemptionRows = ExemptionDay::query()
+            ->where('from_date', '<=', $endStr)
+            ->where('to_date', '>=', $startStr)
+            ->where(function ($query) use ($userId, $departmentId, $userRoles) {
+                $query->where('scope_type', 'all')
+                    ->orWhere(function ($q) use ($userId) {
+                        $q->where('scope_type', 'user')->where('user_id', $userId);
+                    })
+                    ->orWhere(function ($q) use ($departmentId) {
+                        $q->where('scope_type', 'department')->where('department_id', $departmentId);
+                    })
+                    ->orWhere(function ($q) use ($userRoles) {
+                        $q->where('scope_type', 'role')->whereIn('role_id', $userRoles);
+                    });
+            })
+            ->get(['from_date', 'to_date']);
+
+        $this->attendanceExemptionByDate = [];
+        $cursor = $startOfMonth->copy();
+        while ($cursor->lte($endDate)) {
+            $d = $cursor->format('Y-m-d');
+            $exempt = false;
+            foreach ($exemptionRows as $row) {
+                $from = Carbon::parse($row->from_date)->format('Y-m-d');
+                $to = Carbon::parse($row->to_date)->format('Y-m-d');
+                if ($from <= $d && $to >= $d) {
+                    $exempt = true;
+                    break;
+                }
+            }
+            $this->attendanceExemptionByDate[$d] = $exempt;
+            $cursor->addDay();
+        }
+
+        $this->attendanceExcludeBreaksByDate = [];
+        if ($this->punchCode) {
+            $excludeRows = DeviceAttendance::query()
+                ->where('punch_code', $this->punchCode)
+                ->where('is_manual_entry', true)
+                ->whereBetween('punch_time', [$startOfMonth->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+                ->where('notes', 'like', '%Exclude Breaks%')
+                ->where(function ($query) {
+                    $query->whereNull('verify_mode')
+                        ->orWhere('verify_mode', '!=', 2);
+                })
+                ->get(['punch_time']);
+            foreach ($excludeRows as $row) {
+                $this->attendanceExcludeBreaksByDate[Carbon::parse($row->punch_time)->format('Y-m-d')] = true;
+            }
+        }
+
+        $assignments = EmployeeShift::query()
+            ->where('employee_id', $this->employee->id)
+            ->where('start_date', '<=', $endStr)
+            ->where(function ($query) use ($startStr) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $startStr);
+            })
+            ->orderBy('start_date', 'desc')
+            ->with('shift')
+            ->get();
+
+        if ($this->employee->department_id && !$this->employee->relationLoaded('department')) {
+            $this->employee->load(['department.shift']);
+        } elseif ($this->employee->relationLoaded('department') && $this->employee->department && !$this->employee->department->relationLoaded('shift')) {
+            $this->employee->department->load('shift');
+        }
+
+        $this->attendanceShiftByDate = [];
+        $cursor = $startOfMonth->copy();
+        while ($cursor->lte($endDate)) {
+            $d = $cursor->format('Y-m-d');
+            $dayShift = null;
+            foreach ($assignments as $assignment) {
+                $as = Carbon::parse($assignment->start_date)->format('Y-m-d');
+                $ae = $assignment->end_date ? Carbon::parse($assignment->end_date)->format('Y-m-d') : null;
+                if ($as <= $d && ($ae === null || $ae >= $d)) {
+                    $dayShift = $assignment->shift;
+                    break;
+                }
+            }
+            if (!$dayShift && $this->employee->department_id) {
+                $department = $this->employee->department;
+                if ($department && is_object($department) && $department->shift_id) {
+                    $dayShift = $department->shift;
+                }
+            }
+            $this->attendanceShiftByDate[$d] = $dayShift;
+            $cursor->addDay();
+        }
+    }
+
+    private function shiftForAttendanceProcessingDate(string $date): ?Shift
+    {
+        if ($this->attendanceShiftByDate !== null) {
+            return $this->attendanceShiftByDate[$date] ?? null;
+        }
+
+        return $this->employee ? $this->employee->getEffectiveShiftForDate($date) : null;
+    }
+
     private function processAttendanceData($records)
     {
         // Determine which month to process
@@ -865,13 +1022,16 @@ class Report extends Component
         // For current month, only show days up to today
         // For previous months, show all days
         $endDate = ($targetMonth === $today->format('Y-m')) ? $today : $endOfMonth;
-        
+
+        $this->warmAttendanceDayProcessCaches($startOfMonth, $endDate);
+
+        try {
         while ($current->lte($endDate)) {
             $date = $current->format('Y-m-d');
             $dayRecords = $groupedRecords[$date] ?? [];
             
             // Get the effective shift for this specific date (considers EmployeeShift assignments with start_date)
-            $dayShift = $this->employee->getEffectiveShiftForDate($date);
+            $dayShift = $this->shiftForAttendanceProcessingDate($date);
             
             // Check if this date has "Exclude Breaks" manual entries
             $hasExcludeBreaksEntry = $this->hasExcludeBreaksEntry($date);
@@ -1515,6 +1675,9 @@ class Report extends Component
         $this->sortAttendanceData($processedData);
         
         return array_values($processedData);
+        } finally {
+            $this->clearAttendanceDayProcessCaches();
+        }
     }
 
     /**
@@ -1647,6 +1810,11 @@ class Report extends Component
         $breakDetails = [];
         $lastCheckOut = null;
         $lastCheckOutRecord = null; // Track the record for manual entry check
+
+        // Tooltip only: model->toArray() serializes punch_time as UTC ISO; format in app timezone.
+        $formatBreakClock = function (Carbon $dt): string {
+            return $dt->copy()->timezone(config('app.timezone'))->format('h:i:s A');
+        };
         
         // Convert Collection to array if needed
         $recordsArray = is_array($sortedRecords) ? $sortedRecords : $sortedRecords->toArray();
