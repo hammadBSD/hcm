@@ -269,7 +269,7 @@
                                     @endphp
                                     @foreach($group['employees'] as $row)
                                         @php
-                                            $emp = $row['employee'] ?? [];
+                                            $emp = $row['employee'];
                                             $employmentStatusKey = strtolower(trim((string) ($row['employment_status'] ?? '')));
                                             $rowBgClass = 'bg-white dark:bg-zinc-800';
                                             $rowHoverClass = 'hover:bg-zinc-100 dark:hover:bg-zinc-600';
@@ -308,8 +308,8 @@
                                         @endphp
                                         <tr class="{{ $rowBgClass }} {{ $rowHoverClass }} transition-colors duration-150 group">
                                             <td class="sticky left-0 z-10 {{ $rowBgClass }} px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300" style="width: 56px; min-width: 56px; max-width: 56px;">{{ $row['sr_no'] ?? '' }}</td>
-                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ $emp['employee_code'] ?? 'N/A' }}</td>
-                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;"><span class="block break-words max-w-full" style="min-width: 0;">{{ trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? '')) }}</span></td>
+                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 whitespace-nowrap border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 56px; width: 96px; min-width: 96px; max-width: 96px;">{{ $emp->employee_code ?? 'N/A' }}</td>
+                                            <td class="sticky z-10 {{ $rowBgClass }} px-3 py-3 border-r border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-900 dark:text-zinc-100" style="left: 152px; width: 180px; min-width: 180px; max-width: 180px;"><span class="block break-words max-w-full" style="min-width: 0;">{{ trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')) }}</span></td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">{{ $row['department'] }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">{{ $row['designation'] }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300">{{ $row['reporting_manager'] ?? '—' }}</td>
@@ -480,9 +480,9 @@
                                             <option value="">{{ __('Select Employee') }}</option>
                                             @foreach($groupedData as $group)
                                                 @foreach($group['employees'] as $item)
-                                                    @php $e = $item['employee'] ?? []; @endphp
-                                                    <option value="{{ $e['id'] ?? '' }}">
-                                                        {{ trim(($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')) }} ({{ $e['employee_code'] ?? 'N/A' }})
+                                                    @php $e = $item['employee']; @endphp
+                                                    <option value="{{ $e->id }}">
+                                                        {{ trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? '')) }} ({{ $e->employee_code ?? 'N/A' }})
                                                     </option>
                                                 @endforeach
                                             @endforeach
