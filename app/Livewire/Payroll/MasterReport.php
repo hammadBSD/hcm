@@ -426,7 +426,12 @@ class MasterReport extends Component
             $shiftName = $employee->shift ? ($employee->shift->shift_name ?? '—') : '—';
 
             return [
-                'employee' => $employee,
+                'employee' => [
+                    'id' => $employee->id,
+                    'employee_code' => $employee->employee_code,
+                    'first_name' => $employee->first_name,
+                    'last_name' => $employee->last_name,
+                ],
                 'department' => $departmentName,
                 'designation' => $designationName,
                 'region' => $region,
@@ -693,7 +698,7 @@ class MasterReport extends Component
             foreach ($data as $row) {
                 $sr++;
                 $emp = $row['employee'];
-                $name = trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? ''));
+                $name = trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
                 $employmentStatusKey = strtolower(trim((string) ($row['employment_status'] ?? '')));
                 $rowColor = '';
                 if (str_contains($employmentStatusKey, 'resign')) {
@@ -705,7 +710,7 @@ class MasterReport extends Component
                 }
                 fputcsv($out, [
                     $sr,
-                    $emp->employee_code ?? 'N/A',
+                    $emp['employee_code'] ?? 'N/A',
                     $name,
                     $row['department'],
                     $row['designation'],
@@ -825,8 +830,8 @@ class MasterReport extends Component
             $term = strtolower($this->employeeSearchTerm);
             $data = $data->filter(function ($row) use ($term) {
                 $emp = $row['employee'];
-                $name = strtolower(trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')));
-                $code = strtolower($emp->employee_code ?? '');
+                $name = strtolower(trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? '')));
+                $code = strtolower($emp['employee_code'] ?? '');
                 $dept = strtolower($row['department']);
                 $des = strtolower($row['designation']);
                 return str_contains($name, $term) || str_contains($code, $term) || str_contains($dept, $term) || str_contains($des, $term);
@@ -894,8 +899,8 @@ class MasterReport extends Component
             if ($cmp !== 0) {
                 return $cmp;
             }
-            $nameA = trim(($a['employee']->first_name ?? '') . ' ' . ($a['employee']->last_name ?? ''));
-            $nameB = trim(($b['employee']->first_name ?? '') . ' ' . ($b['employee']->last_name ?? ''));
+            $nameA = trim(($a['employee']['first_name'] ?? '') . ' ' . ($a['employee']['last_name'] ?? ''));
+            $nameB = trim(($b['employee']['first_name'] ?? '') . ' ' . ($b['employee']['last_name'] ?? ''));
             return strcasecmp($nameA, $nameB);
         });
         return $flat;

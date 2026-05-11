@@ -74,8 +74,8 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                 'Row Color',
             ];
             foreach ($group['employees'] as $r) {
-                $emp = $r['employee'];
-                $name = trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? ''));
+                $emp = $r['employee'] ?? [];
+                $name = trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
                 $employmentStatusKey = strtolower(trim((string) ($r['employment_status'] ?? '')));
                 $rowColor = '';
                 if (str_contains($employmentStatusKey, 'resign')) {
@@ -87,7 +87,7 @@ class MasterReportExport implements FromArray, WithColumnWidths, WithEvents
                 }
                 $rows[] = [
                     $r['sr_no'] ?? '',
-                    $emp->employee_code ?? 'N/A',
+                    $emp['employee_code'] ?? 'N/A',
                     $name,
                     $r['department'],
                     $r['designation'],
