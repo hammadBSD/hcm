@@ -2,10 +2,22 @@
     @include('partials.system-management-heading')
 
     <x-system-management.layout :heading="__('System Management')" :subheading="__('Manage system settings and configurations')">
+        @php
+            $systemLegacyTrio = [
+                'system.sidebar.roles',
+                'system.sidebar.users',
+                'system.sidebar.settings',
+            ];
+        @endphp
+
         <!-- Dashboard Overview -->
         <div class="mb-8">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Quick Stats Cards -->
+                @canany([
+                    'system.sidebar.user_management',
+                    'system.sidebar.users',
+                    'system.manage.users',
+                ])
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -17,7 +29,9 @@
                         </div>
                     </div>
                 </div>
+                @endcanany
 
+                @can('system.sidebar.organization_settings')
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -29,7 +43,13 @@
                         </div>
                     </div>
                 </div>
+                @endcan
 
+                @canany([
+                    'system.sidebar.user_management',
+                    'system.sidebar.roles',
+                    'system.manage.roles',
+                ])
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -41,7 +61,19 @@
                         </div>
                     </div>
                 </div>
+                @endcanany
 
+                @canany(array_merge([
+                    'system.sidebar.organization_settings',
+                    'system.sidebar.user_management',
+                    'system.sidebar.financial_settings',
+                    'system.sidebar.attendance_settings',
+                    'system.sidebar.leaves_management',
+                    'system.sidebar.payroll_settings',
+                    'system.sidebar.security_access',
+                    'system.sidebar.operations',
+                    'system.sidebar.system_configuration',
+                ], $systemLegacyTrio))
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -53,11 +85,13 @@
                         </div>
                     </div>
                 </div>
+                @endcanany
             </div>
         </div>
 
         <!-- Category Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-5">
+            @can('system.sidebar.organization_settings')
             <!-- Organization Settings -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -116,7 +150,15 @@
                     </div>
                 </div>
             </div>
+            @endcan
 
+            @canany([
+                'system.sidebar.user_management',
+                'system.sidebar.roles',
+                'system.sidebar.users',
+                'system.manage.roles',
+                'system.manage.users',
+            ])
             <!-- User Management -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -131,27 +173,37 @@
                     </div>
                 </div>
                 <div class="space-y-2">
+                    @canany(['system.sidebar.user_management', 'system.sidebar.roles', 'system.manage.roles'])
                     <a href="{{ route('system-management.user-management.user-roles') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
                         <span>User Roles</span>
                         <flux:icon.chevron-right class="h-4 w-4" />
                     </a>
+                    @endcanany
+                    @canany(['system.sidebar.user_management', 'system.sidebar.users', 'system.manage.users'])
                     <a href="{{ route('system-management.user-management.users') }}" class="flex items-center justify-between p-2 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 text-sm text-zinc-700 dark:text-zinc-300">
                         <span>System Users</span>
                         <flux:icon.chevron-right class="h-4 w-4" />
                     </a>
+                    @endcanany
                 </div>
                 <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                     <div class="flex space-x-2">
+                        @canany(['system.sidebar.user_management', 'system.sidebar.roles', 'system.manage.roles'])
                         <flux:button variant="primary" size="sm" :href="route('system-management.user-management.user-roles')" wire:navigate>
                             Manage
                         </flux:button>
+                        @endcanany
+                        @canany(['system.sidebar.user_management', 'system.sidebar.users', 'system.manage.users'])
                         <flux:button variant="outline" size="sm" :href="route('system-management.user-management.users')" wire:navigate>
                             Add New
                         </flux:button>
+                        @endcanany
                     </div>
                 </div>
             </div>
+            @endcanany
 
+            @can('system.sidebar.financial_settings')
             <!-- Financial Settings -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -190,7 +242,9 @@
                     </div>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.system_configuration')
             <!-- System Configuration -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -233,7 +287,9 @@
                     </div>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.security_access')
             <!-- Security & Access -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -268,7 +324,9 @@
                     </div>
                 </div>
             </div>
+            @endcan
 
+            @canany(array_merge(['system.sidebar.operations'], ['tasks.manage.settings']))
             <!-- Operations -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -315,6 +373,7 @@
                     </div>
                 </div>
             </div>
+            @endcanany
         </div>
     </x-system-management.layout>
 </section>
