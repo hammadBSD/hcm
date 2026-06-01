@@ -54,6 +54,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view.absent_late',
             'dashboard.view.attendance_na_total_hours',
             'dashboard.view.attendance_month_absents',
+            'dashboard.view.attendance_month_lates',
 
             // Employees Module
             'employees.sidebar.directory',
@@ -298,6 +299,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view.company',
             'dashboard.view.attendance_na_total_hours',
             'dashboard.view.attendance_month_absents',
+            'dashboard.view.attendance_month_lates',
         ]);
 
         $employeesSidebarBasic = [];
@@ -357,6 +359,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'attendance.export',
             'dashboard.view.attendance_na_total_hours',
             'dashboard.view.attendance_month_absents',
+            'dashboard.view.attendance_month_lates',
         ]);
 
         $systemSidebarFull = [

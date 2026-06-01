@@ -132,12 +132,10 @@
                 <livewire:dashboard.absent-late-employees lazy />
             @endcan
 
-            <!-- Suggestions & Complaints shortcut (scroll target for active complaints alert) -->
-            <div id="dashboard-suggestions-section">
-                <livewire:dashboard.suggestions-shortcut lazy />
-            </div>
+            @can('dashboard.view.attendance_month_lates')
+                <livewire:dashboard.employees-with-monthly-lates lazy />
+            @endcan
 
-            {{-- Attendance summary cards side by side; My Tasks spans full width at the end --}}
             @can('dashboard.view.attendance_month_absents')
                 <livewire:dashboard.employees-with-monthly-absences lazy />
             @endcan
@@ -146,8 +144,11 @@
                 <livewire:dashboard.employees-with-na-attendance-hours lazy />
             @endcan
 
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 md:col-span-2 grid gap-6 grid-cols-1 md:grid-cols-2">
                 <livewire:dashboard.tasks />
+                <div id="dashboard-suggestions-section" class="min-w-0">
+                    <livewire:dashboard.suggestions-shortcut lazy />
+                </div>
             </div>
 
             <!-- Quick Actions -->
