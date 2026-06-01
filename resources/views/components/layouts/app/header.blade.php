@@ -127,9 +127,32 @@
             <flux:navbar class="me-4">
                 <!-- <flux:navbar.item icon="magnifying-glass" href="#" label="Search" /> -->
                 <flux:navbar.item class="max-lg:hidden" icon="bell" href="#" label="Notifications" />
-                @can('system.sidebar.roles')
-                    <flux:navbar.item class="max-lg:hidden" icon="cog-6-tooth" :href="route('system-management.index')" label="Settings" wire:navigate />
-                @endcan
+                @canany([
+                    'system.sidebar.organization_settings',
+                    'system.sidebar.user_management',
+                    'system.sidebar.financial_settings',
+                    'system.sidebar.attendance_settings',
+                    'system.sidebar.leaves_management',
+                    'system.sidebar.payroll_settings',
+                    'system.sidebar.security_access',
+                    'system.sidebar.operations',
+                    'system.sidebar.system_configuration',
+                    'system.sidebar.roles',
+                    'system.sidebar.users',
+                    'system.sidebar.settings',
+                    'system.manage.roles',
+                    'system.manage.users',
+                    'system.manage.settings',
+                ])
+                    <flux:navbar.item
+                        class="max-lg:hidden"
+                        icon="cog-6-tooth"
+                        :href="route('system-management.index')"
+                        :current="request()->routeIs('system-management.*')"
+                        label="Settings"
+                        wire:navigate
+                    />
+                @endcanany
             </flux:navbar>
 
             <!-- Desktop User Menu -->
