@@ -131,6 +131,67 @@
                             <flux:description>{{ __('When set, this fixed amount is deducted per hour for excess short hours instead of the formula.') }}</flux:description>
                         </flux:field>
                     </div>
+
+                    <div class="border-t border-zinc-200 dark:border-zinc-700 pt-6 space-y-4">
+                        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Late deduction') }}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <flux:field>
+                                <flux:label>{{ __('Lates per 1 day salary deduction') }}</flux:label>
+                                <flux:input type="number" step="1" min="1" wire:model="late_deduction_lates_per_day" />
+                                <flux:description>
+                                    @if(!empty($late_deduction_lates_per_day) && (int) $late_deduction_lates_per_day > 0)
+                                        {{ __('On the :nth late, 1 day of salary is deducted (e.g. :n lates = :days day(s); :allowed lates allowed with no deduction).', [
+                                            'nth' => (int) $late_deduction_lates_per_day,
+                                            'n' => (int) $late_deduction_lates_per_day * 2,
+                                            'days' => 2,
+                                            'allowed' => (int) $late_deduction_lates_per_day - 1,
+                                        ]) }}
+                                    @else
+                                        {{ __('Enter how many lates trigger 1 day of salary deduction (e.g. 5 → 10 lates deduct 2 days).') }}
+                                    @endif
+                                </flux:description>
+                                <flux:error name="late_deduction_lates_per_day" />
+                            </flux:field>
+                            <flux:field>
+                                <flux:label>{{ __('Effective from') }}</flux:label>
+                                <flux:input type="date" wire:model="late_deduction_effective_from" />
+                                <flux:description>{{ __('Payroll months before this date use the previous rule. Changing this creates a new history entry.') }}</flux:description>
+                                <flux:error name="late_deduction_effective_from" />
+                            </flux:field>
+                        </div>
+                        <div class="flex justify-end">
+                            <flux:button type="button" wire:click="saveLateDeductionSetting" variant="primary">
+                                {{ __('Save late deduction rule') }}
+                            </flux:button>
+                        </div>
+                        @if(isset($lateDeductionHistory) && $lateDeductionHistory->isNotEmpty())
+                            <div class="mt-4">
+                                <h5 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">{{ __('Rule history') }}</h5>
+                                <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <table class="min-w-full text-sm divide-y divide-zinc-200 dark:divide-zinc-700">
+                                        <thead class="bg-zinc-50 dark:bg-zinc-900/50">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-400">{{ __('Lates per day deducted') }}</th>
+                                                <th class="px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-400">{{ __('Effective from') }}</th>
+                                                <th class="px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-400">{{ __('Saved at') }}</th>
+                                                <th class="px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-400">{{ __('By') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
+                                            @foreach($lateDeductionHistory as $entry)
+                                                <tr>
+                                                    <td class="px-3 py-2 text-zinc-900 dark:text-zinc-100">{{ $entry->lates_per_day_deduction }}</td>
+                                                    <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $entry->effective_from->format('Y-m-d') }}</td>
+                                                    <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $entry->created_at?->format('Y-m-d H:i') }}</td>
+                                                    <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $entry->creator?->name ?? '—' }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
 

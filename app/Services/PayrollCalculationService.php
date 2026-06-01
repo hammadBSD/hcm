@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AdvanceSalaryRequest;
 use App\Models\Loan;
+use App\Models\PayrollLateDeductionSetting;
 use App\Models\PayrollSetting;
 use App\Models\Tax;
 use Carbon\Carbon;
@@ -163,6 +164,38 @@ class PayrollCalculationService
         }
         $perDay = (float) $settings->per_day_absent_deduction;
         return round($absentDays * $perDay, 2);
+    }
+
+    /**
+     * Salary days to deduct for lates in a payroll month (e.g. 5 lates per day rule → 10 lates = 2 days).
+     */
+    public static function getLateDeductionSalaryDays(int $lateCount, string $yearMonth): int
+    {
+        if ($lateCount <= 0) {
+            return 0;
+        }
+
+        $rule = PayrollLateDeductionSetting::forPayrollMonth($yearMonth);
+        if (! $rule || $rule->lates_per_day_deduction < 1) {
+            return 0;
+        }
+
+        return intdiv($lateCount, (int) $rule->lates_per_day_deduction);
+    }
+
+    /**
+     * Monetary late deduction: (gross ÷ working days) × salary days deducted.
+     */
+    public static function getLateDeductionAmount(int $lateCount, float $grossSalary, int $workingDays, string $yearMonth): float
+    {
+        $salaryDays = self::getLateDeductionSalaryDays($lateCount, $yearMonth);
+        if ($salaryDays <= 0) {
+            return 0.0;
+        }
+
+        $workingDays = max(1, $workingDays);
+
+        return round($salaryDays * ($grossSalary / $workingDays), 2);
     }
 
     /**

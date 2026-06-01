@@ -43,7 +43,7 @@ class ExemptDeductions extends Component
         'form.group_id' => 'required_if:form.scope_type,group|nullable|exists:groups,id',
         'form.duration' => 'required|in:monthly,yearly',
         'form.year_month' => 'required|date_format:Y-m',
-        'form.exemption_type' => 'required|in:absent_days,hourly_deduction_short_hours,all',
+        'form.exemption_type' => 'required|in:absent_days,hourly_deduction_short_hours,lates,all',
         'form.notes' => 'nullable|string|max:2000',
     ];
 

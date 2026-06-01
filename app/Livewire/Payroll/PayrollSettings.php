@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payroll;
 
+use App\Models\PayrollLateDeductionSetting;
 use App\Models\PayrollSetting;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -27,6 +28,10 @@ class PayrollSettings extends Component
         'email_payslips' => true,
         'backup_payroll' => true,
     ];
+
+    public ?int $late_deduction_lates_per_day = null;
+
+    public ?string $late_deduction_effective_from = null;
 
     public function mount()
     {
@@ -58,6 +63,45 @@ class PayrollSettings extends Component
                 'backup_payroll' => (bool) $row->backup_payroll,
             ];
         }
+
+        $this->loadLateDeductionFormFromLatest();
+    }
+
+    protected function loadLateDeductionFormFromLatest(): void
+    {
+        $latest = PayrollLateDeductionSetting::latestRule();
+        if ($latest) {
+            $this->late_deduction_lates_per_day = $latest->lates_per_day_deduction;
+            $this->late_deduction_effective_from = $latest->effective_from->format('Y-m-d');
+        } else {
+            $this->late_deduction_lates_per_day = null;
+            $this->late_deduction_effective_from = now()->format('Y-m-d');
+        }
+    }
+
+    public function saveLateDeductionSetting(): void
+    {
+        $this->validate([
+            'late_deduction_lates_per_day' => 'required|integer|min:1',
+            'late_deduction_effective_from' => 'required|date',
+        ]);
+
+        $latest = PayrollLateDeductionSetting::latestRule();
+        if ($latest
+            && (int) $latest->lates_per_day_deduction === (int) $this->late_deduction_lates_per_day
+            && $latest->effective_from->format('Y-m-d') === $this->late_deduction_effective_from) {
+            session()->flash('message', __('Late deduction rule is unchanged.'));
+
+            return;
+        }
+
+        PayrollLateDeductionSetting::create([
+            'lates_per_day_deduction' => (int) $this->late_deduction_lates_per_day,
+            'effective_from' => $this->late_deduction_effective_from,
+            'created_by' => Auth::id(),
+        ]);
+
+        session()->flash('message', __('Late deduction rule saved.'));
     }
 
     public function updateSetting($key, $value)
@@ -134,7 +178,14 @@ class PayrollSettings extends Component
 
     public function render()
     {
-        return view('livewire.payroll.payroll-settings')
-            ->layout('components.layouts.app');
+        $lateDeductionHistory = PayrollLateDeductionSetting::query()
+            ->with('creator')
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get();
+
+        return view('livewire.payroll.payroll-settings', [
+            'lateDeductionHistory' => $lateDeductionHistory,
+        ])->layout('components.layouts.app');
     }
 }

@@ -261,6 +261,7 @@
                         <flux:select wire:model="form.exemption_type" placeholder="{{ __('Select Exemption Type') }}">
                             <option value="absent_days">{{ __('Absent Days') }}</option>
                             <option value="hourly_deduction_short_hours">{{ __('Hourly Deduction (Short hours)') }}</option>
+                            <option value="lates">{{ __('Lates') }}</option>
                             <option value="all">{{ __('All') }}</option>
                         </flux:select>
                         <flux:error name="form.exemption_type" />

@@ -30,6 +30,7 @@ class DeductionExemption extends Model
     public const EXEMPTION_TYPES = [
         'absent_days' => 'Absent Days',
         'hourly_deduction_short_hours' => 'Hourly Deduction (Short hours)',
+        'lates' => 'Lates',
         'all' => 'All',
     ];
 

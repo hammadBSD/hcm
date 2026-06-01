@@ -311,10 +311,14 @@ class MasterReport extends Component
             $taxForDeduction = abs($taxAdjustment) > 0.00001 ? $taxAdjustment : $calculatedTax;
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
-            $flags = $exemptionMap[$employee->id] ?? ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
+            $flags = $exemptionMap[$employee->id] ?? ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false, 'exempt_lates' => false];
+            $lateDeductionDays = PayrollCalculationService::getLateDeductionSalaryDays($lateDays, $month);
+            $lateDeduction = PayrollCalculationService::getLateDeductionAmount($lateDays, $grossWithOt, $workingDays, $month);
             if (!empty($flags['exempt_all'])) {
                 $shortDeduction = 0;
                 $absentDeduction = 0;
+                $lateDeduction = 0;
+                $lateDeductionDays = 0;
             } else {
                 if (!empty($flags['exempt_short_hours'])) {
                     $shortDeduction = 0;
@@ -322,8 +326,12 @@ class MasterReport extends Component
                 if (!empty($flags['exempt_absent_days'])) {
                     $absentDeduction = 0;
                 }
+                if (!empty($flags['exempt_lates'])) {
+                    $lateDeduction = 0;
+                    $lateDeductionDays = 0;
+                }
             }
-            $otherDeductions = round($shortDeduction + $absentDeduction, 2);
+            $otherDeductions = round($shortDeduction + $absentDeduction + $lateDeduction, 2);
             $epfEe = 0;
             $epfEr = 0;
             $esicEe = 0;
@@ -449,6 +457,8 @@ class MasterReport extends Component
                 'hourly_rate' => $hourlyRate,
                 'daily_rate' => round($hourlyRate * 9, 2),
                 'hourly_deduction_amount' => $shortDeduction,
+                'deduction_late_days' => $lateDeductionDays,
+                'deduction_late_amount' => $lateDeduction,
                 'leave_paid' => $leavePaid,
                 'leaves_approved' => $leavePaid,
                 'leave_unpaid' => $leaveUnpaid,
@@ -502,7 +512,7 @@ class MasterReport extends Component
 
     /**
      * For the given year-month and employees, return per-employee exemption flags
-     * (exempt_absent_days, exempt_short_hours, exempt_all) based on DeductionExemption records.
+     * (exempt_absent_days, exempt_short_hours, exempt_lates, exempt_all) based on DeductionExemption records.
      */
     protected function getDeductionExemptionMap(string $yearMonth, \Illuminate\Support\Collection $employees): array
     {
@@ -520,7 +530,7 @@ class MasterReport extends Component
             ->get();
         $map = [];
         foreach ($employees as $e) {
-            $map[$e->id] = ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false];
+            $map[$e->id] = ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_lates' => false, 'exempt_all' => false];
         }
         $allEmployeeIds = $employees->pluck('id')->flip()->all();
         foreach ($exemptions as $ex) {
@@ -538,6 +548,8 @@ class MasterReport extends Component
                     $map[$empId]['exempt_absent_days'] = true;
                 } elseif ($type === 'hourly_deduction_short_hours') {
                     $map[$empId]['exempt_short_hours'] = true;
+                } elseif ($type === 'lates') {
+                    $map[$empId]['exempt_lates'] = true;
                 }
             }
         }
@@ -616,6 +628,9 @@ class MasterReport extends Component
         if (!empty($flags['exempt_absent_days'])) {
             $labels[] = 'Absent days';
         }
+        if (!empty($flags['exempt_lates'])) {
+            $labels[] = 'Lates';
+        }
 
         return empty($labels) ? 'No' : implode(', ', $labels);
     }
@@ -677,8 +692,8 @@ class MasterReport extends Component
         $headers = [
             'Sr No', 'Emp Code', 'Employee Name', 'DEPT', 'DSG', 'Reporting Manager', 'MCS', 'Brands', 'Employment Status',
             'Shift', 'DOJ', 'Job Duration', 'Date of Last Increment', 'Increment Amount', '# Months Since Last Increment',
-            'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Absent Days', 'Applied Leaves', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
-            'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
+            'Working Days', 'Holidays', 'Present Days', 'Extra Days', 'Amount of extra days', 'Total Lates', 'Total Absent Days', 'Applied Leaves', 'Leaves (approved)', 'Leaves (Unapproved)', 'Monthly Expected Hours', 'Total Hours Worked', 'Short/Excess Hours',
+            'Basic Salary', 'Allowances', 'Gross Salary', 'Hourly Rate', 'Daily Rate', 'Hourly Deduction Amount', 'Deduction Late Days', 'Deduction Absent Days', 'Salary Deduction', 'Net Salary', 'Bonus',
             'Tax', 'Tax Adjustment', 'EOBI', 'Advance', 'Loan',
             'Total Deductions', 'Deductions Exempted', 'Net Pay',
             'Hold', 'Interbank', 'IBFT', 'Cash', 'Cheque',
@@ -724,6 +739,7 @@ class MasterReport extends Component
                     $row['days_present'] ?? 0,
                     $row['extra_days'] ?? 0,
                     number_format($row['amount_extra_days'] ?? 0, 2),
+                    $row['late_days'] ?? 0,
                     $row['total_absent_days'] ?? 0,
                     $row['applied_leaves'] ?? 0,
                     $row['leaves_approved'] ?? 0,
@@ -737,6 +753,7 @@ class MasterReport extends Component
                     number_format($row['hourly_rate'] ?? 0, 2),
                     number_format($row['daily_rate'] ?? 0, 2),
                     number_format($row['hourly_deduction_amount'] ?? 0, 2),
+                    $row['deduction_late_days'] ?? 0,
                     number_format($row['deduction_absent_days'] ?? 0, 2),
                     number_format($row['other_deductions'] ?? 0, 2),
                     number_format($row['net_salary_after_attendance'] ?? 0, 2),
