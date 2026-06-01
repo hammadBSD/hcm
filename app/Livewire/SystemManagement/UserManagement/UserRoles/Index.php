@@ -16,26 +16,39 @@ class Index extends Component
     use WithPagination;
 
     public string $search = '';
+
     public string $sortBy = 'name';
+
     public string $sortDirection = 'asc';
+
     public int $perPage = 10;
 
     public bool $showManageUsersModal = false;
+
     public bool $showRoleFormModal = false;
+
     public bool $showRoleDetailsModal = false;
 
     public ?int $manageRoleId = null;
+
     public array $manageRoleData = [];
+
     public array $assignedUserIds = [];
+
     public array $availableUsers = [];
+
     public string $userSearch = '';
 
     public array $permissionGroups = [];
+
     public array $selectedPermissionCategories = [];
+
     public string $permissionSearch = '';
 
     public string $roleFormMode = 'create';
+
     public ?int $roleFormId = null;
+
     public array $roleForm = [
         'name' => '',
         'description' => '',
@@ -380,7 +393,7 @@ class Index extends Component
             ->distinct();
 
         if ($this->userSearch !== '') {
-            $searchTerm = '%' . trim($this->userSearch) . '%';
+            $searchTerm = '%'.trim($this->userSearch).'%';
             $query->where(function ($innerQuery) use ($searchTerm) {
                 $innerQuery->where('name', 'like', $searchTerm)
                     ->orWhere('email', 'like', $searchTerm);
@@ -473,6 +486,22 @@ class Index extends Component
 
     protected function permissionLabel(string $permission): string
     {
+        return match ($permission) {
+            'system.sidebar.organization_settings' => 'Organization Settings',
+            'system.sidebar.user_management' => 'User Management',
+            'system.sidebar.financial_settings' => 'Financial Settings',
+            'system.sidebar.attendance_settings' => 'Attendance Settings',
+            'system.sidebar.leaves_management' => 'Leaves Management',
+            'system.sidebar.payroll_settings' => 'Payroll Settings',
+            'system.sidebar.security_access' => 'Security & Access',
+            'system.sidebar.operations' => 'Operations',
+            'system.sidebar.system_configuration' => 'System Configuration',
+            default => $this->permissionLabelFromParts($permission),
+        };
+    }
+
+    protected function permissionLabelFromParts(string $permission): string
+    {
         $parts = explode('.', $permission);
 
         if (count($parts) === 1) {
@@ -517,13 +546,13 @@ class Index extends Component
 
     protected function generateCloneName(string $name): string
     {
-        $base = $name . ' Copy';
+        $base = $name.' Copy';
         $suffix = 1;
         $candidate = $base;
 
         while (RoleModel::where('name', $candidate)->exists()) {
             $suffix++;
-            $candidate = $base . ' ' . $suffix;
+            $candidate = $base.' '.$suffix;
         }
 
         return $candidate;
@@ -570,7 +599,7 @@ class Index extends Component
             ->withCount(['users', 'permissions']);
 
         if ($this->search !== '') {
-            $searchTerm = '%' . trim($this->search) . '%';
+            $searchTerm = '%'.trim($this->search).'%';
             $query->where('name', 'like', $searchTerm);
         }
 

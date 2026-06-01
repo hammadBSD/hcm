@@ -14,6 +14,7 @@
                     </div>
                 </flux:navlist.item>
             </div>
+            @can('system.sidebar.organization_settings')
             <!-- Organization Settings -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.organization-setting.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -133,7 +134,15 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @canany([
+                'system.sidebar.user_management',
+                'system.sidebar.roles',
+                'system.sidebar.users',
+                'system.manage.roles',
+                'system.manage.users',
+            ])
             <!-- User Management -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.user-management.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -141,6 +150,7 @@
                     <flux:icon name="chevron-down" class="w-4 h-4 transition-transform" x-bind:class="open ? 'rotate-180' : ''" />
                 </button>
                 <div x-show="open" x-transition class="mt-1">
+                    @canany(['system.sidebar.user_management', 'system.sidebar.roles', 'system.manage.roles'])
                     <flux:navlist.item 
                         :href="route('system-management.user-management.user-roles')" 
                         wire:navigate
@@ -151,6 +161,8 @@
                             {{ __('Roles & Permissions') }}
                         </div>
                     </flux:navlist.item>
+                    @endcanany
+                    @canany(['system.sidebar.user_management', 'system.sidebar.users', 'system.manage.users'])
                     <flux:navlist.item 
                         :href="route('system-management.user-management.users')" 
                         wire:navigate
@@ -161,9 +173,12 @@
                             {{ __('System Users') }}
                         </div>
                     </flux:navlist.item>
+                    @endcanany
                 </div>
             </div>
+            @endcanany
 
+            @can('system.sidebar.financial_settings')
             <!-- Financial Settings -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.financial-settings.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -203,7 +218,9 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.attendance_settings')
             <!-- Attendance Settings -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.attendance-settings.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -263,7 +280,9 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.leaves_management')
             <!-- Leaves Management -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.leaves-management.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -313,7 +332,9 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.payroll_settings')
             <!-- Payroll Settings -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.payroll-settings.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -353,7 +374,9 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @can('system.sidebar.security_access')
             <!-- Security & Access -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.security-access.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -383,7 +406,9 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
 
+            @canany(['system.sidebar.operations', 'tasks.manage.settings'])
             <!-- Operations -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.operations.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -391,6 +416,7 @@
                     <flux:icon name="chevron-down" class="w-4 h-4 transition-transform" x-bind:class="open ? 'rotate-180' : ''" />
                 </button>
                 <div x-show="open" x-transition class="mt-1">
+                    @can('system.sidebar.operations')
                     <flux:navlist.item 
                         :href="route('system-management.operations.projects')" 
                         wire:navigate
@@ -411,6 +437,7 @@
                             {{ __('Tasks') }}
                         </div>
                     </flux:navlist.item>
+                    @endcan
                     @can('tasks.manage.settings')
                     <flux:navlist.item 
                         :href="route('system-management.operations.tasks.settings')" 
@@ -423,6 +450,7 @@
                         </div>
                     </flux:navlist.item>
                     @endcan
+                    @can('system.sidebar.operations')
                     <flux:navlist.item 
                         :href="route('system-management.operations.month-close')" 
                         wire:navigate
@@ -453,9 +481,12 @@
                             {{ __('Constant') }}
                         </div>
                     </flux:navlist.item>
+                    @endcan
                 </div>
             </div>
+            @endcanany
 
+            @can('system.sidebar.system_configuration')
             <!-- System Configuration -->
             <div class="mb-3" x-data="{ open: {{ request()->routeIs('system-management.system-configuration.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="w-full px-3 py-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
@@ -505,6 +536,7 @@
                     </flux:navlist.item>
                 </div>
             </div>
+            @endcan
         </flux:navlist>
     </div>
 

@@ -2,11 +2,14 @@
 
 namespace App\Livewire\Dashboard;
 
-use Livewire\Component;
 use App\Models\EmployeeSuggestion;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
+use Livewire\Component;
 
+#[Lazy]
 class SuggestionsShortcut extends Component
 {
     public $suggestions = [];
@@ -37,10 +40,10 @@ class SuggestionsShortcut extends Component
         if ($this->selectedMonth) {
             $date = Carbon::parse($this->selectedMonth);
             $query->whereYear('created_at', $date->year)
-                  ->whereMonth('created_at', $date->month);
+                ->whereMonth('created_at', $date->month);
         }
 
-        if (!$user->hasRole('Super Admin') && !$user->can('complaints.view.all')) {
+        if (! $user->hasRole('Super Admin') && ! $user->can('complaints.view.all')) {
             if ($user->can('complaints.view.own_department') && $employee) {
                 $query->where(function ($q) use ($employee) {
                     $q->where('employee_id', $employee->id)
@@ -48,7 +51,7 @@ class SuggestionsShortcut extends Component
                 });
             } elseif ($user->can('complaints.view.self') && $employee) {
                 $query->where('employee_id', $employee->id);
-            } elseif (!$user->can('employees.manage.suggestions')) {
+            } elseif (! $user->can('employees.manage.suggestions')) {
                 if ($employee) {
                     $query->where('employee_id', $employee->id);
                 } else {
@@ -83,7 +86,7 @@ class SuggestionsShortcut extends Component
         $current = Carbon::now();
         $months[] = [
             'value' => $current->format('Y-m'),
-            'label' => $current->format('F Y') . ' (' . __('Current') . ')',
+            'label' => $current->format('F Y').' ('.__('Current').')',
         ];
         for ($i = 1; $i <= 11; $i++) {
             $date = $current->copy()->subMonths($i);
@@ -92,7 +95,16 @@ class SuggestionsShortcut extends Component
                 'label' => $date->format('F Y'),
             ];
         }
+
         return $months;
+    }
+
+    public function placeholder(): View
+    {
+        return view('components.dashboard.widget-skeleton', [
+            'skeletonColumns' => 5,
+            'skeletonRows' => 3,
+        ]);
     }
 
     public function render()

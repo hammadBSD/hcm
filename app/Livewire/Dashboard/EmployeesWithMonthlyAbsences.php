@@ -5,9 +5,12 @@ namespace App\Livewire\Dashboard;
 use App\Livewire\Attendance\Report;
 use App\Models\Employee;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class EmployeesWithMonthlyAbsences extends Component
 {
     /** @var string Month (Y-m); empty means current month */
@@ -104,6 +107,19 @@ class EmployeesWithMonthlyAbsences extends Component
         }
 
         return $months;
+    }
+
+    public function placeholder(): View
+    {
+        if (! Auth::user()?->can('dashboard.view.attendance_month_absents')) {
+            return view('livewire.dashboard.placeholders.empty');
+        }
+
+        return view('components.dashboard.widget-skeleton', [
+            'withSubtitle' => true,
+            'skeletonColumns' => 5,
+            'skeletonRows' => 4,
+        ]);
     }
 
     public function render()

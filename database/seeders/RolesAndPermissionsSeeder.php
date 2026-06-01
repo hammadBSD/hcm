@@ -164,6 +164,15 @@ class RolesAndPermissionsSeeder extends Seeder
             'reports.export.detailed',
 
             // System Management Module
+            'system.sidebar.organization_settings',
+            'system.sidebar.user_management',
+            'system.sidebar.financial_settings',
+            'system.sidebar.attendance_settings',
+            'system.sidebar.leaves_management',
+            'system.sidebar.payroll_settings',
+            'system.sidebar.security_access',
+            'system.sidebar.operations',
+            'system.sidebar.system_configuration',
             'system.sidebar.roles',
             'system.sidebar.users',
             'system.sidebar.settings',
@@ -351,6 +360,15 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         $systemSidebarFull = [
+            'system.sidebar.organization_settings',
+            'system.sidebar.user_management',
+            'system.sidebar.financial_settings',
+            'system.sidebar.attendance_settings',
+            'system.sidebar.leaves_management',
+            'system.sidebar.payroll_settings',
+            'system.sidebar.security_access',
+            'system.sidebar.operations',
+            'system.sidebar.system_configuration',
             'system.sidebar.roles',
             'system.sidebar.users',
             'system.sidebar.settings',

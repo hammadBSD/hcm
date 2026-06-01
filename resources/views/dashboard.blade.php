@@ -129,21 +129,21 @@
         <div class="grid gap-6 grid-cols-1 md:grid-cols-2">
             <!-- Absent & Late Employees -->
             @can('dashboard.view.absent_late')
-                <livewire:dashboard.absent-late-employees />
+                <livewire:dashboard.absent-late-employees lazy />
             @endcan
 
             <!-- Suggestions & Complaints shortcut (scroll target for active complaints alert) -->
             <div id="dashboard-suggestions-section">
-                <livewire:dashboard.suggestions-shortcut />
+                <livewire:dashboard.suggestions-shortcut lazy />
             </div>
 
             {{-- Attendance summary cards side by side; My Tasks spans full width at the end --}}
             @can('dashboard.view.attendance_month_absents')
-                <livewire:dashboard.employees-with-monthly-absences />
+                <livewire:dashboard.employees-with-monthly-absences lazy />
             @endcan
 
             @can('dashboard.view.attendance_na_total_hours')
-                <livewire:dashboard.employees-with-na-attendance-hours />
+                <livewire:dashboard.employees-with-na-attendance-hours lazy />
             @endcan
 
             <div class="col-span-1 md:col-span-2">
