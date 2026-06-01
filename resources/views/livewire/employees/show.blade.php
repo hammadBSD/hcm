@@ -482,6 +482,33 @@
                 </div>
                 @endif
 
+                @if($employee)
+                <!-- Leaves (Approved/Rejected) -->
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+                        <flux:heading size="lg" class="text-zinc-900 dark:text-zinc-100">
+                            {{ __('Leaves (Approved/Rejected)') }}
+                        </flux:heading>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <x-employees.year-leave-cards
+                                :heading="__('Approved leaves') . ' (' . $leavesYear . ')'"
+                                :description="__('All approved requests whose dates fall in this calendar year.')"
+                                :leaves="$approvedLeavesYear"
+                                :empty-text="__('No approved leaves recorded for this year yet.')"
+                            />
+                            <x-employees.year-leave-cards
+                                :heading="__('Rejected leaves') . ' (' . $leavesYear . ')'"
+                                :description="__('All rejected requests whose dates fall in this calendar year.')"
+                                :leaves="$rejectedLeavesYear"
+                                :empty-text="__('No rejected leaves recorded for this year yet.')"
+                            />
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- Documents & Emergency Contact Section -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
