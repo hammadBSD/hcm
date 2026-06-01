@@ -36,9 +36,9 @@ class AbsentLateEmployees extends Component
         $now = Carbon::now();
         $isToday = $selectedDate->isToday();
 
-        // Get all active employees with their relationships
         $employees = Employee::where('status', 'active')
             ->whereNotNull('punch_code')
+            ->excludingAdminDepartment()
             ->with(['department', 'group'])
             ->get();
 
@@ -77,14 +77,7 @@ class AbsentLateEmployees extends Component
                     continue;
                 }
 
-                // Get department and group names safely
-                $departmentName = 'N/A';
-                if ($employee->department_id) {
-                    $department = $employee->department()->first();
-                    if ($department && is_object($department)) {
-                        $departmentName = $department->title ?? 'N/A';
-                    }
-                }
+                $departmentName = $this->departmentNameFor($employee);
 
                 $groupName = 'N/A';
                 if ($employee->group_id) {
@@ -318,14 +311,7 @@ class AbsentLateEmployees extends Component
                 }
             }
 
-            // Get department and group names safely
-            $departmentName = 'N/A';
-            if ($employee->department_id) {
-                $department = $employee->department()->first();
-                if ($department && is_object($department)) {
-                    $departmentName = $department->title ?? 'N/A';
-                }
-            }
+            $departmentName = $this->departmentNameFor($employee);
 
             $groupName = 'N/A';
             if ($employee->group_id) {
@@ -378,6 +364,23 @@ class AbsentLateEmployees extends Component
     public function refresh()
     {
         $this->loadAbsentLateEmployees();
+    }
+
+    protected function departmentNameFor(Employee $employee): string
+    {
+        if (! $employee->department_id) {
+            return 'N/A';
+        }
+
+        $department = $employee->relationLoaded('department')
+            ? $employee->getRelation('department')
+            : $employee->department()->first();
+
+        if ($department && is_object($department)) {
+            return (string) ($department->title ?? 'N/A');
+        }
+
+        return 'N/A';
     }
 
     public function placeholder(): View

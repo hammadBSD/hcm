@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Employee extends Model
 {
     use HasFactory;
+
+    public const ADMIN_DEPARTMENT_TITLE = 'Admin';
 
     protected $fillable = [
         'user_id',
@@ -188,7 +191,7 @@ class Employee extends Model
      * 1. Employee's individual shift (shift_id)
      * 2. Department's shift (if employee has department_id)
      * 3. null (no shift assigned)
-     * 
+     *
      * @return Shift|null
      */
     public function getEffectiveShift()
@@ -203,13 +206,14 @@ class Employee extends Model
             // Always use the relationship method to avoid conflict with old varchar column
             // Don't use $this->department attribute as it might return the old varchar value
             $department = $this->department()->with('shift')->first();
-            
+
             // Verify it's an object and has shift_id
             if ($department && is_object($department) && $department->shift_id) {
                 // Ensure shift is loaded
-                if (!$department->relationLoaded('shift')) {
+                if (! $department->relationLoaded('shift')) {
                     $department->load('shift');
                 }
+
                 return $department->shift;
             }
         }
@@ -226,39 +230,50 @@ class Employee extends Model
     public function getEffectiveShiftForDate($date)
     {
         $dateCarbon = \Carbon\Carbon::parse($date)->startOfDay();
-        
+
         // First, check for EmployeeShift assignments that are active on this date
         $employeeShift = \App\Models\EmployeeShift::where('employee_id', $this->id)
             ->where('start_date', '<=', $dateCarbon->format('Y-m-d'))
-            ->where(function($query) use ($dateCarbon) {
+            ->where(function ($query) use ($dateCarbon) {
                 $query->whereNull('end_date')
-                      ->orWhere('end_date', '>=', $dateCarbon->format('Y-m-d'));
+                    ->orWhere('end_date', '>=', $dateCarbon->format('Y-m-d'));
             })
             ->orderBy('start_date', 'desc')
             ->with('shift')
             ->first();
-        
+
         if ($employeeShift && $employeeShift->shift) {
             return $employeeShift->shift;
         }
-        
+
         // If no EmployeeShift assignment found, fallback to department shift
         // (This handles dates before the first EmployeeShift assignment)
         if ($this->department_id) {
             // Always use the relationship method to avoid conflict with old varchar column
             $department = $this->department()->with('shift')->first();
-            
+
             // Verify it's an object and has shift_id
             if ($department && is_object($department) && $department->shift_id) {
                 // Ensure shift is loaded
-                if (!$department->relationLoaded('shift')) {
+                if (! $department->relationLoaded('shift')) {
                     $department->load('shift');
                 }
+
                 return $department->shift;
             }
         }
-        
+
         // No shift assigned (neither EmployeeShift nor department shift)
         return null;
+    }
+
+    /**
+     * Exclude employees assigned to the Admin department (dashboard attendance widgets).
+     */
+    public function scopeExcludingAdminDepartment(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('department', function (Builder $departmentQuery) {
+            $departmentQuery->whereRaw('LOWER(title) = ?', [strtolower(self::ADMIN_DEPARTMENT_TITLE)]);
+        });
     }
 }

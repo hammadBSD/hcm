@@ -50,6 +50,7 @@ class EmployeesWithMonthlyLates extends Component
         $employees = Employee::query()
             ->where('status', 'active')
             ->whereNotNull('punch_code')
+            ->excludingAdminDepartment()
             ->with(['department', 'group'])
             ->orderBy('first_name')
             ->orderBy('last_name')
