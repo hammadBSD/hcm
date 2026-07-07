@@ -6,12 +6,16 @@ use App\Models\DeductionExemption;
 use App\Models\Employee;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\PayrollEobiYearlySetting;
+use App\Models\PayrollMonthLock;
+use App\Models\PayrollMonthSnapshot;
 use App\Models\PayrollNetSalaryAdjustment;
 use App\Models\PayrollTaxAdjustment;
 use App\Services\AttendanceStatsForPayrollService;
 use App\Services\PayrollCalculationService;
+use App\Services\PayrollLatesAdjustmentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -32,6 +36,7 @@ class MasterReport extends Component
     public $availableMonths = [];
 
     public $reportData = [];
+    public $isMonthLocked = false;
     public $showAdjustSalaryModal = false;
     public $adjustmentRows = [];
 
@@ -56,6 +61,12 @@ class MasterReport extends Component
 
     public function openAdjustSalaryModal(): void
     {
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        if (PayrollMonthLock::isLocked($month)) {
+            session()->flash('error', __('This month is locked. Salary adjustments cannot be changed.'));
+            return;
+        }
+
         if (!$this->canAdjustSalaryForCurrentMonth()) {
             session()->flash('error', __('Adjust Salary is available only for January 2026 and February 2026.'));
             return;
@@ -103,6 +114,12 @@ class MasterReport extends Component
 
     public function saveSalaryAdjustments(): void
     {
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        if (PayrollMonthLock::isLocked($month)) {
+            session()->flash('error', __('This month is locked. Salary adjustments cannot be changed.'));
+            return;
+        }
+
         if (!$this->canAdjustSalaryForCurrentMonth()) {
             session()->flash('error', __('Adjust Salary is available only for January 2026 and February 2026.'));
             return;
@@ -222,9 +239,85 @@ class MasterReport extends Component
             ->orderBy('last_name');
     }
 
+    public function lockPayroll(): void
+    {
+        $user = Auth::user();
+        if (!$user || !$user->can('payroll.process')) {
+            abort(403);
+        }
+
+        $month = $this->selectedMonth ?: $this->currentMonth;
+        if ($month === $this->currentMonth) {
+            session()->flash('error', __('Payroll for the current month cannot be locked yet.'));
+            return;
+        }
+
+        if (PayrollMonthLock::isLocked($month)) {
+            session()->flash('error', __('This month is already locked.'));
+            return;
+        }
+
+        $rows = $this->computeLiveReportData($month);
+        if (empty($rows)) {
+            session()->flash('error', __('No payroll data to lock for this month.'));
+            return;
+        }
+
+        DB::transaction(function () use ($month, $rows, $user) {
+            foreach ($rows as $row) {
+                PayrollMonthSnapshot::create(
+                    PayrollMonthSnapshot::attributesFromReportRow($month, $row)
+                );
+            }
+
+            PayrollMonthLock::create([
+                'year_month' => $month,
+                'locked_by' => $user->id,
+                'locked_at' => now(),
+            ]);
+        });
+
+        $this->loadReportData();
+        session()->flash('success', __('Payroll locked for :month.', [
+            'month' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),
+        ]));
+    }
+
     public function loadReportData(): void
     {
         $month = $this->selectedMonth ?: now()->format('Y-m');
+        $this->isMonthLocked = PayrollMonthLock::isLocked($month);
+
+        if ($this->isMonthLocked) {
+            $this->reportData = $this->loadReportDataFromSnapshots($month);
+            return;
+        }
+
+        $this->reportData = $this->computeLiveReportData($month);
+    }
+
+    protected function loadReportDataFromSnapshots(string $month): array
+    {
+        return PayrollMonthSnapshot::query()
+            ->where('year_month', $month)
+            ->with([
+                'employee.department',
+                'employee.designation',
+                'employee.organizationalInfo',
+                'employee.shift',
+                'employee.group',
+                'employee.employmentStatus',
+            ])
+            ->orderBy('department')
+            ->orderBy('employee_id')
+            ->get()
+            ->map(fn (PayrollMonthSnapshot $snapshot) => $snapshot->toReportRow())
+            ->values()
+            ->toArray();
+    }
+
+    protected function computeLiveReportData(string $month): array
+    {
         $employees = $this->masterReportEmployeesQuery($month)->get();
         $taxYear = $month ? (int) substr($month, 0, 4) : (int) date('Y');
         $periodMonth = $month ? (int) substr($month, 5, 2) : (int) date('n');
@@ -234,8 +327,9 @@ class MasterReport extends Component
         $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
         $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
         $taxAdjustmentMap = $this->getTaxAdjustmentMap($month);
+        $lateAdjustmentMap = app(PayrollLatesAdjustmentService::class)->getAdjustmentMap($month);
 
-        $this->reportData = $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $appliedLeavesMap, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap ) {
+        return $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $appliedLeavesMap, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap, $lateAdjustmentMap) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $appliedLeaves = (float) ($appliedLeavesMap[$employee->id] ?? 0);
             $workingDays = (int) ($att['working_days'] ?? 0);
@@ -312,13 +406,17 @@ class MasterReport extends Component
             $shortDeduction = PayrollCalculationService::getShortHoursDeduction($shortExcessHours, $grossWithOt, $workingDays);
             $absentDeduction = PayrollCalculationService::getAbsentDeduction($absent, $grossWithOt, $workingDays);
             $flags = $exemptionMap[$employee->id] ?? ['exempt_absent_days' => false, 'exempt_short_hours' => false, 'exempt_all' => false, 'exempt_lates' => false];
-            $lateDeductionDays = PayrollCalculationService::getLateDeductionSalaryDays($lateDays, $month);
-            $lateDeduction = PayrollCalculationService::getLateDeductionAmount($lateDays, $grossWithOt, $workingDays, $month);
+            $calculatedLateDays = PayrollCalculationService::getLateDeductionSalaryDays($lateDays, $month);
+            $lateAdjustmentDays = 0;
+            $lateDeductionDays = $calculatedLateDays;
+            $lateDeduction = PayrollCalculationService::getLateDeductionAmountForSalaryDays($lateDeductionDays, $grossWithOt, $workingDays);
             if (!empty($flags['exempt_all'])) {
                 $shortDeduction = 0;
                 $absentDeduction = 0;
                 $lateDeduction = 0;
                 $lateDeductionDays = 0;
+                $calculatedLateDays = 0;
+                $lateAdjustmentDays = 0;
             } else {
                 if (!empty($flags['exempt_short_hours'])) {
                     $shortDeduction = 0;
@@ -329,6 +427,16 @@ class MasterReport extends Component
                 if (!empty($flags['exempt_lates'])) {
                     $lateDeduction = 0;
                     $lateDeductionDays = 0;
+                    $calculatedLateDays = 0;
+                    $lateAdjustmentDays = 0;
+                } elseif (array_key_exists($employee->id, $lateAdjustmentMap)) {
+                    $lateAdjustmentDays = max(0, min((int) $lateAdjustmentMap[$employee->id], $calculatedLateDays));
+                    $lateDeductionDays = max(0, $calculatedLateDays - $lateAdjustmentDays);
+                    $lateDeduction = PayrollCalculationService::getLateDeductionAmountForSalaryDays(
+                        $lateDeductionDays,
+                        $grossWithOt,
+                        $workingDays
+                    );
                 }
             }
             $otherDeductions = round($shortDeduction + $absentDeduction + $lateDeduction, 2);
@@ -457,6 +565,8 @@ class MasterReport extends Component
                 'hourly_rate' => $hourlyRate,
                 'daily_rate' => round($hourlyRate * 9, 2),
                 'hourly_deduction_amount' => $shortDeduction,
+                'calculated_deduction_late_days' => $calculatedLateDays,
+                'late_adjustment_days' => $lateAdjustmentDays,
                 'deduction_late_days' => $lateDeductionDays,
                 'deduction_late_amount' => $lateDeduction,
                 'leave_paid' => $leavePaid,
@@ -753,6 +863,7 @@ class MasterReport extends Component
                     number_format($row['hourly_rate'] ?? 0, 2),
                     number_format($row['daily_rate'] ?? 0, 2),
                     number_format($row['hourly_deduction_amount'] ?? 0, 2),
+                    ($row['late_adjustment_days'] ?? 0) > 0 ? $row['late_adjustment_days'] : '—',
                     $row['deduction_late_days'] ?? 0,
                     number_format($row['deduction_absent_days'] ?? 0, 2),
                     number_format($row['other_deductions'] ?? 0, 2),
@@ -884,6 +995,10 @@ class MasterReport extends Component
     protected function canAdjustSalaryForCurrentMonth(): bool
     {
         $month = $this->selectedMonth ?: $this->currentMonth;
+        if (PayrollMonthLock::isLocked($month)) {
+            return false;
+        }
+
         return in_array($month, ['2026-01', '2026-02'], true);
     }
 
@@ -1011,6 +1126,10 @@ class MasterReport extends Component
             'subheading' => $subheading,
             'grandTotals' => $grandTotals,
             'canAdjustSalary' => $this->canAdjustSalaryForCurrentMonth(),
+            'isMonthLocked' => $this->isMonthLocked,
+            'canLockPayroll' => Auth::user()?->can('payroll.process')
+                && ($this->selectedMonth ?: $this->currentMonth) !== $this->currentMonth
+                && !$this->isMonthLocked,
         ])->layout('components.layouts.app');
     }
 }

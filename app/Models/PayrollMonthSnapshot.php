@@ -1,0 +1,330 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class PayrollMonthSnapshot extends Model
+{
+    protected $fillable = [
+        'year_month',
+        'employee_id',
+        'department',
+        'designation',
+        'region',
+        'shift',
+        'doj',
+        'current_status',
+        'reporting_manager',
+        'mcs',
+        'brands',
+        'employment_status',
+        'cnic',
+        'last_increment_date',
+        'last_increment_amount',
+        'months_since_increment',
+        'job_duration',
+        'working_days',
+        'days_present',
+        'extra_days',
+        'amount_extra_days',
+        'hourly_rate',
+        'daily_rate',
+        'hourly_deduction_amount',
+        'deduction_late_days',
+        'late_adjustment_days',
+        'calculated_deduction_late_days',
+        'deduction_late_amount',
+        'leave_paid',
+        'leaves_approved',
+        'leave_unpaid',
+        'leave_lwp',
+        'absent',
+        'holiday',
+        'total_absent_days',
+        'applied_leaves',
+        'leaves_unapproved',
+        'late_days',
+        'total_break_time',
+        'total_hours_worked',
+        'monthly_expected_hours',
+        'short_excess_hours',
+        'salary_type',
+        'basic_salary',
+        'allowances',
+        'ot_hrs',
+        'ot_amt',
+        'gross_salary',
+        'bonus',
+        'epf_ee',
+        'epf_er',
+        'esic_ee',
+        'esic_er',
+        'tax',
+        'tax_adjustment',
+        'salary_adjustment',
+        'prof_tax',
+        'eobi',
+        'advance',
+        'loan',
+        'deduction_absent_days',
+        'other_deductions',
+        'total_deductions',
+        'net_salary_after_attendance',
+        'net_salary',
+        'bank_name',
+        'account_title',
+        'bank_account',
+        'transaction_type',
+        'transaction_hold',
+        'transaction_interbank',
+        'transaction_ibft',
+        'transaction_cash',
+        'transaction_cheque',
+        'deductions_exempted',
+    ];
+
+    protected $casts = [
+        'last_increment_amount' => 'decimal:2',
+        'days_present' => 'decimal:2',
+        'amount_extra_days' => 'decimal:2',
+        'hourly_rate' => 'decimal:2',
+        'daily_rate' => 'decimal:2',
+        'hourly_deduction_amount' => 'decimal:2',
+        'deduction_late_amount' => 'decimal:2',
+        'leave_paid' => 'decimal:2',
+        'leaves_approved' => 'decimal:2',
+        'leave_unpaid' => 'decimal:2',
+        'leave_lwp' => 'decimal:2',
+        'total_absent_days' => 'decimal:2',
+        'applied_leaves' => 'decimal:2',
+        'leaves_unapproved' => 'decimal:2',
+        'basic_salary' => 'decimal:2',
+        'allowances' => 'decimal:2',
+        'ot_hrs' => 'decimal:2',
+        'ot_amt' => 'decimal:2',
+        'gross_salary' => 'decimal:2',
+        'bonus' => 'decimal:2',
+        'epf_ee' => 'decimal:2',
+        'epf_er' => 'decimal:2',
+        'esic_ee' => 'decimal:2',
+        'esic_er' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'tax_adjustment' => 'decimal:2',
+        'salary_adjustment' => 'decimal:2',
+        'prof_tax' => 'decimal:2',
+        'eobi' => 'decimal:2',
+        'advance' => 'decimal:2',
+        'loan' => 'decimal:2',
+        'deduction_absent_days' => 'decimal:2',
+        'other_deductions' => 'decimal:2',
+        'total_deductions' => 'decimal:2',
+        'net_salary_after_attendance' => 'decimal:2',
+        'net_salary' => 'decimal:2',
+        'transaction_hold' => 'decimal:2',
+        'transaction_interbank' => 'decimal:2',
+        'transaction_ibft' => 'decimal:2',
+        'transaction_cash' => 'decimal:2',
+        'transaction_cheque' => 'decimal:2',
+    ];
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function monthLock(): BelongsTo
+    {
+        return $this->belongsTo(PayrollMonthLock::class, 'year_month', 'year_month');
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function attributesFromReportRow(string $yearMonth, array $row): array
+    {
+        $employee = $row['employee'];
+
+        return [
+            'year_month' => $yearMonth,
+            'employee_id' => $employee->id,
+            'department' => $row['department'] ?? null,
+            'designation' => $row['designation'] ?? null,
+            'region' => $row['region'] ?? null,
+            'shift' => $row['shift'] ?? null,
+            'doj' => $row['doj'] ?? null,
+            'current_status' => $row['current_status'] ?? null,
+            'reporting_manager' => $row['reporting_manager'] ?? null,
+            'mcs' => $row['mcs'] ?? null,
+            'brands' => $row['brands'] ?? null,
+            'employment_status' => $row['employment_status'] ?? null,
+            'cnic' => $row['cnic'] ?? null,
+            'last_increment_date' => $row['last_increment_date'] ?? null,
+            'last_increment_amount' => $row['last_increment_amount'] ?? 0,
+            'months_since_increment' => $row['months_since_increment'] ?? 0,
+            'job_duration' => $row['job_duration'] ?? null,
+            'working_days' => $row['working_days'] ?? 0,
+            'days_present' => $row['days_present'] ?? 0,
+            'extra_days' => $row['extra_days'] ?? 0,
+            'amount_extra_days' => $row['amount_extra_days'] ?? 0,
+            'hourly_rate' => $row['hourly_rate'] ?? 0,
+            'daily_rate' => $row['daily_rate'] ?? 0,
+            'hourly_deduction_amount' => $row['hourly_deduction_amount'] ?? 0,
+            'deduction_late_days' => $row['deduction_late_days'] ?? 0,
+            'late_adjustment_days' => $row['late_adjustment_days'] ?? 0,
+            'calculated_deduction_late_days' => $row['calculated_deduction_late_days'] ?? 0,
+            'deduction_late_amount' => $row['deduction_late_amount'] ?? 0,
+            'leave_paid' => $row['leave_paid'] ?? 0,
+            'leaves_approved' => $row['leaves_approved'] ?? 0,
+            'leave_unpaid' => $row['leave_unpaid'] ?? 0,
+            'leave_lwp' => $row['leave_lwp'] ?? 0,
+            'absent' => $row['absent'] ?? 0,
+            'holiday' => $row['holiday'] ?? 0,
+            'total_absent_days' => $row['total_absent_days'] ?? 0,
+            'applied_leaves' => $row['applied_leaves'] ?? 0,
+            'leaves_unapproved' => $row['leaves_unapproved'] ?? 0,
+            'late_days' => $row['late_days'] ?? 0,
+            'total_break_time' => $row['total_break_time'] ?? '0:00',
+            'total_hours_worked' => $row['total_hours_worked'] ?? '0:00',
+            'monthly_expected_hours' => $row['monthly_expected_hours'] ?? '0:00',
+            'short_excess_hours' => $row['short_excess_hours'] ?? '0:00',
+            'salary_type' => $row['salary_type'] ?? null,
+            'basic_salary' => $row['basic_salary'] ?? 0,
+            'allowances' => $row['allowances'] ?? 0,
+            'ot_hrs' => $row['ot_hrs'] ?? 0,
+            'ot_amt' => $row['ot_amt'] ?? 0,
+            'gross_salary' => $row['gross_salary'] ?? 0,
+            'bonus' => $row['bonus'] ?? 0,
+            'epf_ee' => $row['epf_ee'] ?? 0,
+            'epf_er' => $row['epf_er'] ?? 0,
+            'esic_ee' => $row['esic_ee'] ?? 0,
+            'esic_er' => $row['esic_er'] ?? 0,
+            'tax' => $row['tax'] ?? 0,
+            'tax_adjustment' => $row['tax_adjustment'] ?? 0,
+            'salary_adjustment' => $row['salary_adjustment'] ?? 0,
+            'prof_tax' => $row['prof_tax'] ?? 0,
+            'eobi' => $row['eobi'] ?? 0,
+            'advance' => $row['advance'] ?? 0,
+            'loan' => $row['loan'] ?? 0,
+            'deduction_absent_days' => $row['deduction_absent_days'] ?? 0,
+            'other_deductions' => $row['other_deductions'] ?? 0,
+            'total_deductions' => $row['total_deductions'] ?? 0,
+            'net_salary_after_attendance' => $row['net_salary_after_attendance'] ?? 0,
+            'net_salary' => $row['net_salary'] ?? 0,
+            'bank_name' => $row['bank_name'] ?? null,
+            'account_title' => $row['account_title'] ?? null,
+            'bank_account' => $row['bank_account'] ?? null,
+            'transaction_type' => $row['transaction_type'] ?? null,
+            'transaction_hold' => self::nullableTransactionAmount($row['transaction_hold'] ?? null),
+            'transaction_interbank' => self::nullableTransactionAmount($row['transaction_interbank'] ?? null),
+            'transaction_ibft' => self::nullableTransactionAmount($row['transaction_ibft'] ?? null),
+            'transaction_cash' => self::nullableTransactionAmount($row['transaction_cash'] ?? null),
+            'transaction_cheque' => self::nullableTransactionAmount($row['transaction_cheque'] ?? null),
+            'deductions_exempted' => $row['deductions_exempted'] ?? 'No',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toReportRow(): array
+    {
+        $employee = $this->relationLoaded('employee') ? $this->employee : $this->employee()->first();
+
+        return [
+            'employee' => $employee,
+            'department' => $this->department ?? 'N/A',
+            'designation' => $this->designation ?? '—',
+            'region' => $this->region ?? '—',
+            'shift' => $this->shift ?? '—',
+            'doj' => $this->doj ?? '—',
+            'current_status' => $this->current_status ?? 'active',
+            'reporting_manager' => $this->reporting_manager ?? '—',
+            'mcs' => $this->mcs ?? '—',
+            'brands' => $this->brands ?? '—',
+            'employment_status' => $this->employment_status ?? '—',
+            'cnic' => $this->cnic ?? '—',
+            'last_increment_date' => $this->last_increment_date ?? '—',
+            'last_increment_amount' => (float) $this->last_increment_amount,
+            'months_since_increment' => (int) $this->months_since_increment,
+            'job_duration' => $this->job_duration ?? '—',
+            'working_days' => (int) $this->working_days,
+            'days_present' => (float) $this->days_present,
+            'extra_days' => (int) $this->extra_days,
+            'amount_extra_days' => (float) $this->amount_extra_days,
+            'hourly_rate' => (float) $this->hourly_rate,
+            'daily_rate' => (float) $this->daily_rate,
+            'hourly_deduction_amount' => (float) $this->hourly_deduction_amount,
+            'deduction_late_days' => (int) $this->deduction_late_days,
+            'late_adjustment_days' => (int) $this->late_adjustment_days,
+            'calculated_deduction_late_days' => (int) $this->calculated_deduction_late_days,
+            'deduction_late_amount' => (float) $this->deduction_late_amount,
+            'leave_paid' => (float) $this->leave_paid,
+            'leaves_approved' => (float) $this->leaves_approved,
+            'leave_unpaid' => (float) $this->leave_unpaid,
+            'leave_lwp' => (float) $this->leave_lwp,
+            'absent' => (int) $this->absent,
+            'holiday' => (int) $this->holiday,
+            'total_absent_days' => (float) $this->total_absent_days,
+            'applied_leaves' => (float) $this->applied_leaves,
+            'leaves_unapproved' => (float) $this->leaves_unapproved,
+            'late_days' => (int) $this->late_days,
+            'total_break_time' => $this->total_break_time ?? '0:00',
+            'total_hours_worked' => $this->total_hours_worked ?? '0:00',
+            'monthly_expected_hours' => $this->monthly_expected_hours ?? '0:00',
+            'short_excess_hours' => $this->short_excess_hours ?? '0:00',
+            'salary_type' => $this->salary_type ?? '—',
+            'basic_salary' => (float) $this->basic_salary,
+            'allowances' => (float) $this->allowances,
+            'ot_hrs' => (float) $this->ot_hrs,
+            'ot_amt' => (float) $this->ot_amt,
+            'gross_salary' => (float) $this->gross_salary,
+            'bonus' => (float) $this->bonus,
+            'epf_ee' => (float) $this->epf_ee,
+            'epf_er' => (float) $this->epf_er,
+            'esic_ee' => (float) $this->esic_ee,
+            'esic_er' => (float) $this->esic_er,
+            'tax' => (float) $this->tax,
+            'tax_adjustment' => (float) $this->tax_adjustment,
+            'salary_adjustment' => (float) $this->salary_adjustment,
+            'prof_tax' => (float) $this->prof_tax,
+            'eobi' => (float) $this->eobi,
+            'advance' => (float) $this->advance,
+            'loan' => (float) $this->loan,
+            'deduction_absent_days' => (float) $this->deduction_absent_days,
+            'other_deductions' => (float) $this->other_deductions,
+            'total_deductions' => (float) $this->total_deductions,
+            'net_salary_after_attendance' => (float) $this->net_salary_after_attendance,
+            'net_salary' => (float) $this->net_salary,
+            'bank_name' => $this->bank_name ?? '—',
+            'account_title' => $this->account_title ?? '—',
+            'bank_account' => $this->bank_account ?? '—',
+            'transaction_type' => $this->transaction_type ?? '',
+            'transaction_hold' => self::formatTransactionAmount($this->transaction_hold),
+            'transaction_interbank' => self::formatTransactionAmount($this->transaction_interbank),
+            'transaction_ibft' => self::formatTransactionAmount($this->transaction_ibft),
+            'transaction_cash' => self::formatTransactionAmount($this->transaction_cash),
+            'transaction_cheque' => self::formatTransactionAmount($this->transaction_cheque),
+            'deductions_exempted' => $this->deductions_exempted ?? 'No',
+        ];
+    }
+
+    private static function nullableTransactionAmount(mixed $value): ?float
+    {
+        if ($value === null || $value === '—' || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    private static function formatTransactionAmount(mixed $value): string|float
+    {
+        if ($value === null) {
+            return '—';
+        }
+
+        return (float) $value;
+    }
+}

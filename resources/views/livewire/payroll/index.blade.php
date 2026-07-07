@@ -56,6 +56,7 @@
                                 <div class="w-32">
                                     <!-- <flux:label class="text-sm">{{ __('Month') }}</flux:label> -->
                                     <flux:select wire:model.live="selectedMonth" placeholder="{{ __('Month') }}" size="sm">
+                                        <option value="">{{ __('All months') }}</option>
                                         @for($month = 1; $month <= 12; $month++)
                                             <option value="{{ $month }}">{{ date('F', mktime(0, 0, 0, $month, 1)) }}</option>
                                         @endfor
@@ -74,29 +75,39 @@
                                                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                                                     <flux:icon name="currency-dollar" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
                                                 </div>
-                                                <div>
+                                                <div class="min-w-0 flex-1">
                                                     <h4 class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                        Payslip - {{ date('F Y', strtotime($payslip['month'] . '-01')) }}
+                                                        {{ __('Payslip') }} - {{ date('F Y', strtotime($payslip['month'] . '-01')) }}
                                                     </h4>
-                                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                        Basic: ${{ number_format($payslip['basic_salary'], 2) }} | 
-                                                        Allowances: ${{ number_format($payslip['allowances'], 2) }} | 
-                                                        Deductions: ${{ number_format($payslip['deductions'], 2) }}
-                                                    </p>
+                                                    <div class="mt-1 space-y-1.5 select-none pointer-events-none" aria-hidden="true">
+                                                        <div class="payslip-sensitive-mask text-sm text-zinc-500 dark:text-zinc-400">
+                                                            {{ __('Basic') }}: •••••••• |
+                                                            {{ __('Allowances') }}: •••••••• |
+                                                            {{ __('Bonus') }}: •••••• |
+                                                            {{ __('Deductions') }}: ••••••••
+                                                        </div>
+                                                        <div class="payslip-sensitive-mask text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {{ __('Tax') }}: •••••••• |
+                                                            {{ __('EOBI') }}: •••••• |
+                                                            {{ __('Advance') }}: •••••• |
+                                                            {{ __('Loan') }}: ••••••
+                                                        </div>
+                                                    </div>
+                                                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{{ __('Use View or Download and enter your password to see amounts.') }}</p>
                                                 </div>
                                             </div>
-                                            <div class="text-right">
-                                                <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                                                    ${{ number_format($payslip['net_salary'], 2) }}
+                                            <div class="text-right flex-shrink-0">
+                                                <div class="payslip-sensitive-mask text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-widest" aria-hidden="true">
+                                                    {{ number_format($payslip['net_salary'], 0) }}
                                                 </div>
-                                                <div class="flex items-center gap-2">
+                                                <div class="flex items-center justify-end gap-2 mt-1">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $payslip['status'] === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }}">
                                                         {{ ucfirst($payslip['status']) }}
                                                     </span>
-                                                    <flux:button variant="ghost" size="sm">
+                                                    <flux:button variant="ghost" size="sm" wire:click="requestViewPayslip({{ $payslip['id'] }})" title="{{ __('View payslip') }}">
                                                         <flux:icon name="eye" class="w-4 h-4" />
                                                     </flux:button>
-                                                    <flux:button variant="ghost" size="sm">
+                                                    <flux:button variant="ghost" size="sm" wire:click="requestDownloadPayslip({{ $payslip['id'] }})" title="{{ __('Download payslip') }}">
                                                         <flux:icon name="arrow-down-tray" class="w-4 h-4" />
                                                     </flux:button>
                                                 </div>
@@ -109,7 +120,13 @@
                             <div class="text-center py-12">
                                 <flux:icon name="document-text" class="w-16 h-16 text-zinc-400 dark:text-zinc-500 mx-auto mb-4" />
                                 <h3 class="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">{{ __('No Payslips Found') }}</h3>
-                                <p class="text-zinc-500 dark:text-zinc-400">{{ __('No payslips available for the selected period.') }}</p>
+                                <p class="text-zinc-500 dark:text-zinc-400">
+                                    @if(!empty($lockedMonths))
+                                        {{ __('No payslip for the selected period. Payslips appear after payroll is locked for that month.') }}
+                                    @else
+                                        {{ __('No payslips available for the selected period.') }}
+                                    @endif
+                                </p>
                             </div>
                         @endif
                     </div>
@@ -126,4 +143,50 @@
             @endif
         </div>
     </x-payroll.layout>
+
+    <flux:modal wire:model="showPayslipPasswordModal" class="max-w-md">
+        <form wire:submit.prevent="confirmPayslipPassword" class="space-y-4">
+            <flux:heading size="lg">{{ __('Enter your password') }}</flux:heading>
+            <flux:text class="text-zinc-500 dark:text-zinc-400">
+                {{ __('Enter your account login password to view or download this payslip.') }}
+            </flux:text>
+            <flux:field>
+                <flux:label>{{ __('Password') }}</flux:label>
+                <flux:input type="password" wire:model="payslipPassword" autocomplete="current-password" />
+                <flux:error name="payslipPassword" />
+            </flux:field>
+            <div class="flex justify-end gap-3 pt-2">
+                <flux:button type="button" variant="ghost" wire:click="closePayslipPasswordModal">{{ __('Cancel') }}</flux:button>
+                <flux:button type="submit" variant="primary">{{ __('Continue') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    @if($showPayslipDetailModal && $viewingPayslip)
+        <flux:modal variant="flyout" wire:model="showPayslipDetailModal" class="w-[32rem] lg:w-[36rem]">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">{{ __('Payslip') }} — {{ $viewingPayslip['month_label'] }}</flux:heading>
+                    @if(!empty($viewingPayslip['paid_date']))
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Paid') }}: {{ $viewingPayslip['paid_date'] }}</flux:text>
+                    @endif
+                </div>
+                <dl class="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Basic Salary') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['basic_salary'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Allowances') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['allowances'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Gross Salary') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['gross_salary'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Bonus') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['bonus'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Tax') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['tax'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('EOBI') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['eobi'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Advance') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['advance'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Loan') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['loan'], 2) }}</dd></div>
+                    <div class="flex justify-between py-2"><dt class="text-zinc-500 dark:text-zinc-400">{{ __('Total Deductions') }}</dt><dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($viewingPayslip['deductions'], 2) }}</dd></div>
+                    <div class="flex justify-between py-3"><dt class="font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Net Salary') }}</dt><dd class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ number_format($viewingPayslip['net_salary'], 2) }}</dd></div>
+                </dl>
+                <div class="flex justify-end pt-2">
+                    <flux:button variant="ghost" wire:click="closePayslipDetailModal" kbd="esc">{{ __('Close') }}</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+    @endif
 </section>

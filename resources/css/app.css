@@ -200,3 +200,10 @@ select:focus[data-flux-control] {
     border-radius: 0.875rem;
     animation: announcement-login-border-glow 2.4s ease-in-out infinite;
 }
+
+.payslip-sensitive-mask {
+    filter: blur(3px);
+    -webkit-filter: blur(3px);
+    user-select: none;
+    opacity: 0.92;
+}

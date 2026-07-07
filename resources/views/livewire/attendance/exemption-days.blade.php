@@ -30,6 +30,9 @@
                                     {{ __('Target') }}
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    {{ __('Exemption Type') }}
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                     {{ __('Date Range') }}
                                 </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -67,6 +70,13 @@
                                         @endif
                                     </td>
                                     <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
+                                        @if(($exemption->exemption_type ?? 'n/a') === 'lates')
+                                            <flux:badge color="amber" size="sm">{{ __('Lates') }}</flux:badge>
+                                        @else
+                                            <flux:badge color="zinc" size="sm">{{ __('N/A') }}</flux:badge>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-6 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100">
                                         {{ $exemption->from_date->format('M d, Y') }} – {{ $exemption->to_date->format('M d, Y') }}
                                     </td>
                                     <td class="px-6 py-6 text-sm text-zinc-900 dark:text-zinc-100">
@@ -95,7 +105,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center">
+                                    <td colspan="7" class="px-6 py-12 text-center">
                                         <flux:icon name="calendar" class="mx-auto h-12 w-12 text-zinc-400" />
                                         <flux:heading size="sm" class="mt-2 text-zinc-500 dark:text-zinc-400">
                                             {{ __('No exemption days found') }}
@@ -142,6 +152,18 @@
                             <option value="user">{{ __('Employee') }}</option>
                         </flux:select>
                         <flux:error name="form.scope_type" />
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>{{ __('Exemption Type') }} <span class="text-red-500">*</span></flux:label>
+                        <flux:select wire:model="form.exemption_type">
+                            <option value="lates">{{ __('Lates') }}</option>
+                            <option value="n/a">{{ __('N/A') }}</option>
+                        </flux:select>
+                        <flux:description>
+                            {{ __('Lates: late arrival is hidden on attendance and excluded from Master Report. N/A: only first check-in and last check-out count; middle punches are exempted.') }}
+                        </flux:description>
+                        <flux:error name="form.exemption_type" />
                     </flux:field>
 
                     <!-- Department (conditional) -->

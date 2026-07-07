@@ -17,13 +17,37 @@
                 </flux:callout>
             @endif
 
+            @if($isMonthLocked)
+                <flux:callout variant="warning" icon="lock-closed" class="mb-4">
+                    {{ __('This month is locked. Figures are frozen and will not change if attendance or deduction policies are updated.') }}
+                </flux:callout>
+            @endif
+
             @if($hasData)
                 @php
                     $fmtNum = function($v) { $v = (float)($v ?? 0); $s = number_format($v, 2, '.', ','); return preg_replace('/\.00$/', '', $s); };
                 @endphp
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden mb-6">
                     <div class="master-report-grand-total px-6 py-4 bg-zinc-100 dark:bg-[#424242] border-b border-zinc-200 dark:border-zinc-600">
-                        <flux:heading size="md" class="mb-3 text-zinc-900 dark:text-zinc-100">{{ __('Grand Total') }}</flux:heading>
+                        <div class="flex items-start justify-between gap-4 mb-3">
+                            <flux:heading size="md" class="text-zinc-900 dark:text-zinc-100">{{ __('Grand Total') }}</flux:heading>
+                            <div class="flex-shrink-0">
+                                @if($isMonthLocked)
+                                    <flux:button variant="outline" icon="lock-closed" disabled>
+                                        {{ __('Locked') }}
+                                    </flux:button>
+                                @elseif($canLockPayroll)
+                                    <flux:button
+                                        variant="primary"
+                                        icon="lock-open"
+                                        wire:click="lockPayroll"
+                                        wire:confirm="{{ __('Lock payroll for this month? This cannot be undone and will freeze all figures shown in this report.') }}"
+                                    >
+                                        {{ __('Lock Payroll') }}
+                                    </flux:button>
+                                @endif
+                            </div>
+                        </div>
                         <div class="flex flex-wrap gap-6 text-sm">
                             <span class="font-medium text-zinc-700 dark:text-zinc-300">
                                 {{ __('Total Gross Salary') }}: <span class="text-green-600 dark:text-green-400">{{ $fmtNum($grandTotals['total_gross']) }}</span>
@@ -214,6 +238,7 @@
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Hourly Rate') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Daily Rate') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Hourly Deduction Amount') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Lates Adjustment') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deduction Late Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deduction Absent Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Salary Deduction') }}</th>
@@ -254,6 +279,7 @@
                                         $sumHourlyDeductionAmount = 0.0;
                                         $sumTotalLates = 0;
                                         $sumDeductionLateDays = 0;
+                                        $sumLateAdjustmentDays = 0;
                                         $sumDeductionAbsentDays = 0.0;
                                         $sumSalaryDeduction = 0.0;
                                         $sumNetSalary = 0.0;
@@ -295,6 +321,7 @@
                                             $sumHourlyDeductionAmount += (float) ($row['hourly_deduction_amount'] ?? 0);
                                             $sumTotalLates += (int) ($row['late_days'] ?? 0);
                                             $sumDeductionLateDays += (int) ($row['deduction_late_days'] ?? 0);
+                                            $sumLateAdjustmentDays += (int) ($row['late_adjustment_days'] ?? 0);
                                             $sumDeductionAbsentDays += (float) ($row['deduction_absent_days'] ?? 0);
                                             $sumSalaryDeduction += (float) ($row['other_deductions'] ?? 0);
                                             $sumNetSalary += (float) ($row['net_salary_after_attendance'] ?? 0);
@@ -349,6 +376,9 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_rate'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['daily_rate'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['hourly_deduction_amount'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ ($row['late_adjustment_days'] ?? 0) > 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-zinc-700 dark:text-zinc-300' }}">
+                                                {{ ($row['late_adjustment_days'] ?? 0) > 0 ? $row['late_adjustment_days'] : '—' }}
+                                            </td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ ($row['deduction_late_days'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $row['deduction_late_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['deduction_absent_days'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['other_deductions'] ?? 0) }}</td>
@@ -408,6 +438,7 @@
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumHourlyRate) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumDailyRate) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumHourlyDeductionAmount) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumLateAdjustmentDays > 0 ? $sumLateAdjustmentDays : '—' }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumDeductionLateDays }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumDeductionAbsentDays) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumSalaryDeduction) }}</td>

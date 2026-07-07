@@ -189,6 +189,12 @@ class PayrollCalculationService
     public static function getLateDeductionAmount(int $lateCount, float $grossSalary, int $workingDays, string $yearMonth): float
     {
         $salaryDays = self::getLateDeductionSalaryDays($lateCount, $yearMonth);
+
+        return self::getLateDeductionAmountForSalaryDays($salaryDays, $grossSalary, $workingDays);
+    }
+
+    public static function getLateDeductionAmountForSalaryDays(int $salaryDays, float $grossSalary, int $workingDays): float
+    {
         if ($salaryDays <= 0) {
             return 0.0;
         }

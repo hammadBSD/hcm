@@ -118,6 +118,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payroll/tax-adjustment', \App\Livewire\Payroll\TaxAdjustment::class)->name('payroll.tax-adjustment');
     Route::get('payroll/eobi', \App\Livewire\Payroll\EobiManagement::class)->name('payroll.eobi');
     Route::get('payroll/exempt-deductions', \App\Livewire\Payroll\ExemptDeductions::class)->name('payroll.exempt-deductions');
+    Route::get('payroll/lates-adjustment', \App\Livewire\Payroll\LatesAdjustment::class)->name('payroll.lates-adjustment');
     Route::get('payroll/increments', \App\Livewire\Payroll\Increments::class)->name('payroll.increments');
     Route::get('payroll/payroll-settings', \App\Livewire\Payroll\PayrollSettings::class)->name('payroll.payroll-settings');
     Route::get('payroll/test', \App\Livewire\Payroll\Test::class)->name('payroll.test');

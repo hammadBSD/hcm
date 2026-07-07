@@ -9,9 +9,9 @@ use App\Models\Employee;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\Shift;
 use App\Models\Constant;
-use App\Models\ExemptionDay;
 use App\Models\Holiday;
 use App\Models\AttendanceBreakSetting;
+use App\Services\AttendanceExemptionService;
 use Carbon\Carbon;
 use App\Models\User;
 
@@ -298,38 +298,38 @@ class MonthlyAttendance extends Component
     /**
      * Check if a date is exempted for the employee
      */
-    private function isDateExempted($date, $employee)
+    private function isDateExemptedForPunchProcessing($date, $employee): bool
     {
         if (!$employee) {
             return false;
         }
 
-        $dateCarbon = Carbon::parse($date);
-        $userId = $employee->user_id;
-        $departmentId = $employee->department_id;
-        $user = $employee->user;
-        $userRoles = $user ? $user->roles->pluck('id')->toArray() : [];
+        $dateKey = Carbon::parse($date)->format('Y-m-d');
+        $types = app(AttendanceExemptionService::class)->exemptionTypesByDateForEmployee(
+            $employee,
+            Carbon::parse($dateKey)->startOfDay(),
+            Carbon::parse($dateKey)->startOfDay(),
+        );
 
-        // Check for exemption days that apply to this employee
-        $exemptions = ExemptionDay::where(function($query) use ($dateCarbon) {
-                $query->where('from_date', '<=', $dateCarbon->format('Y-m-d'))
-                      ->where('to_date', '>=', $dateCarbon->format('Y-m-d'));
-            })
-            ->where(function($query) use ($userId, $departmentId, $userRoles) {
-                $query->where('scope_type', 'all')
-                      ->orWhere(function($q) use ($userId) {
-                          $q->where('scope_type', 'user')->where('user_id', $userId);
-                      })
-                      ->orWhere(function($q) use ($departmentId) {
-                          $q->where('scope_type', 'department')->where('department_id', $departmentId);
-                      })
-                      ->orWhere(function($q) use ($userRoles) {
-                          $q->where('scope_type', 'role')->whereIn('role_id', $userRoles);
-                      });
-            })
-            ->exists();
+        return app(AttendanceExemptionService::class)
+            ->isDateExemptedForPunchProcessing($types[$dateKey] ?? null);
+    }
 
-        return $exemptions;
+    private function isDateExemptedFromLates($date, $employee): bool
+    {
+        if (!$employee) {
+            return false;
+        }
+
+        $dateKey = Carbon::parse($date)->format('Y-m-d');
+        $types = app(AttendanceExemptionService::class)->exemptionTypesByDateForEmployee(
+            $employee,
+            Carbon::parse($dateKey)->startOfDay(),
+            Carbon::parse($dateKey)->startOfDay(),
+        );
+
+        return app(AttendanceExemptionService::class)
+            ->isDateExemptedFromLates($types[$dateKey] ?? null);
     }
 
     /**
@@ -677,7 +677,7 @@ class MonthlyAttendance extends Component
             }
             
             // Check if this date is exempted
-            $isExempted = $this->isDateExempted($date, $employee);
+            $isExempted = $this->isDateExemptedForPunchProcessing($date, $employee);
             
             // Check if this date has an approved leave request
             $hasApprovedLeave = isset($leaveRequestMap[$date]);

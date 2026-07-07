@@ -20,6 +20,7 @@ class ExemptionDays extends Component
     public $showCreateFlyout = false;
     public $form = [
         'scope_type' => 'all',
+        'exemption_type' => 'n/a',
         'department_id' => null,
         'role_id' => null,
         'user_id' => null,
@@ -36,6 +37,7 @@ class ExemptionDays extends Component
 
     protected $rules = [
         'form.scope_type' => 'required|in:all,department,role,user,group',
+        'form.exemption_type' => 'required|in:lates,n/a',
         'form.department_id' => 'required_if:form.scope_type,department|nullable|exists:departments,id',
         'form.role_id' => 'required_if:form.scope_type,role|nullable|exists:roles,id',
         'form.user_id' => 'required_if:form.scope_type,user|nullable|exists:users,id',
@@ -108,6 +110,7 @@ class ExemptionDays extends Component
     {
         $this->form = [
             'scope_type' => 'all',
+            'exemption_type' => 'n/a',
             'department_id' => null,
             'role_id' => null,
             'user_id' => null,
@@ -136,6 +139,7 @@ class ExemptionDays extends Component
         DB::transaction(function () {
             ExemptionDay::create([
                 'scope_type' => $this->form['scope_type'],
+                'exemption_type' => $this->form['exemption_type'],
                 'department_id' => $this->form['scope_type'] === 'department' ? $this->form['department_id'] : null,
                 'role_id' => $this->form['scope_type'] === 'role' ? $this->form['role_id'] : null,
                 'user_id' => $this->form['scope_type'] === 'user' ? $this->form['user_id'] : null,

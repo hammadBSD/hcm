@@ -13,6 +13,7 @@ class ExemptionDay extends Model
 
     protected $fillable = [
         'scope_type',
+        'exemption_type',
         'department_id',
         'role_id',
         'user_id',
@@ -27,6 +28,10 @@ class ExemptionDay extends Model
         'from_date' => 'date',
         'to_date' => 'date',
     ];
+
+    public const TYPE_LATES = 'lates';
+
+    public const TYPE_NA = 'n/a';
 
     public function department(): BelongsTo
     {

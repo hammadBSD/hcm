@@ -9,7 +9,6 @@ use App\Models\AttendanceBreakExclusion;
 use App\Models\DeviceAttendance;
 use App\Models\Employee;
 use App\Models\EmployeeLeaveBalance;
-use App\Models\ExemptionDay;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\LeaveRequestEvent;
 use App\Models\LeaveSetting;
@@ -21,6 +20,7 @@ use App\Models\LeaveType;
 use App\Models\Holiday;
 use App\Models\TaskLog;
 use App\Models\Task;
+use App\Services\AttendanceExemptionService;
 use App\Services\AttendancePunchDayGroupingService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -103,6 +103,8 @@ class Index extends Component
     public bool $isBreakTrackingExcluded = false;
     public bool $showBreaksInGrid = true;
     public $allowedBreakTime = null; // Allowed break time in minutes
+
+    protected ?array $attendanceExemptionByDate = null;
 
     public function mount()
     {
@@ -487,39 +489,61 @@ class Index extends Component
     }
 
     /**
-     * Check if a date is exempted for the current employee
+     * N/A exemption: first check-in and last check-out only (middle punches exempted).
      */
-    private function isDateExempted($date)
+    private function isDateExemptedForPunchProcessing($date): bool
+    {
+        return app(AttendanceExemptionService::class)
+            ->isDateExemptedForPunchProcessing($this->getExemptionTypeForDate($date));
+    }
+
+    /**
+     * Lates exemption: late is hidden on attendance and excluded from payroll late counts.
+     */
+    private function isDateExemptedFromLates($date): bool
+    {
+        return app(AttendanceExemptionService::class)
+            ->isDateExemptedFromLates($this->getExemptionTypeForDate($date));
+    }
+
+    private function getExemptionTypeForDate($date): ?string
     {
         if (!$this->employee) {
-            return false;
+            return null;
         }
 
-        $dateCarbon = Carbon::parse($date);
-        $userId = $this->employee->user_id;
-        $departmentId = $this->employee->department_id;
-        $userRoles = Auth::user()->roles->pluck('id')->toArray();
+        $dateKey = is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+            ? $date
+            : Carbon::parse($date)->format('Y-m-d');
 
-        // Check for exemption days that apply to this employee
-        $exemptions = ExemptionDay::where(function($query) use ($dateCarbon) {
-                $query->where('from_date', '<=', $dateCarbon->format('Y-m-d'))
-                      ->where('to_date', '>=', $dateCarbon->format('Y-m-d'));
-            })
-            ->where(function($query) use ($userId, $departmentId, $userRoles) {
-                $query->where('scope_type', 'all')
-                      ->orWhere(function($q) use ($userId) {
-                          $q->where('scope_type', 'user')->where('user_id', $userId);
-                      })
-                      ->orWhere(function($q) use ($departmentId) {
-                          $q->where('scope_type', 'department')->where('department_id', $departmentId);
-                      })
-                      ->orWhere(function($q) use ($userRoles) {
-                          $q->where('scope_type', 'role')->whereIn('role_id', $userRoles);
-                      });
-            })
-            ->exists();
+        if ($this->attendanceExemptionByDate !== null) {
+            return $this->attendanceExemptionByDate[$dateKey] ?? null;
+        }
 
-        return $exemptions;
+        $types = app(AttendanceExemptionService::class)->exemptionTypesByDateForEmployee(
+            $this->employee,
+            Carbon::parse($dateKey)->startOfDay(),
+            Carbon::parse($dateKey)->startOfDay(),
+        );
+
+        return $types[$dateKey] ?? null;
+    }
+
+    private function clearAttendanceDayProcessCaches(): void
+    {
+        $this->attendanceExemptionByDate = null;
+    }
+
+    private function warmAttendanceDayProcessCaches(Carbon $startOfMonth, Carbon $endDate): void
+    {
+        $this->clearAttendanceDayProcessCaches();
+
+        if (!$this->employee) {
+            return;
+        }
+
+        $this->attendanceExemptionByDate = app(AttendanceExemptionService::class)
+            ->exemptionTypesByDateForEmployee($this->employee, $startOfMonth, $endDate);
     }
 
     /**
@@ -657,6 +681,8 @@ class Index extends Component
         // For current month, only show days up to today
         // For previous months, show all days
         $endDate = ($targetMonth === $today->format('Y-m')) ? $today : $endOfMonth;
+
+        $this->warmAttendanceDayProcessCaches($startOfMonth, $endDate);
         
         while ($current->lte($endDate)) {
             $date = $current->format('Y-m-d');
@@ -724,8 +750,9 @@ class Index extends Component
                 $hasValidAttendance = true;
             }
             
-            // Check if this date is exempted
-            $isExempted = $this->isDateExempted($date);
+            // Check if this date is exempted for punch processing (N/A type)
+            $isExempted = $this->isDateExemptedForPunchProcessing($date);
+            $isExemptedFromLates = $this->isDateExemptedFromLates($date);
             
             // Check if this date is a holiday
             $holiday = $holidaysMap[$date] ?? null;
@@ -973,7 +1000,7 @@ class Index extends Component
                     
                     // Update status to include late/early information
                     // But don't change status if it's a holiday - keep it as "holiday"
-                    if ($processedData[$date]['status'] === 'present' && !$isHoliday) {
+                    if ($processedData[$date]['status'] === 'present' && ! $isHoliday && ! $isExemptedFromLates) {
                         if ($processedData[$date]['is_late'] && $processedData[$date]['is_early']) {
                             $processedData[$date]['status'] = 'present_late_early';
                         } elseif ($processedData[$date]['is_late']) {
@@ -1939,6 +1966,10 @@ class Index extends Component
                     $isLate = true;
                 } elseif (!empty($record['status']) && str_contains($record['status'], 'present_late')) {
                     $isLate = true;
+                }
+
+                if ($isLate && $this->isDateExemptedFromLates($record['date'] ?? null)) {
+                    $isLate = false;
                 }
 
                 if ($isLate) {
