@@ -960,6 +960,9 @@ class Report extends Component
 
         $this->employee->loadMissing(['user.roles', 'department']);
 
+        $startStr = $startOfMonth->format('Y-m-d');
+        $endStr = $endDate->format('Y-m-d');
+
         $this->attendanceExemptionByDate = app(AttendanceExemptionService::class)
             ->exemptionTypesByDateForEmployee($this->employee, $startOfMonth, $endDate);
 

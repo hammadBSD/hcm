@@ -194,7 +194,7 @@
                                         <th colspan="10" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGrey }}">{{ __('Employee & Identity') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hYellow }}">{{ __('Increment & Tenure') }}</th>
                                         <th colspan="13" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hGreen }}">{{ __('Attendance & Hours') }}</th>
-                                        <th colspan="19" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
+                                        <th colspan="20" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hBlue }}">{{ __('Salary & Deductions') }}</th>
                                         <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hTransactional }}">{{ __('Transactional') }}</th>
                                         <th colspan="4" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider {{ $hViolet }}">{{ __('Bank & ID') }}</th>
                                     </tr>
