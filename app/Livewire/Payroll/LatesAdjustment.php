@@ -18,6 +18,9 @@ class LatesAdjustment extends Component
 
     public string $selectedMonth = '';
 
+    /** @var array<int, array<string, mixed>> */
+    public array $rows = [];
+
     public bool $showEditFlyout = false;
 
     public ?int $editingEmployeeId = null;
@@ -36,19 +39,34 @@ class LatesAdjustment extends Component
         }
 
         $this->selectedMonth = now()->format('Y-m');
+        $this->loadRows();
     }
 
     public function updatedSearch(): void
     {
+        $this->loadRows();
     }
 
     public function updatedSelectedDepartment(): void
     {
+        $this->loadRows();
     }
 
     public function updatedSelectedMonth(): void
     {
         $this->closeEditFlyout();
+        $this->loadRows();
+    }
+
+    public function loadRows(): void
+    {
+        $month = $this->selectedMonth ?: now()->format('Y-m');
+
+        $this->rows = app(PayrollLatesAdjustmentService::class)->qualifyingEmployees(
+            $month,
+            $this->search,
+            $this->selectedDepartment,
+        );
     }
 
     public function openEditFlyout(int $employeeId): void
@@ -58,7 +76,7 @@ class LatesAdjustment extends Component
             return;
         }
 
-        $row = collect($this->qualifyingRows)->firstWhere('employee_id', $employeeId);
+        $row = collect($this->rows)->firstWhere('employee_id', $employeeId);
         if (!$row) {
             session()->flash('error', __('Employee not found in the qualifying list.'));
             return;
@@ -118,6 +136,7 @@ class LatesAdjustment extends Component
                 ->where('employee_id', $employeeId)
                 ->delete();
 
+            $this->patchRowAfterSave($employeeId, 0, null);
             $this->closeEditFlyout();
             session()->flash('message', __('Late deduction reset to the calculated amount.'));
             return;
@@ -134,8 +153,9 @@ class LatesAdjustment extends Component
                 'notes' => trim($this->editNotes) ?: null,
                 'updated_by' => Auth::id(),
             ]);
+            $adjustmentId = $existing->id;
         } else {
-            PayrollLateDeductionAdjustment::create([
+            $created = PayrollLateDeductionAdjustment::create([
                 'year_month' => $month,
                 'employee_id' => $employeeId,
                 'waived_deduction_late_days' => $waivedDaysInt,
@@ -143,8 +163,10 @@ class LatesAdjustment extends Component
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ]);
+            $adjustmentId = $created->id;
         }
 
+        $this->patchRowAfterSave($employeeId, $waivedDaysInt, $adjustmentId);
         $this->closeEditFlyout();
         session()->flash('message', __('Late deduction adjustment saved.'));
     }
@@ -161,23 +183,38 @@ class LatesAdjustment extends Component
             ->where('employee_id', $employeeId)
             ->delete();
 
+        $this->patchRowAfterSave($employeeId, 0, null);
         session()->flash('message', __('Late deduction adjustment removed.'));
+    }
+
+    /**
+     * Update only the saved employee row in memory — avoid rebuilding attendance for the whole company.
+     */
+    protected function patchRowAfterSave(int $employeeId, int $waivedDays, ?int $adjustmentId): void
+    {
+        foreach ($this->rows as $index => $row) {
+            if ((int) ($row['employee_id'] ?? 0) !== $employeeId) {
+                continue;
+            }
+
+            $calculatedDays = (int) ($row['calculated_deduction_late_days'] ?? 0);
+            $calculatedAmount = (float) ($row['calculated_deduction_late_amount'] ?? 0);
+            $waived = max(0, min($waivedDays, $calculatedDays));
+            $finalDays = max(0, $calculatedDays - $waived);
+            $perDay = $calculatedDays > 0 ? ($calculatedAmount / $calculatedDays) : 0.0;
+
+            $this->rows[$index]['waived_deduction_late_days'] = $waived;
+            $this->rows[$index]['final_deduction_late_days'] = $finalDays;
+            $this->rows[$index]['final_deduction_late_amount'] = round($finalDays * $perDay, 2);
+            $this->rows[$index]['has_adjustment'] = $waived > 0;
+            $this->rows[$index]['adjustment_id'] = $waived > 0 ? $adjustmentId : null;
+            break;
+        }
     }
 
     protected function isMonthLocked(): bool
     {
         return PayrollMonthLock::isLocked($this->selectedMonth ?: now()->format('Y-m'));
-    }
-
-    public function getQualifyingRowsProperty(): array
-    {
-        $month = $this->selectedMonth ?: now()->format('Y-m');
-
-        return app(PayrollLatesAdjustmentService::class)->qualifyingEmployees(
-            $month,
-            $this->search,
-            $this->selectedDepartment,
-        );
     }
 
     public function getEditingRowProperty(): ?array
@@ -186,7 +223,7 @@ class LatesAdjustment extends Component
             return null;
         }
 
-        return collect($this->qualifyingRows)->firstWhere('employee_id', $this->editingEmployeeId);
+        return collect($this->rows)->firstWhere('employee_id', $this->editingEmployeeId);
     }
 
     public function render()
@@ -195,7 +232,7 @@ class LatesAdjustment extends Component
         $service = app(PayrollLatesAdjustmentService::class);
 
         return view('livewire.payroll.lates-adjustment', [
-            'rows' => $this->qualifyingRows,
+            'rows' => $this->rows,
             'departments' => Department::where('status', 'active')->orderBy('title')->pluck('title')->toArray(),
             'ruleSummary' => $service->currentRuleSummary($month),
             'monthLabel' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),

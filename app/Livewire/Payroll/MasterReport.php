@@ -246,6 +246,8 @@ class MasterReport extends Component
             abort(403);
         }
 
+        set_time_limit(300);
+
         $month = $this->selectedMonth ?: $this->currentMonth;
         if ($month === $this->currentMonth) {
             session()->flash('error', __('Payroll for the current month cannot be locked yet.'));
@@ -257,27 +259,40 @@ class MasterReport extends Component
             return;
         }
 
-        $rows = $this->computeLiveReportData($month);
+        // Reuse data already shown on screen — avoid recalculating attendance for every employee.
+        $rows = !empty($this->reportData)
+            ? $this->reportData
+            : $this->computeLiveReportData($month);
+
         if (empty($rows)) {
             session()->flash('error', __('No payroll data to lock for this month.'));
             return;
         }
 
-        DB::transaction(function () use ($month, $rows, $user) {
+        $now = now();
+
+        DB::transaction(function () use ($month, $rows, $user, $now) {
+            $payload = [];
             foreach ($rows as $row) {
-                PayrollMonthSnapshot::create(
-                    PayrollMonthSnapshot::attributesFromReportRow($month, $row)
-                );
+                $attrs = PayrollMonthSnapshot::attributesFromReportRow($month, $row);
+                $attrs['created_at'] = $now;
+                $attrs['updated_at'] = $now;
+                $payload[] = $attrs;
+            }
+
+            foreach (array_chunk($payload, 100) as $chunk) {
+                PayrollMonthSnapshot::insert($chunk);
             }
 
             PayrollMonthLock::create([
                 'year_month' => $month,
                 'locked_by' => $user->id,
-                'locked_at' => now(),
+                'locked_at' => $now,
             ]);
         });
 
-        $this->loadReportData();
+        $this->isMonthLocked = true;
+        $this->reportData = $this->loadReportDataFromSnapshots($month);
         session()->flash('success', __('Payroll locked for :month.', [
             'month' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),
         ]));

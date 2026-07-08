@@ -41,9 +41,12 @@
                                         variant="primary"
                                         icon="lock-open"
                                         wire:click="lockPayroll"
+                                        wire:loading.attr="disabled"
+                                        wire:target="lockPayroll"
                                         wire:confirm="{{ __('Lock payroll for this month? This cannot be undone and will freeze all figures shown in this report.') }}"
                                     >
-                                        {{ __('Lock Payroll') }}
+                                        <span wire:loading.remove wire:target="lockPayroll">{{ __('Lock Payroll') }}</span>
+                                        <span wire:loading wire:target="lockPayroll">{{ __('Locking…') }}</span>
                                     </flux:button>
                                 @endif
                             </div>
