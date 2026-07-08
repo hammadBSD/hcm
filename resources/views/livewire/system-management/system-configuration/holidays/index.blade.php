@@ -310,39 +310,6 @@
                             <flux:description>{{ __('Search and select departments. Hold Ctrl/Cmd to select multiple departments.') }}</flux:description>
                             <flux:error name="selectedDepartmentIds" />
                         </flux:field>
-                        
-                        <!-- Additional Employees (not in selected departments) -->
-                        <flux:field>
-                            <flux:label>Additional Employees (Optional)</flux:label>
-                            <flux:description>{{ __('Select employees from other departments to include in this holiday') }}</flux:description>
-                            
-                            <!-- Search Input for Additional Employees -->
-                            <div class="mb-3">
-                                <flux:input 
-                                    wire:model.live.debounce.300ms="additionalEmployeeSearchTerm"
-                                    placeholder="Search employees..."
-                                    icon="magnifying-glass"
-                                />
-                            </div>
-                            
-                            <div class="relative">
-                                <select 
-                                    wire:model.live="additionalEmployeeIds" 
-                                    multiple 
-                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    size="6"
-                                    style="min-height: 150px;"
-                                >
-                                    @foreach($filteredAdditionalEmployees as $employee)
-                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
-                                            {{ $employee['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <flux:description>{{ __('Search and select additional employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
-                            <flux:error name="additionalEmployeeIds" />
-                        </flux:field>
                     </div>
                 @endif
                 
@@ -378,39 +345,6 @@
                             </div>
                             <flux:description>{{ __('Search and select roles. Hold Ctrl/Cmd to select multiple roles.') }}</flux:description>
                             <flux:error name="selectedRoleIds" />
-                        </flux:field>
-                        
-                        <!-- Additional Employees (not in selected roles) -->
-                        <flux:field>
-                            <flux:label>Additional Employees (Optional)</flux:label>
-                            <flux:description>{{ __('Select employees with other roles to include in this holiday') }}</flux:description>
-                            
-                            <!-- Search Input for Additional Employees -->
-                            <div class="mb-3">
-                                <flux:input 
-                                    wire:model.live.debounce.300ms="additionalEmployeeSearchTerm"
-                                    placeholder="Search employees..."
-                                    icon="magnifying-glass"
-                                />
-                            </div>
-                            
-                            <div class="relative">
-                                <select 
-                                    wire:model.live="additionalEmployeeIds" 
-                                    multiple 
-                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    size="6"
-                                    style="min-height: 150px;"
-                                >
-                                    @foreach($filteredAdditionalEmployees as $employee)
-                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
-                                            {{ $employee['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <flux:description>{{ __('Search and select additional employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
-                            <flux:error name="additionalEmployeeIds" />
                         </flux:field>
                     </div>
                 @endif
@@ -448,39 +382,6 @@
                             <flux:description>{{ __('Search and select groups. Hold Ctrl/Cmd to select multiple groups.') }}</flux:description>
                             <flux:error name="selectedGroupIds" />
                         </flux:field>
-                        
-                        <!-- Additional Employees (not in selected groups) -->
-                        <flux:field>
-                            <flux:label>Additional Employees (Optional)</flux:label>
-                            <flux:description>{{ __('Select employees from other groups to include in this holiday') }}</flux:description>
-                            
-                            <!-- Search Input for Additional Employees -->
-                            <div class="mb-3">
-                                <flux:input 
-                                    wire:model.live.debounce.300ms="additionalEmployeeSearchTerm"
-                                    placeholder="Search employees..."
-                                    icon="magnifying-glass"
-                                />
-                            </div>
-                            
-                            <div class="relative">
-                                <select 
-                                    wire:model.live="additionalEmployeeIds" 
-                                    multiple 
-                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    size="6"
-                                    style="min-height: 150px;"
-                                >
-                                    @foreach($filteredAdditionalEmployees as $employee)
-                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
-                                            {{ $employee['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <flux:description>{{ __('Search and select additional employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
-                            <flux:error name="additionalEmployeeIds" />
-                        </flux:field>
                     </div>
                 @endif
                 
@@ -516,6 +417,87 @@
                             </div>
                             <flux:description>{{ __('Search and select employees. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
                             <flux:error name="selectedEmployeeIds" />
+                        </flux:field>
+                    </div>
+                @endif
+
+                @if(in_array($scopeType, ['department', 'role', 'group']))
+                    @php
+                        $includeDescription = match ($scopeType) {
+                            'department' => __('Select employees from other departments to include in this holiday.'),
+                            'role' => __('Select employees with other roles to include in this holiday.'),
+                            'group' => __('Select employees from other groups to include in this holiday.'),
+                            default => '',
+                        };
+                        $excludeDescription = match ($scopeType) {
+                            'department' => __('Select employees from the chosen departments to exclude from this holiday.'),
+                            'role' => __('Select employees with the chosen roles to exclude from this holiday.'),
+                            'group' => __('Select employees from the chosen groups to exclude from this holiday.'),
+                            default => '',
+                        };
+                    @endphp
+
+                    <div class="grid grid-cols-1 gap-6">
+                        <flux:field>
+                            <flux:label>{{ __('Including (Optional)') }}</flux:label>
+                            <flux:description>{{ $includeDescription }}</flux:description>
+
+                            <div class="mb-3">
+                                <flux:input
+                                    wire:model.live.debounce.300ms="additionalEmployeeSearchTerm"
+                                    placeholder="{{ __('Search employees...') }}"
+                                    icon="magnifying-glass"
+                                />
+                            </div>
+
+                            <div class="relative">
+                                <select
+                                    wire:model.live="additionalEmployeeIds"
+                                    multiple
+                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                    size="6"
+                                    style="min-height: 150px;"
+                                >
+                                    @foreach($filteredAdditionalEmployees as $employee)
+                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                                            {{ $employee['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <flux:description>{{ __('Search and select employees to include. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
+                            <flux:error name="additionalEmployeeIds" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>{{ __('Exclusions (Optional)') }}</flux:label>
+                            <flux:description>{{ $excludeDescription }}</flux:description>
+
+                            <div class="mb-3">
+                                <flux:input
+                                    wire:model.live.debounce.300ms="excludedEmployeeSearchTerm"
+                                    placeholder="{{ __('Search employees...') }}"
+                                    icon="magnifying-glass"
+                                />
+                            </div>
+
+                            <div class="relative">
+                                <select
+                                    wire:model.live="excludedEmployeeIds"
+                                    multiple
+                                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                    size="6"
+                                    style="min-height: 150px;"
+                                >
+                                    @foreach($filteredScopeEmployees as $employee)
+                                        <option value="{{ $employee['value'] }}" class="py-2 px-3 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                                            {{ $employee['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <flux:description>{{ __('Search and select employees to exclude. Hold Ctrl/Cmd to select multiple employees.') }}</flux:description>
+                            <flux:error name="excludedEmployeeIds" />
                         </flux:field>
                     </div>
                 @endif

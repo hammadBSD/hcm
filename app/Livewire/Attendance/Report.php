@@ -19,6 +19,7 @@ use App\Models\Shift;
 use App\Models\User;
 use App\Services\AttendanceExemptionService;
 use App\Services\AttendancePunchDayGroupingService;
+use App\Services\HolidayEligibilityService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -841,12 +842,6 @@ class Report extends Component
         }
 
         $holidaysMap = [];
-        $employeeId = $this->employee->id;
-        $departmentId = $this->employee->department_id;
-        $groupId = $this->employee->group_id;
-        $userRoles = $this->employee->user
-            ? $this->employee->user->roles->pluck('id')->toArray()
-            : (Auth::user()?->roles->pluck('id')->toArray() ?? []);
 
         // Load active holidays that fall within the month range
         $holidays = Holiday::where('status', 'active')
@@ -858,65 +853,30 @@ class Report extends Component
                             ->where('to_date', '>=', $endOfMonth->format('Y-m-d'));
                     });
             })
-            ->with(['departments', 'roles', 'groups', 'employees'])
+            ->with(['departments', 'roles', 'groups', 'employees', 'excludedEmployees'])
             ->get();
 
-        foreach ($holidays as $holiday) {
-            // Check if this holiday applies to the employee
-            $appliesToEmployee = false;
+        $eligibilityService = app(HolidayEligibilityService::class);
 
-            if ($holiday->scope_type === 'all_employees') {
-                $appliesToEmployee = true;
-            } elseif ($holiday->scope_type === 'department') {
-                // Check if employee's department is in the holiday's departments
-                if ($departmentId && $holiday->departments->contains('id', $departmentId)) {
-                    $appliesToEmployee = true;
-                }
-                // Also check if employee is specifically included
-                if ($holiday->employees->contains('id', $employeeId)) {
-                    $appliesToEmployee = true;
-                }
-            } elseif ($holiday->scope_type === 'role') {
-                // Check if employee's role is in the holiday's roles
-                if (! empty(array_intersect($userRoles, $holiday->roles->pluck('id')->toArray()))) {
-                    $appliesToEmployee = true;
-                }
-                // Also check if employee is specifically included
-                if ($holiday->employees->contains('id', $employeeId)) {
-                    $appliesToEmployee = true;
-                }
-            } elseif ($holiday->scope_type === 'group') {
-                // Check if employee's group is in the holiday's groups
-                if ($groupId && $holiday->groups->contains('id', $groupId)) {
-                    $appliesToEmployee = true;
-                }
-                // Also check if employee is specifically included
-                if ($holiday->employees->contains('id', $employeeId)) {
-                    $appliesToEmployee = true;
-                }
-            } elseif ($holiday->scope_type === 'employee') {
-                // Check if employee is specifically included
-                if ($holiday->employees->contains('id', $employeeId)) {
-                    $appliesToEmployee = true;
-                }
+        foreach ($holidays as $holiday) {
+            if (! $eligibilityService->appliesToEmployee($holiday, $this->employee)) {
+                continue;
             }
 
-            if ($appliesToEmployee) {
-                // Generate all dates for this holiday
-                $currentDate = Carbon::parse($holiday->from_date);
-                $endDate = Carbon::parse($holiday->to_date ?: $holiday->from_date);
+            // Generate all dates for this holiday
+            $currentDate = Carbon::parse($holiday->from_date);
+            $endDate = Carbon::parse($holiday->to_date ?: $holiday->from_date);
 
-                while ($currentDate->lte($endDate)) {
-                    $dateKey = $currentDate->format('Y-m-d');
-                    // Only add if within the month range
-                    if ($currentDate->gte($startOfMonth) && $currentDate->lte($endOfMonth)) {
-                        $holidaysMap[$dateKey] = [
-                            'name' => $holiday->name,
-                            'id' => $holiday->id,
-                        ];
-                    }
-                    $currentDate->addDay();
+            while ($currentDate->lte($endDate)) {
+                $dateKey = $currentDate->format('Y-m-d');
+                // Only add if within the month range
+                if ($currentDate->gte($startOfMonth) && $currentDate->lte($endOfMonth)) {
+                    $holidaysMap[$dateKey] = [
+                        'name' => $holiday->name,
+                        'id' => $holiday->id,
+                    ];
                 }
+                $currentDate->addDay();
             }
         }
 
