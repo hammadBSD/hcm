@@ -6,6 +6,7 @@ use App\Models\DeductionExemption;
 use App\Models\Employee;
 use App\Models\LeaveRequest as LeaveRequestModel;
 use App\Models\PayrollEobiYearlySetting;
+use App\Models\PayrollEmployeeBonus;
 use App\Models\PayrollMonthLock;
 use App\Models\PayrollMonthSnapshot;
 use App\Models\PayrollNetSalaryAdjustment;
@@ -342,9 +343,10 @@ class MasterReport extends Component
         $exemptionMap = $this->getDeductionExemptionMap($month, $employees);
         $salaryAdjustmentMap = $this->getSalaryAdjustmentMap($month);
         $taxAdjustmentMap = $this->getTaxAdjustmentMap($month);
+        $bonusMap = $this->getBonusMap($month);
         $lateAdjustmentMap = app(PayrollLatesAdjustmentService::class)->getAdjustmentMap($month);
 
-        return $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $appliedLeavesMap, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap, $lateAdjustmentMap) {
+        return $employees->map(function (Employee $employee) use ($month, $taxYear, $periodMonth, $attendanceStatsByEmployee, $appliedLeavesMap, $exemptionMap, $salaryAdjustmentMap, $taxAdjustmentMap, $bonusMap, $lateAdjustmentMap) {
             $att = $attendanceStatsByEmployee[$employee->id] ?? [];
             $appliedLeaves = (float) ($appliedLeavesMap[$employee->id] ?? 0);
             $workingDays = (int) ($att['working_days'] ?? 0);
@@ -411,7 +413,9 @@ class MasterReport extends Component
                 $allowances = max(0, round($allowances, 2));
                 $gross = round($basic + $allowances, 2);
             }
-            $bonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
+            $profileBonus = $salary ? (float) ($salary->bonus ?? 0) : 0;
+            $monthlyBonus = (float) ($bonusMap[$employee->id] ?? 0);
+            $bonus = round($profileBonus + $monthlyBonus, 2);
             $otHrs = 0;
             $otAmt = 0;
             $grossWithOt = $gross + $otAmt;
@@ -976,6 +980,17 @@ class MasterReport extends Component
             });
         }
         return $data->values()->toArray();
+    }
+
+    protected function getBonusMap(string $yearMonth): array
+    {
+        return PayrollEmployeeBonus::query()
+            ->where('year_month', $yearMonth)
+            ->selectRaw('employee_id, SUM(amount) as total')
+            ->groupBy('employee_id')
+            ->pluck('total', 'employee_id')
+            ->map(fn ($amount) => (float) $amount)
+            ->toArray();
     }
 
     protected function getSalaryAdjustmentMap(string $yearMonth): array
