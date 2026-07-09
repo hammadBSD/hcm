@@ -1,7 +1,7 @@
 <section class="w-full">
     @include('partials.payroll-heading')
     
-    <x-payroll.layout :heading="__('Bonus Management')" :subheading="__('Manage employee bonuses and incentives')">
+    <x-payroll.layout :heading="__('Bonus/Reimburse')" :subheading="__('Manage employee bonuses and incentives')">
         <!-- Search and Filter Controls -->
         <div class="my-6 w-full space-y-4">
             <div class="flex flex-col sm:flex-row gap-4">
@@ -224,8 +224,16 @@
                             <flux:label>{{ __('Employee') }}</flux:label>
                             <flux:select>
                                 <option value="">{{ __('Select Employee') }}</option>
-                                @foreach($employees as $employee)
-                                    <option value="{{ $employee->id }}">{{ $employee->first_name }} {{ $employee->last_name }}</option>
+                                @foreach($employeeOptions as $employee)
+                                    <option value="{{ $employee->id }}">
+                                        {{ $employee->first_name }} {{ $employee->last_name }}
+                                        @if($employee->employee_code)
+                                            ({{ $employee->employee_code }})
+                                        @endif
+                                        @if($employee->status !== 'active')
+                                            — {{ __('Inactive') }}
+                                        @endif
+                                    </option>
                                 @endforeach
                             </flux:select>
                         </flux:field>

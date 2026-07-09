@@ -114,7 +114,7 @@
                         >
                             <div class="flex items-center">
                                 <flux:icon name="gift" class="w-4 h-4 mr-3" />
-                                {{ __('Bonus Management') }}
+                                {{ __('Bonus/Reimburse') }}
                             </div>
                         </flux:navlist.item>
                     </div>

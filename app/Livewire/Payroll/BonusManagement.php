@@ -85,11 +85,17 @@ class BonusManagement extends Component
             ->where('status', 'active')
             ->paginate(10);
 
+        $employeeOptions = Employee::query()
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'employee_code', 'status']);
+
         $departments = Employee::distinct()->pluck('department')->filter();
-        $bonusTypes = ['Performance', 'Annual', 'Festival', 'Project', 'Other'];
+        $bonusTypes = ['Performance', 'Annual', 'Festival', 'Project', 'Reimbursement', 'Other'];
 
         return view('livewire.payroll.bonus-management', [
             'employees' => $employees,
+            'employeeOptions' => $employeeOptions,
             'departments' => $departments,
             'bonusTypes' => $bonusTypes
         ])->layout('components.layouts.app');
