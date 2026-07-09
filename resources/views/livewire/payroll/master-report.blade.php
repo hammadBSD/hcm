@@ -245,8 +245,8 @@
                                         <th rowspan="2" class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deduction Late Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Deduction Absent Days') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Salary Deduction') }}</th>
-                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET SALARY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('BONUS') }}</th>
+                                        <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('NET SALARY') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('TAX') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('Tax Adjustment') }}</th>
                                         <th rowspan="2" class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider {{ $hBlue }}">{{ __('EOBI') }}</th>
@@ -385,8 +385,8 @@
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-center {{ ($row['deduction_late_days'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $row['deduction_late_days'] ?? 0 }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['deduction_absent_days'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['other_deductions'] ?? 0) }}</td>
-                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['net_salary_after_attendance'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['bonus'] ?? 0) }}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['net_salary_after_attendance'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-amber-600 dark:text-amber-400">{{ $fmtNum($row['tax'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['tax_adjustment'] ?? 0) }}</td>
                                             <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-700 dark:text-zinc-300">{{ $fmtNum($row['eobi'] ?? 0) }}</td>
@@ -445,8 +445,8 @@
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-center text-zinc-900 dark:text-zinc-100">{{ $sumDeductionLateDays }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumDeductionAbsentDays) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumSalaryDeduction) }}</td>
-                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumNetSalary) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumBonus) }}</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumNetSalary) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumTax) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumTaxAdjustment) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-right text-zinc-900 dark:text-zinc-100">{{ $fmtNum($sumEobi) }}</td>
