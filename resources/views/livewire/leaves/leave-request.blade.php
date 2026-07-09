@@ -90,8 +90,6 @@
                             <flux:label>Leave Duration <span class="text-red-500">*</span></flux:label>
                             <flux:select wire:model.live="leaveDuration" placeholder="Full Day">
                                 <option value="full_day">Full Day</option>
-                                <option value="half_day_morning">Half Day (Morning)</option>
-                                <option value="half_day_afternoon">Half Day (Afternoon)</option>
                             </flux:select>
                             <flux:error name="leaveDuration" />
                         </flux:field>

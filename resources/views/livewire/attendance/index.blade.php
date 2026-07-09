@@ -1194,11 +1194,8 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <flux:field>
                                 <flux:label>{{ __('Leave Duration') }} <span class="text-red-500">*</span></flux:label>
-                                <flux:select wire:model.live="leaveDuration" placeholder="{{ __('Select Duration') }}" :disabled="$leaveBalanceDepleted">
-                                    <option value="">{{ __('Select Duration') }}</option>
+                                <flux:select wire:model.live="leaveDuration" placeholder="{{ __('Full Day') }}" :disabled="$leaveBalanceDepleted">
                                     <option value="full_day">{{ __('Full Day') }}</option>
-                                    <option value="half_day_morning">{{ __('Half Day (Morning)') }}</option>
-                                    <option value="half_day_afternoon">{{ __('Half Day (Afternoon)') }}</option>
                                 </flux:select>
                                 <flux:error name="leaveDuration" />
                             </flux:field>

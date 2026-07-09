@@ -2735,7 +2735,7 @@ class Index extends Component
     {
         $this->selectedDate = '';
         $this->leaveType = '';
-        $this->leaveDuration = '';
+        $this->leaveDuration = 'full_day';
         $this->leaveFrom = '';
         $this->leaveTo = '';
         $this->reason = '';

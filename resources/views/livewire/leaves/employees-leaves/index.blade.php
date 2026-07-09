@@ -649,8 +649,6 @@
                     <flux:label>{{ __('Leave Duration') }} <span class="text-red-500">*</span></flux:label>
                     <flux:select wire:model="editForm.duration" placeholder="{{ __('Full Day') }}">
                         <option value="full_day">{{ __('Full Day') }}</option>
-                        <option value="half_day_morning">{{ __('Half Day (Morning)') }}</option>
-                        <option value="half_day_afternoon">{{ __('Half Day (Afternoon)') }}</option>
                     </flux:select>
                     <flux:error name="editForm.duration" />
                 </flux:field>
@@ -806,8 +804,6 @@
                                 <flux:label>{{ __('Leave Duration') }} <span class="text-red-500">*</span></flux:label>
                                 <flux:select wire:model.live="createRequestForm.duration" placeholder="{{ __('Full Day') }}">
                                     <option value="full_day">{{ __('Full Day') }}</option>
-                                    <option value="half_day_morning">{{ __('Half Day (Morning)') }}</option>
-                                    <option value="half_day_afternoon">{{ __('Half Day (Afternoon)') }}</option>
                                 </flux:select>
                                 <flux:error name="createRequestForm.duration" />
                             </flux:field>
