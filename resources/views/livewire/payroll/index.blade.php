@@ -45,6 +45,15 @@
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payslips') }}</h3>
                             <div class="flex items-center gap-4">
+                                @if($canViewTeam)
+                                    <div class="w-56">
+                                        <flux:select wire:model.live="selectedEmployeeId" placeholder="{{ __('Employee') }}" size="sm">
+                                            @foreach($employeeOptions as $option)
+                                                <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
+                                            @endforeach
+                                        </flux:select>
+                                    </div>
+                                @endif
                                 <div class="w-32">
                                     <!-- <flux:label class="text-sm">{{ __('Year') }}</flux:label> -->
                                     <flux:select wire:model.live="selectedYear" placeholder="{{ __('Year') }}" size="sm">

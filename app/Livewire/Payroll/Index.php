@@ -15,6 +15,12 @@ class Index extends Component
 {
     public $employee;
 
+    public bool $canViewTeam = false;
+
+    public $selectedEmployeeId = null;
+
+    public array $employeeOptions = [];
+
     public $payslips = [];
 
     public $currentMonth;
@@ -43,11 +49,51 @@ class Index extends Component
             abort(403);
         }
 
-        $this->employee = Employee::with('department')->where('user_id', $user->id)->first();
+        $this->canViewTeam = $user->can('payroll.view.team');
+
+        $selfEmployee = Employee::with('department')->where('user_id', $user->id)->first();
+        $this->selectedEmployeeId = $selfEmployee?->id;
+
+        if ($this->canViewTeam) {
+            $this->employeeOptions = Employee::query()
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->get(['id', 'first_name', 'last_name', 'employee_code', 'status'])
+                ->map(fn (Employee $e) => [
+                    'id' => $e->id,
+                    'label' => trim($e->first_name . ' ' . $e->last_name)
+                        . ($e->employee_code ? ' (' . $e->employee_code . ')' : '')
+                        . ($e->status !== 'active' ? ' — ' . __('Inactive') : ''),
+                ])
+                ->all();
+        }
+
+        $this->resolveEmployee();
 
         $this->currentMonth = now()->format('Y-m');
         $this->selectedYear = now()->year;
 
+        $this->loadPayslips();
+    }
+
+    protected function resolveEmployee(): void
+    {
+        $user = Auth::user();
+        $selfEmployee = Employee::with('department')->where('user_id', $user->id)->first();
+
+        if ($this->canViewTeam && $this->selectedEmployeeId) {
+            $employee = Employee::with('department')->find($this->selectedEmployeeId);
+            $this->employee = $employee ?: $selfEmployee;
+            $this->selectedEmployeeId = $this->employee?->id;
+        } else {
+            $this->employee = $selfEmployee;
+            $this->selectedEmployeeId = $selfEmployee?->id;
+        }
+    }
+
+    public function updatedSelectedEmployeeId(): void
+    {
+        $this->resolveEmployee();
         $this->loadPayslips();
     }
 
