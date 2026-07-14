@@ -53,22 +53,25 @@ class ZKTecoSyncController extends Controller
 
             foreach ($attendanceRecords as $record) {
                 try {
-                    // Use updateOrCreate to handle duplicates gracefully
-                    // This matches the unique constraint: (punch_code, device_ip, punch_time)
-                    $attendance = DeviceAttendance::updateOrCreate(
-                        [
-                            'punch_code' => $record['punch_code_id'],
-                            'device_ip' => $record['device_ip'],
-                            'punch_time' => Carbon::parse($record['punch_time']),
-                        ],
-                        [
-                            'device_type' => $record['device_type'],
-                            'verify_mode' => $record['verify_mode'],
-                            'is_processed' => $record['is_processed'] ?? false,
-                            'sync_timestamp' => Carbon::parse($syncTimestamp),
-                        ]
-                    );
-                    
+                    $match = [
+                        'punch_code' => $record['punch_code_id'],
+                        'device_ip' => $record['device_ip'],
+                        'punch_time' => Carbon::parse($record['punch_time']),
+                    ];
+
+                    $attributes = [
+                        'device_type' => $record['device_type'],
+                        'is_processed' => $record['is_processed'] ?? false,
+                        'sync_timestamp' => Carbon::parse($syncTimestamp),
+                    ];
+
+                    // Preserve HRM "removed" punches (verify_mode = 2) across sync.
+                    if (! $this->existingPunchIsHrmRemoved($match)) {
+                        $attributes['verify_mode'] = $record['verify_mode'];
+                    }
+
+                    $attendance = DeviceAttendance::updateOrCreate($match, $attributes);
+
                     // Check if it was newly created or updated
                     if ($attendance->wasRecentlyCreated) {
                         $savedCount++;
@@ -246,24 +249,27 @@ class ZKTecoSyncController extends Controller
 
             foreach ($monthlyRecords as $record) {
                 try {
-                    // Use updateOrCreate to handle duplicates gracefully
-                    // This matches the unique constraint: (punch_code, device_ip, punch_time)
-                    $attendance = DeviceAttendance::updateOrCreate(
-                        [
-                            'punch_code' => $record['punch_code'],
-                            'device_ip' => $record['device_ip'],
-                            'punch_time' => Carbon::parse($record['punch_time']),
-                        ],
-                        [
-                            'device_type' => $record['device_type'],
-                            'punch_type' => $record['punch_type'] ?? null,
-                            'verify_mode' => $record['verify_mode'] ?? null,
-                            'is_processed' => $record['is_processed'] ?? false,
-                            'status' => 'On Time', // Default status for monthly attendance
-                            'sync_timestamp' => Carbon::parse($syncTimestamp),
-                        ]
-                    );
-                    
+                    $match = [
+                        'punch_code' => $record['punch_code'],
+                        'device_ip' => $record['device_ip'],
+                        'punch_time' => Carbon::parse($record['punch_time']),
+                    ];
+
+                    $attributes = [
+                        'device_type' => $record['device_type'],
+                        'punch_type' => $record['punch_type'] ?? null,
+                        'is_processed' => $record['is_processed'] ?? false,
+                        'status' => 'On Time', // Default status for monthly attendance
+                        'sync_timestamp' => Carbon::parse($syncTimestamp),
+                    ];
+
+                    // Preserve HRM "removed" punches (verify_mode = 2) across sync.
+                    if (! $this->existingPunchIsHrmRemoved($match)) {
+                        $attributes['verify_mode'] = $record['verify_mode'] ?? null;
+                    }
+
+                    $attendance = DeviceAttendance::updateOrCreate($match, $attributes);
+
                     // Check if it was newly created or updated
                     if ($attendance->wasRecentlyCreated) {
                         $savedCount++;
@@ -304,6 +310,22 @@ class ZKTecoSyncController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * True when this punch was removed in HRM (verify_mode = 2) and must not be restored by device sync.
+     *
+     * @param  array{punch_code: string, device_ip: string, punch_time: Carbon}  $match
+     */
+    private function existingPunchIsHrmRemoved(array $match): bool
+    {
+        $existing = DeviceAttendance::query()
+            ->where('punch_code', $match['punch_code'])
+            ->where('device_ip', $match['device_ip'])
+            ->where('punch_time', $match['punch_time'])
+            ->first(['id', 'verify_mode']);
+
+        return $existing !== null && (int) $existing->verify_mode === 2;
     }
 
     /**
